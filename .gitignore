@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.local
+
+# UQM reference source — not part of this repo
+# See README.md for setup instructions
+uqm-0.8.0/
+uqm-0.8.0-src.tgz
