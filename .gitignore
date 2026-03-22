@@ -3,7 +3,8 @@ dist/
 .env
 *.local
 
-# UQM reference source — not part of this repo
-# See README.md for setup instructions
+# UQM reference source and content — not part of this repo
+# See CLAUDE.md for setup instructions
 uqm-0.8.0/
 uqm-0.8.0-src.tgz
+*.uqm
