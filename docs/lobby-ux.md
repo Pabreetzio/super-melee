@@ -181,6 +181,11 @@ The host sees the screen immediately after creating a game. The opponent sees it
 
 **Fleet changes sync live.** As you add/remove ships, the opponent sees your fleet update immediately. This uses the `FLEET` and `TEAMNAME` packet equivalents from the protocol (lobby WebSocket messages, not the binary battle format).
 
+**Rematch setting (host-controlled):**
+A toggle visible to both players in the fleet builder footer:
+`Rematch: [ Reset fleets (default) | Keep current state ]`
+Host can change it; opponent sees it read-only. Resets to default each new room.
+
 **"Ready to fight" = the original HANDSHAKE.** When both players click confirm, battle begins. If either changes their fleet after confirming, confirmation is automatically cancelled (matching the original protocol's HANDSHAKECANCEL behavior). The UI shows this explicitly:
 > "Fleet changed — confirmation cancelled."
 
@@ -338,8 +343,12 @@ interface FleetSlot {
 
 ## Open Questions
 
-- [ ] Should fleet value be capped for public games? (Original has no cap — some ships cost much more than others.)
-- [ ] Password UX: should private games be hidden from the browser entirely, or visible with a lock? Currently spec'd as visible-but-locked. Hidden would mean sharing the room code directly instead.
-- [ ] How long should a room stay open if the host is idle in the fleet builder with no opponent?
-- [ ] Rematch flow: after battle, should both players' fleets reset to what they started with, or keep current state? (Original resets — fleet restoration is not a thing, the winner is whoever still has ships.)
-- [ ] Should we show opponent's ship icons in the fleet builder, or keep them hidden until battle? Currently spec'd as visible (faithful to original).
+**Decisions made:**
+- **No fleet value cap** for public games. Free-for-all, same as original.
+- **Private games are visible-but-locked** in the browser (lock icon, password prompt on join). Not hidden. Inspired by Little War Game's lobby model.
+- **Rematch reset is a setting** in the fleet builder, defaulting to "reset to original fleets" (faithful to original). Both players see it; host sets it; opponent can see but not change it.
+- **Opponent fleet is visible** during setup (faithful to original).
+
+**Remaining open questions:**
+- [ ] How long should a room stay open if the host is idle in the fleet builder with no opponent? (Current plan: 30 min idle timeout)
+- [ ] On disconnect mid-battle: pause + retry window, or immediate forfeit?

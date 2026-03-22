@@ -1,0 +1,147 @@
+/* ─── Global reset & variables ─────────────────────────────────────────────── */
+
+:root {
+  --bg:        #000;
+  --bg1:       #0a0a14;
+  --bg2:       #111122;
+  --border:    #334;
+  --accent:    #4af;
+  --accent2:   #f84;
+  --danger:    #f44;
+  --success:   #4f4;
+  --text:      #ccd;
+  --text-dim:  #556;
+  --text-hi:   #fff;
+  --font:      'Courier New', Courier, monospace;
+  --radius:    4px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button {
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--bg2);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background 0.1s, color 0.1s;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+button.danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+button.success {
+  color: var(--success);
+  border-color: var(--success);
+}
+button.success:hover:not(:disabled) {
+  background: var(--success);
+  color: var(--bg);
+}
+
+input, select {
+  font-family: var(--font);
+  font-size: 14px;
+  background: var(--bg1);
+  color: var(--text-hi);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent);
+}
+
+h1, h2, h3 {
+  font-weight: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+}
+
+/* ─── Layout utilities ─────────────────────────────────────────────────────── */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.panel {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.status-dot.green  { background: var(--success); }
+.status-dot.yellow { background: var(--accent2); }
+.status-dot.red    { background: var(--danger); }
+
+.error-msg {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.dim {
+  color: var(--text-dim);
+}
