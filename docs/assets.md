@@ -41,6 +41,27 @@ Tier 1 (implement first — distinct, iconic):
 
 ## UQM Content Package
 
-Download from: The UQM content package (separate from source code)
-Format: likely .uqm files (zip-based archives), extract with standard zip tools
-Location in package: TBD after download
+Place `uqm-0.8.0-content.uqm` at the repo root (it is gitignored).
+It is a standard zip archive. Extract with: `unzip uqm-0.8.0-content.uqm -d uqm-content/`
+
+All ship assets live under `base/ships/{shipname}/` inside the archive. Format is PNG + `.ani` animation descriptor files.
+
+### Full ship list in content package
+androsynth, arilou, chenjesu, chmmr, drone, druuge, flagship, human, ilwrath,
+kohrah, melnorme, mmrnmhrm, mycon, orz, pkunk, samatra, shofixti, slylandro,
+spathi, supox, syreen, thraddash, umgah, urquan, utwig, vux, yehat, zoqfotpik
+
+### Other relevant asset dirs
+- `base/battle/` — battle UI, starfield, planet/star sprites
+- `base/fonts/` — bitmap fonts (one per alien race + UI fonts)
+- `base/comm/{race}/` — alien portrait animations (not needed for Super Melee)
+- `base/cutscene/` — intro/outro (not needed)
+- `base/nav/`, `base/planets/` — full game only (not needed)
+
+### Asset extraction plan
+When ready to extract ship assets:
+```bash
+unzip uqm-0.8.0-content.uqm "base/ships/*" -d uqm-content/
+unzip uqm-0.8.0-content.uqm "base/battle/*" -d uqm-content/
+```
+Then copy relevant files into `/assets/` in this repo.

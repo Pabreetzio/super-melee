@@ -21,7 +21,19 @@ The source is gitignored. All analysis notes in `/docs/` reference file paths re
 
 ## Game Assets
 
-UQM assets are extracted from the UQM content package and copied into `/assets/` in this repo. Do **not** load assets directly from `uqm-0.8.0/`. The content package (separate from source) can be downloaded from the same SourceForge page.
+UQM assets are extracted from the UQM content package and copied into `/assets/` in this repo. Do **not** load assets directly from the content package or source tree.
+
+To set up the content package locally:
+1. Download `uqm-0.8.0-content.uqm` from https://sourceforge.net/projects/sc2/files/UQM/0.8.0/
+2. Place it at the repo root: `uqm-0.8.0-content.uqm` (it is gitignored)
+3. It's a standard zip. To extract ship and battle assets:
+   ```bash
+   unzip uqm-0.8.0-content.uqm "base/ships/*" -d uqm-content/
+   unzip uqm-0.8.0-content.uqm "base/battle/*" -d uqm-content/
+   ```
+4. Copy relevant files from `uqm-content/` into `/assets/`
+
+See `docs/assets.md` for the full asset catalog.
 
 Assets are used under the non-commercial fan license with Toys for Bob's blessing. This project is non-commercial.
 
