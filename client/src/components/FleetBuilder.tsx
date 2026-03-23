@@ -11,21 +11,38 @@ interface Props {
   room: FullRoomState;
   yourSide: 0 | 1;
   onLeave: () => void;
+  /** If provided, we're in solo-vs-AI mode. Fleet changes are local only.
+   *  Called with the player's final fleet when they hit "Engage AI". */
+  onSoloEngage?: (fleet: FleetSlot[]) => void;
 }
 
-export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
+export default function FleetBuilder({ room, yourSide, onLeave, onSoloEngage }: Props) {
+  const isSolo = !!onSoloEngage;
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+
+  // In solo mode the player's fleet lives in local state so we never hit the server.
+  const [localFleet, setLocalFleet] = useState<FleetSlot[]>(() =>
+    Array(FLEET_SIZE).fill(null) as FleetSlot[]
+  );
 
   const me  = yourSide === 0 ? room.host : room.opponent!;
   const opp = yourSide === 0 ? room.opponent : room.host;
 
+  // Displayed player fleet: local in solo, server-provided in multiplayer
+  const myDisplayFleet: FleetSlot[] = isSolo
+    ? localFleet
+    : Array.from({ length: FLEET_SIZE }, (_, i) => me.fleet[i] ?? null);
+
   function pickShip(slot: number, ship: ShipId | null) {
-    client.send({ type: 'fleet_update', slot, ship });
+    if (isSolo) {
+      setLocalFleet(prev => { const f = [...prev]; f[slot] = ship; return f; });
+    } else {
+      client.send({ type: 'fleet_update', slot, ship });
+    }
     setPickerSlot(null);
   }
 
   function fleetValue(fleet: FleetSlot[]): number {
-    // Point costs defined in server rooms.ts; keep a local mirror for display
     const costs: Partial<Record<ShipId, number>> = {
       androsynth: 22, arilou: 18, chenjesu: 24, chmmr: 26, druuge: 14,
       human: 16, ilwrath: 14, melnorme: 20, mmrnmhrm: 20, mycon: 18,
@@ -60,7 +77,6 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
               padding: 4,
               color: ship ? 'var(--text-hi)' : 'var(--text-dim)',
               transition: 'border-color 0.1s',
-              ...(editable && { borderColor: ship ? 'var(--border)' : 'var(--border)' }),
             }}
             title={editable ? 'Click to change' : undefined}
           >
@@ -77,24 +93,26 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
     return <div className="col" style={{ gap: 6 }}>{rows}</div>;
   }
 
-  const canConfirm = !!opp && !me.confirmed;
-  const bothHere   = !!opp;
+  // In solo mode AI is always "confirmed". In multiplayer, wait for real opponent.
+  const canConfirm = isSolo || !!opp;
+  const bothHere   = isSolo || !!opp;
 
   return (
     <div className="screen" style={{ justifyContent: 'flex-start', paddingTop: 30, gap: 20 }}>
       <div style={{ width: '100%', maxWidth: 800 }}>
         {/* Header */}
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2>Fleet Assembly — Room {room.code}</h2>
+          <h2>
+            {isSolo ? 'Fleet Assembly — vs AI' : `Fleet Assembly — Room ${room.code}`}
+          </h2>
           <div className="row" style={{ gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-              {yourSide === 0 ? 'You are HOST' : 'You are GUEST'}
-            </span>
-            <button className="danger" onClick={() => {
-              client.send({ type: 'leave_room' });
-              onLeave();
-            }}>
-              Withdraw
+            {!isSolo && (
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                {yourSide === 0 ? 'You are HOST' : 'You are GUEST'}
+              </span>
+            )}
+            <button className="danger" onClick={onLeave}>
+              {isSolo ? 'Back' : 'Withdraw'}
             </button>
           </div>
         </div>
@@ -105,21 +123,18 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
             <div className="col" style={{ gap: 4 }}>
               <div className="row" style={{ gap: 10 }}>
                 <h3 style={{ color: 'var(--accent)' }}>{me.commanderName}</h3>
-                {me.confirmed && (
-                  <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ CONFIRMED</span>
-                )}
               </div>
-              <TeamNameInput value={me.teamName} />
+              {!isSolo && <TeamNameInput value={me.teamName} />}
             </div>
             <span style={{ color: 'var(--accent2)', fontSize: 14 }}>
-              Fleet Value: {fleetValue(me.fleet)} pts
+              Fleet Value: {fleetValue(myDisplayFleet)} pts
             </span>
           </div>
-          {renderFleetGrid(Array.from({ length: FLEET_SIZE }, (_, i) => me.fleet[i] ?? null), true)}
+          {renderFleetGrid(myDisplayFleet, true)}
         </div>
 
-        {/* Opponent fleet */}
-        <div className="panel col" style={{ marginBottom: 16, gap: 12, opacity: opp ? 1 : 0.4 }}>
+        {/* Opponent fleet (AI or real) */}
+        <div className="panel col" style={{ marginBottom: 16, gap: 12, opacity: bothHere ? 1 : 0.4 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div className="row" style={{ gap: 10 }}>
               <h3 style={{ color: 'var(--accent2)' }}>
@@ -131,7 +146,7 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
             </div>
             {opp && (
               <span style={{ color: 'var(--accent2)', fontSize: 14 }}>
-                Fleet Value: {fleetValue(opp.fleet)} pts
+                Fleet Value: {fleetValue(Array.from({ length: FLEET_SIZE }, (_, i) => opp.fleet[i] ?? null))} pts
               </span>
             )}
           </div>
@@ -141,11 +156,23 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
                 Share room code <strong style={{ color: 'var(--accent)' }}>{room.code}</strong> with your opponent.
               </p>
           }
+          {isSolo && (
+            <p style={{ color: 'var(--text-dim)', fontSize: 11, marginTop: 4 }}>
+              AI fleet is preset. The AI will field these ships against yours.
+            </p>
+          )}
         </div>
 
         {/* Actions */}
         <div className="row" style={{ gap: 12 }}>
-          {!me.confirmed ? (
+          {isSolo ? (
+            <button
+              className="success"
+              onClick={() => onSoloEngage!(localFleet)}
+            >
+              Engage AI
+            </button>
+          ) : !me.confirmed ? (
             <button
               className="success"
               disabled={!canConfirm}
@@ -159,12 +186,12 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
             </button>
           )}
 
-          {yourSide === 0 && (
+          {!isSolo && yourSide === 0 && (
             <RematchResetToggle value={room.rematchReset} />
           )}
         </div>
 
-        {me.confirmed && opp?.confirmed && (
+        {!isSolo && me.confirmed && opp?.confirmed && (
           <p style={{ color: 'var(--accent)', marginTop: 12, fontSize: 14 }}>
             Both commanders confirmed. Initiating engagement...
           </p>
@@ -175,7 +202,7 @@ export default function FleetBuilder({ room, yourSide, onLeave }: Props) {
         <ShipPicker
           onPick={(ship) => pickShip(pickerSlot, ship)}
           onClose={() => setPickerSlot(null)}
-          currentFleet={me.fleet}
+          currentFleet={myDisplayFleet}
         />
       )}
     </div>

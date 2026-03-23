@@ -36,7 +36,8 @@ type Action =
   | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1 }
   | { type: 'battle_over';    winner: 0 | 1 | null }
   | { type: 'go_browser' }
-  | { type: 'start_solo';     commanderName: string };
+  | { type: 'start_solo';     commanderName: string }
+  | { type: 'solo_engage';    fleet: FleetSlot[] };
 
 function init(): AppState {
   return {
@@ -116,33 +117,59 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, screen: 'browser', room: null, joinError: '' };
 
     case 'start_solo': {
+      // AI gets a varied preset fleet. Battle currently uses human physics for all
+      // ships regardless, so this is just for display in the fleet builder.
+      const aiFleet: FleetSlot[] = [
+        'urquan',    'chmmr',    'orz',       'androsynth',
+        'yehat',     'mycon',    'spathi',     'thraddash',
+        'ilwrath',   'pkunk',    'druuge',     'vux',
+        'arilou',    'umgah',
+      ];
       const soloRoom: FullRoomState = {
         code: 'SOLO',
         visibility: 'public',
-        state: 'in_battle',
+        state: 'building',
         rematchReset: false,
         inputDelay: 0,
         host: {
           sessionId: 'player',
           commanderName: action.commanderName,
           teamName: 'Your Fleet',
-          fleet: Array(14).fill(null).map((_, i) => i === 0 ? 'human' : null) as FleetSlot[],
-          confirmed: true,
-          shipsAlive: [0],
+          fleet: Array(14).fill(null) as FleetSlot[],
+          confirmed: false,
+          shipsAlive: [],
         },
         opponent: {
           sessionId: 'ai',
           commanderName: 'AI Commander',
           teamName: 'AI Fleet',
-          fleet: Array(14).fill(null).map((_, i) => i === 0 ? 'human' : null) as FleetSlot[],
-          confirmed: true,
-          shipsAlive: [0],
+          fleet: aiFleet,
+          confirmed: true,  // AI is always ready
+          shipsAlive: [],
         },
       };
       return {
         ...state,
-        screen: 'battle',
+        screen: 'fleet_builder',
         room: soloRoom,
+        yourSide: 0,
+        winner: undefined,
+      };
+    }
+
+    case 'solo_engage': {
+      // Player confirmed their fleet — start battle locally, no server
+      if (!state.room) return state;
+      const updatedRoom: FullRoomState = {
+        ...state.room,
+        state: 'in_battle',
+        host: { ...state.room.host, fleet: action.fleet, confirmed: true, shipsAlive: [0] },
+        opponent: { ...state.room.opponent!, shipsAlive: [0] },
+      };
+      return {
+        ...state,
+        screen: 'battle',
+        room: updatedRoom,
         battleSeed: Date.now() & 0x7FFFFFFF,
         inputDelay: 0,
         yourSide: 0,
@@ -206,7 +233,7 @@ export default function App() {
     const unsubMsg = client.onMessage((msg: ServerMsg) => {
       applyServerMsg(msg, dispatch);
 
-      // Handle incremental fleet/confirmation patches
+      // Handle incremental fleet/confirmation patches (server messages only)
       setRoomPatch(prev => {
         // These always replace roomPatch — must be before the null guard
         if (msg.type === 'room_joined' || msg.type === 'room_created') return msg.room;
@@ -302,39 +329,56 @@ export default function App() {
         <FleetBuilder
           room={roomPatch}
           yourSide={state.yourSide}
-          onLeave={() => dispatch({ type: 'go_browser' })}
+          onLeave={() => {
+            if (roomPatch.code !== 'SOLO') client.send({ type: 'leave_room' });
+            dispatch({ type: 'go_browser' });
+          }}
+          onSoloEngage={roomPatch.code === 'SOLO'
+            ? (fleet) => dispatch({ type: 'solo_engage', fleet })
+            : undefined}
         />
       ) : null;
 
-    case 'battle':
-      return roomPatch ? (
+    case 'battle': {
+      // roomPatch may lag state.room by one render for solo_engage; use state.room as fallback
+      const battleRoom = roomPatch ?? state.room;
+      return battleRoom ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
           <Battle
-            room={roomPatch}
+            room={battleRoom}
             yourSide={state.yourSide}
             seed={state.battleSeed}
             inputDelay={state.inputDelay}
-            isAI={roomPatch.code === 'SOLO'}
+            isAI={battleRoom.code === 'SOLO'}
             onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
           />
         </div>
       ) : null;
+    }
 
-    case 'post_battle':
+    case 'post_battle': {
+      const isSolo = state.room?.code === 'SOLO';
       return (
         <PostBattle
           winner={state.winner}
           yourSide={state.yourSide}
           isHost={state.yourSide === 0}
+          isSolo={isSolo}
           onRematch={() => {
-            client.send({ type: 'rematch' });
+            if (isSolo) {
+              // Re-engage with same fleet
+              dispatch({ type: 'solo_engage', fleet: state.room!.host.fleet });
+            } else {
+              client.send({ type: 'rematch' });
+            }
           }}
           onLeave={() => {
-            client.send({ type: 'leave_room' });
+            if (!isSolo) client.send({ type: 'leave_room' });
             dispatch({ type: 'go_browser' });
           }}
         />
       );
+    }
   }
 }
 
@@ -342,14 +386,15 @@ export default function App() {
 // ─── Post-battle screen ───────────────────────────────────────────────────────
 
 interface PostBattleProps {
-  winner:   0 | 1 | null | undefined;
-  yourSide: 0 | 1;
-  isHost:   boolean;
+  winner:    0 | 1 | null | undefined;
+  yourSide:  0 | 1;
+  isHost:    boolean;
+  isSolo:    boolean;
   onRematch: () => void;
   onLeave:   () => void;
 }
 
-function PostBattle({ winner, yourSide, isHost, onRematch, onLeave }: PostBattleProps) {
+function PostBattle({ winner, yourSide, isHost, isSolo, onRematch, onLeave }: PostBattleProps) {
   const youWon = winner === yourSide;
   const draw   = winner === null;
 
@@ -368,14 +413,14 @@ function PostBattle({ winner, yourSide, isHost, onRematch, onLeave }: PostBattle
           }
         </p>
         <div className="row" style={{ justifyContent: 'center', gap: 12 }}>
-          {isHost && (
+          {(isHost || isSolo) && (
             <button className="success" onClick={onRematch}>
-              Rematch
+              {isSolo ? 'Again' : 'Rematch'}
             </button>
           )}
           <button onClick={onLeave}>Return to Roster</button>
         </div>
-        {!isHost && (
+        {!isHost && !isSolo && (
           <p style={{ color: 'var(--text-dim)', fontSize: 11 }}>
             Awaiting host to initiate rematch.
           </p>

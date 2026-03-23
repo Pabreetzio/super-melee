@@ -60,12 +60,12 @@ export default function GameBrowser({ commanderName, rooms, onSolo }: Props) {
         {/* Solo practice */}
         <div className="panel row" style={{ marginBottom: 16, gap: 16, alignItems: 'center' }}>
           <div className="col" style={{ gap: 4, flex: 1 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>Practice vs AI</span>
+            <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>Single Player — vs AI</span>
             <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-              Single player — Earthling Cruiser vs AI. No opponent needed.
+              Build your fleet, then engage the AI. No opponent needed.
             </span>
           </div>
-          <button onClick={onSolo}>Quick Battle</button>
+          <button onClick={onSolo}>Assemble Fleet</button>
         </div>
 
         {showCreate ? (
