@@ -8,8 +8,9 @@ interface Props {
 }
 
 // Maps each ShipId to the path of its portrait sprite (first rotation frame).
+// Exported so FleetBuilder can show the same icons in the fleet grid.
 // Served from /ships/<folder>/<name>-big-000.png via Vite's publicDir → ../assets.
-const SHIP_ICON: Partial<Record<ShipId, string>> = {
+export const SHIP_ICON: Partial<Record<ShipId, string>> = {
   androsynth: '/ships/androsynth/guardian-big-000.png',
   arilou:     '/ships/arilou/skiff-big-000.png',
   chenjesu:   '/ships/chenjesu/broodhome-big-000.png',

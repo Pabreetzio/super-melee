@@ -37,7 +37,9 @@ type Action =
   | { type: 'battle_over';    winner: 0 | 1 | null }
   | { type: 'go_browser' }
   | { type: 'start_solo';     commanderName: string }
-  | { type: 'solo_engage';    fleet: FleetSlot[] };
+  | { type: 'solo_engage';    fleet: FleetSlot[] }
+  | { type: 'start_local2p';  commanderName: string }
+  | { type: 'local2p_engage'; fleet0: FleetSlot[]; fleet1: FleetSlot[] };
 
 function init(): AppState {
   return {
@@ -115,6 +117,52 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'go_browser':
       return { ...state, screen: 'browser', room: null, joinError: '' };
+
+    case 'start_local2p': {
+      const localRoom: FullRoomState = {
+        code: 'LOCAL2P',
+        visibility: 'public',
+        state: 'building',
+        rematchReset: false,
+        inputDelay: 0,
+        host: {
+          sessionId: 'p1',
+          commanderName: action.commanderName,
+          teamName: 'Player 1',
+          fleet: Array(14).fill(null) as FleetSlot[],
+          confirmed: false,
+          shipsAlive: [],
+        },
+        opponent: {
+          sessionId: 'p2',
+          commanderName: 'Player 2',
+          teamName: 'Player 2',
+          fleet: Array(14).fill(null) as FleetSlot[],
+          confirmed: false,
+          shipsAlive: [],
+        },
+      };
+      return { ...state, screen: 'fleet_builder', room: localRoom, yourSide: 0, winner: undefined };
+    }
+
+    case 'local2p_engage': {
+      if (!state.room) return state;
+      const updatedRoom: FullRoomState = {
+        ...state.room,
+        state: 'in_battle',
+        host:     { ...state.room.host,      fleet: action.fleet0, confirmed: true, shipsAlive: [0] },
+        opponent: { ...state.room.opponent!, fleet: action.fleet1, confirmed: true, shipsAlive: [0] },
+      };
+      return {
+        ...state,
+        screen: 'battle',
+        room: updatedRoom,
+        battleSeed: Date.now() & 0x7FFFFFFF,
+        inputDelay: 0,
+        yourSide: 0,
+        winner: undefined,
+      };
+    }
 
     case 'start_solo': {
       // AI gets a varied preset fleet. Battle currently uses human physics for all
@@ -311,6 +359,7 @@ export default function App() {
             commanderName={state.commanderName}
             rooms={state.rooms}
             onSolo={() => dispatch({ type: 'start_solo', commanderName: state.commanderName })}
+            onLocal2P={() => dispatch({ type: 'start_local2p', commanderName: state.commanderName })}
           />
           {joinError && (
             <div style={{
@@ -324,20 +373,25 @@ export default function App() {
         </>
       );
 
-    case 'fleet_builder':
+    case 'fleet_builder': {
+      const isOfflineRoom = roomPatch?.code === 'SOLO' || roomPatch?.code === 'LOCAL2P';
       return roomPatch ? (
         <FleetBuilder
           room={roomPatch}
           yourSide={state.yourSide}
           onLeave={() => {
-            if (roomPatch.code !== 'SOLO') client.send({ type: 'leave_room' });
+            if (!isOfflineRoom) client.send({ type: 'leave_room' });
             dispatch({ type: 'go_browser' });
           }}
           onSoloEngage={roomPatch.code === 'SOLO'
             ? (fleet) => dispatch({ type: 'solo_engage', fleet })
             : undefined}
+          onLocal2PEngage={roomPatch.code === 'LOCAL2P'
+            ? (fleet0, fleet1) => dispatch({ type: 'local2p_engage', fleet0, fleet1 })
+            : undefined}
         />
       ) : null;
+    }
 
     case 'battle': {
       // roomPatch may lag state.room by one render for solo_engage; use state.room as fallback
@@ -350,6 +404,7 @@ export default function App() {
             seed={state.battleSeed}
             inputDelay={state.inputDelay}
             isAI={battleRoom.code === 'SOLO'}
+            isLocal2P={battleRoom.code === 'LOCAL2P'}
             onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
           />
         </div>
@@ -357,17 +412,20 @@ export default function App() {
     }
 
     case 'post_battle': {
-      const isSolo = state.room?.code === 'SOLO';
+      const isSolo    = state.room?.code === 'SOLO';
+      const isLocal2P = state.room?.code === 'LOCAL2P';
+      const isOffline = isSolo || isLocal2P;
       return (
         <PostBattle
           winner={state.winner}
           yourSide={state.yourSide}
           isHost={state.yourSide === 0}
-          isSolo={isSolo}
+          isSolo={isOffline}
           onRematch={() => {
             if (isSolo) {
-              // Re-engage with same fleet
               dispatch({ type: 'solo_engage', fleet: state.room!.host.fleet });
+            } else if (isLocal2P) {
+              dispatch({ type: 'local2p_engage', fleet0: state.room!.host.fleet, fleet1: state.room!.opponent!.fleet });
             } else {
               client.send({ type: 'rematch' });
             }

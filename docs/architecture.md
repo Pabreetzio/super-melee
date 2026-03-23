@@ -58,6 +58,46 @@ src/
     └── HUD.tsx           # in-game crew/energy bars
 ```
 
+## Input System
+
+### Current keyboard bindings (from `uqm.key` in the content package)
+
+| Control  | P1 "Arrows"  | P2 "WASD"  |
+|----------|-------------|------------|
+| Thrust   | Arrow Up    | W          |
+| Left     | Arrow Left  | A          |
+| Right    | Arrow Right | D          |
+| Weapon   | Right Ctrl  | V          |
+| Special  | Right Shift | B          |
+
+Tracked by `event.code` (not `event.key`) so bindings are layout-independent and
+Left/Right modifier keys are distinguished.
+
+### Gamepad support (roadmap)
+
+The Gamepad API (`navigator.getGamepads()`) is available in all modern browsers
+and would let two USB/Bluetooth controllers work naturally for local 2P play.
+UQM's `uqm.key` already defines Joystick 1 and Joystick 2 profiles:
+
+| Control | Gamepad axis/button               |
+|---------|-----------------------------------|
+| Thrust  | Axis 1 negative (left stick up)   |
+| Down    | Axis 1 positive (left stick down) |
+| Left    | Axis 0 negative                   |
+| Right   | Axis 0 positive                   |
+| Weapon  | Button 0 (A/Cross)                |
+| Special | Button 1 (B/Circle)               |
+
+Implementation plan:
+1. Poll `navigator.getGamepads()` each frame tick (no events needed)
+2. Map axes to thrust/turn with a deadzone (~0.2)
+3. Map buttons to weapon/special bits in the same input byte
+4. Allow mixing: P1 on gamepad, P2 on keyboard (or vice versa)
+5. Show a controller-detected indicator in the Fleet Assembly screen
+
+This is lower priority than getting multiplayer and all 26 ships working, but
+it's straightforward to add since the input byte format is already fixed.
+
 ## Open Questions (resolve during source archaeology)
 
 - [ ] What is UQM's actual frame rate? (suspect 24fps)

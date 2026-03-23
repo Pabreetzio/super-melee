@@ -6,9 +6,10 @@ interface Props {
   commanderName: string;
   rooms: RoomSummary[];
   onSolo: () => void;
+  onLocal2P: () => void;
 }
 
-export default function GameBrowser({ commanderName, rooms, onSolo }: Props) {
+export default function GameBrowser({ commanderName, rooms, onSolo, onLocal2P }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [password, setPassword] = useState('');
@@ -57,15 +58,26 @@ export default function GameBrowser({ commanderName, rooms, onSolo }: Props) {
         </div>
 
         {/* Create panel */}
-        {/* Solo practice */}
-        <div className="panel row" style={{ marginBottom: 16, gap: 16, alignItems: 'center' }}>
-          <div className="col" style={{ gap: 4, flex: 1 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>Single Player — vs AI</span>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-              Build your fleet, then engage the AI. No opponent needed.
-            </span>
+        {/* Local modes */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <div className="panel row" style={{ gap: 12, alignItems: 'center' }}>
+            <div className="col" style={{ gap: 4, flex: 1 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>vs AI</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                Build your fleet, then engage the AI.
+              </span>
+            </div>
+            <button onClick={onSolo}>Assemble Fleet</button>
           </div>
-          <button onClick={onSolo}>Assemble Fleet</button>
+          <div className="panel row" style={{ gap: 12, alignItems: 'center' }}>
+            <div className="col" style={{ gap: 4, flex: 1 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>Local 2P</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                Same keyboard. Arrows vs WASD.
+              </span>
+            </div>
+            <button onClick={onLocal2P}>Assemble Fleets</button>
+          </div>
         </div>
 
         {showCreate ? (

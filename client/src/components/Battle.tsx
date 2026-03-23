@@ -36,14 +36,31 @@ const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
 
 const FRAME_MS = 1000 / BATTLE_FPS;
 
-// Keyboard → input bit map
-const KEY_MAP: Record<string, number> = {
-  ArrowUp:    INPUT_THRUST,
-  ArrowLeft:  INPUT_LEFT,
-  ArrowRight: INPUT_RIGHT,
-  ' ':        INPUT_FIRE1,
-  Enter:      INPUT_FIRE2,
+// Keyboard → input bit maps, keyed by event.code (layout-independent).
+// Bindings match the official UQM uqm.key defaults exactly.
+//   P1 "Arrows": Up=thrust  Left/Right=turn  RightControl=weapon  RightShift=special
+//   P2 "WASD":   W=thrust   A/D=turn         V=weapon             B=special
+const KEY_MAP_P1: Record<string, number> = {
+  ArrowUp:      INPUT_THRUST,
+  ArrowLeft:    INPUT_LEFT,
+  ArrowRight:   INPUT_RIGHT,
+  ControlRight: INPUT_FIRE1,
+  ShiftRight:   INPUT_FIRE2,
 };
+
+const KEY_MAP_P2: Record<string, number> = {
+  KeyW: INPUT_THRUST,
+  KeyA: INPUT_LEFT,
+  KeyD: INPUT_RIGHT,
+  KeyV: INPUT_FIRE1,
+  KeyB: INPUT_FIRE2,
+};
+
+// Keys to preventDefault on (avoids browser shortcuts / scroll)
+const GAME_KEYS = new Set([
+  ...Object.keys(KEY_MAP_P1),
+  ...Object.keys(KEY_MAP_P2),
+]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,12 +83,13 @@ interface Props {
   seed:        number;
   inputDelay:  number;
   isAI?:       boolean;
+  isLocal2P?:  boolean;
   onBattleEnd: (winner: 0 | 1 | null) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, onBattleEnd }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const stateRef    = useRef<BattleState | null>(null);
   const keysRef     = useRef(new Set<string>());
@@ -120,9 +138,13 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     });
 
-    // Keyboard
-    const onDown = (e: KeyboardEvent) => { keysRef.current.add(e.key); };
-    const onUp   = (e: KeyboardEvent) => { keysRef.current.delete(e.key); };
+    // Keyboard — track by event.code so bindings are layout-independent
+    // and we can distinguish Left/RightCtrl, Left/RightShift, etc.
+    const onDown = (e: KeyboardEvent) => {
+      if (GAME_KEYS.has(e.code)) e.preventDefault();
+      keysRef.current.add(e.code);
+    };
+    const onUp = (e: KeyboardEvent) => { keysRef.current.delete(e.code); };
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup',   onUp);
 
@@ -141,9 +163,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   // ─── Game loop ───────────────────────────────────────────────────────────
 
-  function computeInput(): number {
+  function computeInput(keyMap: Record<string, number>): number {
     let bits = 0;
-    for (const key of keysRef.current) bits |= KEY_MAP[key] ?? 0;
+    for (const code of keysRef.current) bits |= keyMap[code] ?? 0;
     return bits;
   }
 
@@ -166,12 +188,17 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     const mySide = yourSide;
     const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
-    const myInput = computeInput();
+    // P1 always uses KEY_MAP_P1; P2 always uses KEY_MAP_P2
+    const myInput = computeInput(mySide === 0 ? KEY_MAP_P1 : KEY_MAP_P2);
 
     let i0: number;
     let i1: number;
 
-    if (isAI) {
+    if (isLocal2P) {
+      // Both players on same keyboard — no network, no delay
+      i0 = computeInput(KEY_MAP_P1);
+      i1 = computeInput(KEY_MAP_P2);
+    } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
       const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.nukes, opSide);
       i0 = mySide === 0 ? myInput : aiInput;
@@ -196,12 +223,13 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     bs.frame++;
 
     // Checksums / battle-over (only in networked mode)
-    if (!isAI) {
+    const isOffline = isAI || isLocal2P;
+    if (!isOffline) {
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
 
-    // In AI mode handle battle end locally
-    if (isAI && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
+    // In offline modes handle battle end locally
+    if (isOffline && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       const winner: 0 | 1 | null =
         bs.ships[0].crew <= 0 && bs.ships[1].crew <= 0 ? null
@@ -283,8 +311,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
     }
 
-    // Check for battle end
-    if (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0) {
+    // Check for battle end — only send ack in networked mode
+    // (offline modes detect end in advance() above)
+    if (!isAI && !isLocal2P && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
       client.send({ type: 'battle_over_ack' });
     }
   }
@@ -375,6 +404,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     ctx.fillStyle = 'rgba(100,100,120,0.6)';
     ctx.font = '10px monospace';
     ctx.fillText(`frame ${bs.frame}`, 4, 12);
+
+    // Key reference (local2P only — shows for first 300 frames ~12s then fades)
+    if (isLocal2P && bs.frame < 360) {
+      const alpha = bs.frame < 240 ? 0.7 : 0.7 * (1 - (bs.frame - 240) / 120);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#4af';
+      ctx.font = '10px monospace';
+      ctx.fillText('P1: Arrows  RCtrl=fire  RShift=special', 4, CANVAS_H - 18);
+      ctx.fillStyle = '#f84';
+      ctx.fillText('P2: WASD    V=fire      B=special', 4, CANVAS_H - 6);
+      ctx.globalAlpha = 1;
+    }
   }
 
   // ─── HUD ─────────────────────────────────────────────────────────────────
