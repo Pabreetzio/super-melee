@@ -4,6 +4,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  // Serve extracted UQM assets at root (e.g. /ships/human/cruiser-big-000.png)
+  // Assets are gitignored; extract per SETUP.md before running.
+  publicDir: path.resolve(__dirname, '../assets'),
   resolve: {
     alias: {
       shared: path.resolve(__dirname, '../shared'),

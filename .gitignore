@@ -8,3 +8,6 @@ dist/
 uqm-0.8.0/
 uqm-0.8.0-src.tgz
 *.uqm
+
+# Extracted game assets — not committed; extract from content package per SETUP.md
+assets/

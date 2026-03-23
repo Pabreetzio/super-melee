@@ -5,7 +5,7 @@
 // Full ship movement physics will be filled in per-ship in the ship modules.
 
 import { SINE, COSINE, FULL_CIRCLE, HALF_CIRCLE, QUADRANT } from './sinetab';
-import { addImpulse, velocityMagnitude, setVelocityComponents } from './velocity';
+import { addImpulse, velocityMagnitude, setVelocityComponents, VELOCITY_TO_WORLD } from './velocity';
 import type { Element, Point } from './element';
 import { GRAVITY_MASS } from './element';
 
@@ -89,8 +89,8 @@ export function resolveCollision(
   if (totalMass === 0) return;
 
   // Travel angle for A
-  const vxA = (a.velocity.dx << 5) + a.velocity.xError;
-  const vyA = (a.velocity.dy << 5) + a.velocity.yError;
+  const vxA = a.velocity.vx;
+  const vyA = a.velocity.vy;
   const travelAngleA = Math.round(Math.atan2(-vyA, vxA) * FULL_CIRCLE / (2 * Math.PI)) & 63;
   const directnessA = (collisionAngle - travelAngleA + FULL_CIRCLE) & 63;
 
@@ -111,8 +111,8 @@ export function resolveCollision(
   }
 
   // Mirror for B
-  const vxB = (b.velocity.dx << 5) + b.velocity.xError;
-  const vyB = (b.velocity.dy << 5) + b.velocity.yError;
+  const vxB = b.velocity.vx;
+  const vyB = b.velocity.vy;
   const travelAngleB = Math.round(Math.atan2(-vyB, vxB) * FULL_CIRCLE / (2 * Math.PI)) & 63;
   const directnessB = ((collisionAngle + HALF_CIRCLE) - travelAngleB + FULL_CIRCLE) & 63;
   const glancingB = directnessB <= QUADRANT || directnessB >= HALF_CIRCLE + QUADRANT;
@@ -138,7 +138,7 @@ export function wrapPosition(p: Point): void {
 export function stepElement(el: Element): void {
   el.current.x = el.next.x;
   el.current.y = el.next.y;
-  el.next.x = el.current.x + el.velocity.dx;
-  el.next.y = el.current.y + el.velocity.dy;
+  el.next.x = el.current.x + VELOCITY_TO_WORLD(el.velocity.vx);
+  el.next.y = el.current.y + VELOCITY_TO_WORLD(el.velocity.vy);
   wrapPosition(el.next);
 }

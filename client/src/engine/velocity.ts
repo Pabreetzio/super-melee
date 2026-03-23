@@ -1,68 +1,117 @@
-// Bresenham-based velocity accumulator — port of UQM velocity system
-// VELOCITY_SHIFT = 5 → world units are in 1/32 display pixels
-// Each tick: add velocity to error accumulators; every VELOCITY_UNIT (32) accumulated
-// error → advance position by 1 world unit.
+// Bresenham velocity accumulator — exact port of UQM src/uqm/velocity.c
+//
+// Coordinate system:
+//   ONE_SHIFT       = 2  → 1 display pixel = 4 world units
+//   VELOCITY_SHIFT  = 5  → 1 world unit stored as 32 velocity units
+//   So velocity units per display pixel = 4 * 32 = 128
+//
+// Internal storage: vx, vy are in velocity units (world_units * 32), signed.
+// Position advances by vx/32 world units per frame, with Bresenham sub-pixel
+// carries handling the fractional part.
 
-export const VELOCITY_SHIFT = 5;
-export const VELOCITY_UNIT  = 1 << VELOCITY_SHIFT; // 32
+import { SINE, COSINE, QUADRANT, FULL_CIRCLE } from './sinetab';
 
-export interface Velocity {
-  xError: number; // fractional accumulator (signed, integer)
-  yError: number;
-  dx:     number; // whole world-units per tick (after division)
-  dy:     number;
+export const VELOCITY_SHIFT  = 5;
+export const VELOCITY_SCALE  = 1 << VELOCITY_SHIFT; // 32
+export const ONE_SHIFT       = 2;                    // world/display scale
+export const DISPLAY_TO_WORLD = (x: number) => x << ONE_SHIFT;   // x * 4
+export const WORLD_TO_DISPLAY = (x: number) => x >> ONE_SHIFT;   // x / 4
+export const WORLD_TO_VELOCITY = (x: number) => x << VELOCITY_SHIFT; // x * 32
+export const VELOCITY_TO_WORLD = (x: number) => x >> VELOCITY_SHIFT; // x / 32
+
+export interface VelocityDesc {
+  travelAngle: number; // 0–63
+  vx: number;          // velocity units, signed (positive = rightward)
+  vy: number;          // velocity units, signed (positive = downward)
+  ex: number;          // Bresenham X error accumulator 0..31
+  ey: number;          // Bresenham Y error accumulator 0..31
 }
 
-/** Create a zero velocity */
-export function zeroVelocity(): Velocity {
-  return { xError: 0, yError: 0, dx: 0, dy: 0 };
+export function zeroVelocity(): VelocityDesc {
+  return { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+}
+
+/** Reconstruct current velocity components in velocity units */
+export function getCurrentVelocityComponents(v: VelocityDesc): { dx: number; dy: number } {
+  return { dx: v.vx, dy: v.vy };
+}
+
+/** Pack dx, dy (velocity units) into the descriptor — equivalent to SetVelocityComponents */
+export function setVelocityComponents(v: VelocityDesc, dx: number, dy: number): void {
+  v.vx = Math.trunc(dx);
+  v.vy = Math.trunc(dy);
+  v.ex = 0;
+  v.ey = 0;
+  // Compute travel angle from direction
+  v.travelAngle = arctan2(dx, dy);
 }
 
 /**
- * Set velocity from angle + speed (in world units/tick scaled by VELOCITY_UNIT).
- * speedFixed = speed * VELOCITY_UNIT (integer, e.g. speed=2 → speedFixed=64)
+ * SetVelocityVector — set velocity from angle (0–63) and magnitude (world units).
+ * Equivalent to UQM SetVelocityVector.
  */
-export function setVelocityComponents(v: Velocity, vx: number, vy: number): void {
-  v.dx     = vx >> VELOCITY_SHIFT;
-  v.dy     = vy >> VELOCITY_SHIFT;
-  v.xError = vx - (v.dx << VELOCITY_SHIFT);
-  v.yError = vy - (v.dy << VELOCITY_SHIFT);
+export function setVelocityVector(v: VelocityDesc, magnitude: number, facing: number): void {
+  const angle = (facing * 4) & 63; // FACING_TO_ANGLE: facing * 4
+  const magV = WORLD_TO_VELOCITY(magnitude);
+  // COSINE = horizontal (rightward positive), SINE = vertical (downward positive in screen coords)
+  // Note: UQM screen Y flips from world Y — handled in rendering
+  const dx = COSINE(angle, magV);
+  const dy = SINE(angle, magV);
+  setVelocityComponents(v, dx, dy);
+  v.travelAngle = angle;
 }
 
 /**
- * Advance position by one tick of velocity.
- * Returns {dx, dy} in world units to add to element position.
+ * DeltaVelocityComponents — add dx, dy (velocity units) to current velocity.
+ * Equivalent to UQM DeltaVelocityComponents.
  */
-export function applyVelocity(v: Velocity): { dx: number; dy: number } {
-  let dx = v.dx;
-  let dy = v.dy;
+export function deltaVelocityComponents(v: VelocityDesc, dx: number, dy: number): void {
+  setVelocityComponents(v, v.vx + dx, v.vy + dy);
+}
 
-  // Accumulate fractional parts
-  v.xError += v.xError >= 0
-    ? (v.xError >= VELOCITY_UNIT ? -VELOCITY_UNIT : 0)
-    : (v.xError < 0 ? VELOCITY_UNIT : 0);
+/**
+ * Advance position by one frame of velocity. Returns displacement in world units.
+ * Bresenham sub-pixel carry: fractional part accumulates in ex/ey;
+ * when it hits 32, an extra ±1 world unit is added.
+ */
+export function applyVelocity(v: VelocityDesc): { dx: number; dy: number } {
+  const whole_x = VELOCITY_TO_WORLD(Math.abs(v.vx)) * Math.sign(v.vx);
+  const fract_x = Math.abs(v.vx) & (VELOCITY_SCALE - 1);
+  v.ex += fract_x;
+  const carry_x = v.ex >= VELOCITY_SCALE ? 1 : 0;
+  v.ex &= (VELOCITY_SCALE - 1);
+  const dx = whole_x + (v.vx >= 0 ? carry_x : -carry_x);
 
-  // Simplified Bresenham step: accumulate and carry
-  const newXErr = v.xError + (v.dx >= 0 ? v.xError : -v.xError);
-  void newXErr; // TODO: full Bresenham port after physics deep-dive
+  const whole_y = VELOCITY_TO_WORLD(Math.abs(v.vy)) * Math.sign(v.vy);
+  const fract_y = Math.abs(v.vy) & (VELOCITY_SCALE - 1);
+  v.ey += fract_y;
+  const carry_y = v.ey >= VELOCITY_SCALE ? 1 : 0;
+  v.ey &= (VELOCITY_SCALE - 1);
+  const dy = whole_y + (v.vy >= 0 ? carry_y : -carry_y);
 
   return { dx, dy };
 }
 
-/**
- * Add an impulse (acceleration) to velocity.
- * ax, ay are in the same fixed-point scale as vx, vy above.
- */
-export function addImpulse(v: Velocity, ax: number, ay: number): void {
-  // Reconstruct full fixed-point velocity, add, decompose
-  const vx = (v.dx << VELOCITY_SHIFT) + v.xError + ax;
-  const vy = (v.dy << VELOCITY_SHIFT) + v.yError + ay;
-  setVelocityComponents(v, vx, vy);
+/** Speed squared in velocity units (for comparison with max_speed^2) */
+export function velocitySquared(v: VelocityDesc): number {
+  return v.vx * v.vx + v.vy * v.vy;
 }
 
-/** Compute the speed (magnitude) of a velocity vector, in VELOCITY_UNIT scale */
-export function velocityMagnitude(v: Velocity): number {
-  const vx = (v.dx << VELOCITY_SHIFT) + v.xError;
-  const vy = (v.dy << VELOCITY_SHIFT) + v.yError;
-  return Math.round(Math.sqrt(vx * vx + vy * vy));
+/** Speed magnitude in velocity units */
+export function velocityMagnitude(v: VelocityDesc): number {
+  return Math.round(Math.sqrt(velocitySquared(v)));
+}
+
+/** Add impulse (dx, dy in velocity units) to current velocity */
+export function addImpulse(v: VelocityDesc, dx: number, dy: number): void {
+  setVelocityComponents(v, v.vx + dx, v.vy + dy);
+}
+
+/** Type alias for compatibility */
+export type Velocity = VelocityDesc;
+
+/** Integer atan2 returning angle in UQM 0–63 system */
+function arctan2(dx: number, dy: number): number {
+  if (dx === 0 && dy === 0) return 0;
+  return Math.round(Math.atan2(dy, dx) * FULL_CIRCLE / (2 * Math.PI) + QUADRANT) & 63;
 }

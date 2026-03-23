@@ -2,6 +2,7 @@
 // Elements are the universal game object: ships, weapons, planets, etc.
 
 import type { Velocity } from './velocity';
+import { zeroVelocity } from './velocity';
 
 // State flags (bit flags matching UQM ELEMENT_FLAGS)
 export const PLAYER_CONTROL   = 0x0001; // controlled by a human player
@@ -66,7 +67,7 @@ export function makeElement(side: 0 | 1 | -1, flags: ElementFlags): Element {
     thrust_wait: 0,
     current:     { x: 0, y: 0 },
     next:        { x: 0, y: 0 },
-    velocity:    { xError: 0, yError: 0, dx: 0, dy: 0 },
+    velocity:    zeroVelocity(),
     facing:      0,
     energy:      0,
     maxEnergy:   0,

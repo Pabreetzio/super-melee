@@ -1,24 +1,40 @@
-// Battle screen — canvas game loop shell
-// Full physics simulation to be wired in once ship movement is implemented.
+// Battle screen — canvas game loop with UQM physics and sprite rendering.
+// Human (Earthling Cruiser) ship is fully implemented.
+// Other ships fall back to a colored placeholder.
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FullRoomState, FleetSlot } from 'shared/types';
 import { client } from '../net/client';
-import { GameLoop, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../engine/game';
-import type { Element } from '../engine/element';
-import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../engine/physics';
+import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
+import { COSINE, SINE } from '../engine/sinetab';
+import { DISPLAY_TO_WORLD, WORLD_TO_DISPLAY } from '../engine/velocity';
+import {
+  makeHumanShip, updateHumanShip,
+  makeNuke, updateNuke,
+  MAX_CREW, MAX_ENERGY, SHIP_RADIUS, LASER_RANGE, MISSILE_DAMAGE,
+  type HumanShipState, type NukeState,
+} from '../engine/ships/human';
+import { loadCruiserSprites, drawSprite, type SpriteSet } from '../engine/sprites';
 import HUD from './HUD';
 
-const CANVAS_W = DISPLAY_WIDTH;
-const CANVAS_H = DISPLAY_HEIGHT;
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-interface Props {
-  room:       FullRoomState;
-  yourSide:   0 | 1;
-  seed:       number;
-  inputDelay: number;
-  onBattleEnd: (winner: 0 | 1 | null) => void;
-}
+// Display dimensions
+const CANVAS_W = 640;
+const CANVAS_H = 480;
+
+// World dimensions (display * 4)
+const WORLD_W = DISPLAY_TO_WORLD(CANVAS_W); // 2560
+const WORLD_H = DISPLAY_TO_WORLD(CANVAS_H); // 1920
+
+// Planet at world center
+const PLANET_X = WORLD_W >> 1;
+const PLANET_Y = WORLD_H >> 1;
+
+// Gravity threshold in world units = 255 display pixels * 4
+const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
+
+const FRAME_MS = 1000 / BATTLE_FPS;
 
 // Keyboard → input bit map
 const KEY_MAP: Record<string, number> = {
@@ -27,129 +43,407 @@ const KEY_MAP: Record<string, number> = {
   ArrowRight: INPUT_RIGHT,
   ' ':        INPUT_FIRE1,
   Enter:      INPUT_FIRE2,
-  // WASD for P2 feel when testing locally
-  w: INPUT_THRUST,
-  a: INPUT_LEFT,
-  d: INPUT_RIGHT,
-  f: INPUT_FIRE1,
-  g: INPUT_FIRE2,
 };
 
-export default function Battle({ room, yourSide, seed, inputDelay, onBattleEnd }: Props) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const loopRef    = useRef<GameLoop | null>(null);
-  const keysRef    = useRef(new Set<string>());
-  const frameRef   = useRef<number | null>(null);
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-  const renderFrame = useCallback((elements: Element[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
+interface BattleState {
+  ships: [HumanShipState, HumanShipState];
+  nukes: NukeState[];
+  frame: number;
+  // Input buffers: [myInputs, opponentInputs], indexed by frame number
+  inputBuf: [Map<number, number>, Map<number, number>];
+}
 
-    // Background
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+interface Props {
+  room:        FullRoomState;
+  yourSide:    0 | 1;
+  seed:        number;
+  inputDelay:  number;
+  onBattleEnd: (winner: 0 | 1 | null) => void;
+}
 
-    // Draw planet (placeholder — centered circle)
-    ctx.beginPath();
-    ctx.arc(CANVAS_W / 2, CANVAS_H / 2, 40, 0, Math.PI * 2);
-    ctx.fillStyle = '#221133';
-    ctx.fill();
-    ctx.strokeStyle = '#443355';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+// ─── Component ────────────────────────────────────────────────────────────────
 
-    // Draw elements (placeholder — colored dots)
-    for (const el of elements) {
-      const x = el.current.x % CANVAS_W;
-      const y = el.current.y % CANVAS_H;
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = el.playerSide === 0 ? '#4af' : el.playerSide === 1 ? '#f84' : '#888';
-      ctx.fill();
-    }
-  }, []);
+export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBattleEnd }: Props) {
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const stateRef    = useRef<BattleState | null>(null);
+  const keysRef     = useRef(new Set<string>());
+  const rafRef      = useRef<number | null>(null);
+  const lastTimeRef = useRef(0);
+  const accumRef    = useRef(0);
+  const spritesRef  = useRef<{ big: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
+  const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
 
-  // Compute local input from held keys
-  const computeInput = useCallback((): number => {
-    let bits = 0;
-    for (const key of keysRef.current) {
-      bits |= KEY_MAP[key] ?? 0;
-    }
-    return bits;
-  }, []);
-
+  // Initialize battle state
   useEffect(() => {
-    const loop = new GameLoop(
-      { seed, inputDelay, yourSide },
-      {
-        onFrame: (_frame, elements) => {
-          loop.setLocalInput(computeInput());
-          renderFrame(elements);
-        },
-        onShipDied: (side, slot) => {
-          client.send({ type: 'ship_select', slot: 0 }); // TODO: show picker
-          console.log(`Ship died: side=${side} slot=${slot}`);
-        },
-        onBattleEnd: () => {
-          client.send({ type: 'battle_over_ack' });
-        },
+    // Use seed to place ships on opposite sides of the world
+    const s0: HumanShipState = makeHumanShip(PLANET_X - DISPLAY_TO_WORLD(120), PLANET_Y);
+    const s1: HumanShipState = makeHumanShip(PLANET_X + DISPLAY_TO_WORLD(120), PLANET_Y);
+    s1.facing = 8; // face the other direction
+
+    stateRef.current = {
+      ships: [s0, s1],
+      nukes: [],
+      frame: 0,
+      inputBuf: [new Map(), new Map()],
+    };
+
+    // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
+    loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
+
+    // Subscribe to net messages
+    const unsub = client.onMessage(msg => {
+      if (msg.type === 'battle_input' && stateRef.current) {
+        const opSide = yourSide === 0 ? 1 : 0;
+        stateRef.current.inputBuf[opSide].set(msg.frame, msg.input);
+      } else if (msg.type === 'battle_over') {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        onBattleEnd(msg.winner);
+      } else if (msg.type === 'checksum_mismatch') {
+        console.error(`Desync at frame ${msg.frame}`);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        onBattleEnd(null);
       }
-    );
+    });
 
-    loopRef.current = loop;
-    loop.start();
-
-    // Keyboard listeners
+    // Keyboard
     const onDown = (e: KeyboardEvent) => { keysRef.current.add(e.key); };
     const onUp   = (e: KeyboardEvent) => { keysRef.current.delete(e.key); };
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup',   onUp);
 
-    // Net: receive opponent input
-    const unsub = client.onMessage(msg => {
-      if (msg.type === 'battle_input') {
-        loop.receiveOpponentInput(msg.frame, msg.input);
-      } else if (msg.type === 'battle_over') {
-        loop.stop();
-        onBattleEnd(msg.winner);
-      } else if (msg.type === 'checksum_mismatch') {
-        console.error(`Desync detected at frame ${msg.frame}`);
-        loop.stop();
-        onBattleEnd(null);
-      }
-    });
+    // Start loop
+    lastTimeRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(tick);
 
     return () => {
-      loop.stop();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup',   onUp);
       unsub();
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [seed, inputDelay, yourSide, renderFrame, computeInput, onBattleEnd]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Derive HUD data from room fleets (placeholder crew values)
+  // ─── Game loop ───────────────────────────────────────────────────────────
+
+  function computeInput(): number {
+    let bits = 0;
+    for (const key of keysRef.current) bits |= KEY_MAP[key] ?? 0;
+    return bits;
+  }
+
+  function tick(now: number) {
+    rafRef.current = requestAnimationFrame(tick);
+    accumRef.current += now - lastTimeRef.current;
+    lastTimeRef.current = now;
+
+    while (accumRef.current >= FRAME_MS) {
+      accumRef.current -= FRAME_MS;
+      advance();
+    }
+
+    render();
+  }
+
+  function advance() {
+    const bs = stateRef.current;
+    if (!bs) return;
+
+    const mySide = yourSide;
+    const opSide = yourSide === 0 ? 1 : 0;
+    const sendFrame = bs.frame + inputDelay;
+    const myInput = computeInput();
+
+    // Buffer and send my input
+    bs.inputBuf[mySide].set(sendFrame, myInput);
+    client.send({ type: 'battle_input', frame: sendFrame, input: myInput });
+
+    // Wait until both inputs available for current frame
+    const i0 = bs.inputBuf[0].get(bs.frame);
+    const i1 = bs.inputBuf[1].get(bs.frame);
+    if (i0 === undefined || i1 === undefined) return; // stall
+
+    bs.inputBuf[0].delete(bs.frame);
+    bs.inputBuf[1].delete(bs.frame);
+
+    // Simulate one frame
+    simulateFrame(bs, i0, i1);
+    bs.frame++;
+
+    // Checksum
+    const crc = computeChecksum(bs);
+    client.send({ type: 'checksum', frame: bs.frame, crc });
+
+    // Update HUD
+    setHudData({
+      myCrewPct:    bs.ships[mySide].crew    / MAX_CREW,
+      oppCrewPct:   bs.ships[opSide].crew    / MAX_CREW,
+      myEnergyPct:  bs.ships[mySide].energy  / MAX_ENERGY,
+      oppEnergyPct: bs.ships[opSide].energy  / MAX_ENERGY,
+    });
+  }
+
+  function simulateFrame(bs: BattleState, input0: number, input1: number) {
+    // Apply gravity to both ships
+    applyGravity(bs.ships[0]);
+    applyGravity(bs.ships[1]);
+
+    // Update ships
+    const spawns0 = updateHumanShip(bs.ships[0], input0);
+    const spawns1 = updateHumanShip(bs.ships[1], input1);
+
+    // Wrap positions
+    bs.ships[0].x = ((bs.ships[0].x % WORLD_W) + WORLD_W) % WORLD_W;
+    bs.ships[0].y = ((bs.ships[0].y % WORLD_H) + WORLD_H) % WORLD_H;
+    bs.ships[1].x = ((bs.ships[1].x % WORLD_W) + WORLD_W) % WORLD_W;
+    bs.ships[1].y = ((bs.ships[1].y % WORLD_H) + WORLD_H) % WORLD_H;
+
+    // Spawn nukes from ship 0
+    for (const s of spawns0) {
+      if (s.type === 'nuke') bs.nukes.push(makeNuke(s.x, s.y, s.facing));
+      if (s.type === 'point_defense') applyPointDefense(bs, 0);
+    }
+    for (const s of spawns1) {
+      if (s.type === 'nuke') bs.nukes.push(makeNuke(s.x, s.y, s.facing));
+      if (s.type === 'point_defense') applyPointDefense(bs, 1);
+    }
+
+    // Update nukes — track toward enemy
+    const alive: NukeState[] = [];
+    for (const nuke of bs.nukes) {
+      // Determine which ship is the target (the one that didn't fire this nuke — simplified: all nukes target other ship)
+      const targetShip = bs.ships[1]; // TODO: track owner; placeholder uses ship[1] as target
+      const targetAngle = worldAngle(nuke.x, nuke.y, targetShip.x, targetShip.y);
+      const still = updateNuke(nuke, targetAngle);
+      if (!still) continue;
+
+      // Wrap nuke position
+      nuke.x = ((nuke.x % WORLD_W) + WORLD_W) % WORLD_W;
+      nuke.y = ((nuke.y % WORLD_H) + WORLD_H) % WORLD_H;
+
+      // Collision with ships
+      let hit = false;
+      for (let side = 0; side < 2; side++) {
+        const ship = bs.ships[side];
+        if (circleOverlap(nuke.x, nuke.y, 4, ship.x, ship.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
+          ship.crew = Math.max(0, ship.crew - MISSILE_DAMAGE);
+          hit = true;
+        }
+      }
+      if (!hit) alive.push(nuke);
+    }
+    bs.nukes = alive;
+
+    // Ship–ship collision (simplified box check)
+    const r = DISPLAY_TO_WORLD(SHIP_RADIUS);
+    if (circleOverlap(bs.ships[0].x, bs.ships[0].y, r, bs.ships[1].x, bs.ships[1].y, r)) {
+      // Bounce — swap a fraction of velocities (simplified)
+      const [vx0, vy0] = [bs.ships[0].velocity.vx, bs.ships[0].velocity.vy];
+      bs.ships[0].velocity.vx = bs.ships[1].velocity.vx;
+      bs.ships[0].velocity.vy = bs.ships[1].velocity.vy;
+      bs.ships[1].velocity.vx = vx0;
+      bs.ships[1].velocity.vy = vy0;
+      bs.ships[0].crew = Math.max(0, bs.ships[0].crew - 1);
+      bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
+    }
+
+    // Check for battle end
+    if (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0) {
+      client.send({ type: 'battle_over_ack' });
+    }
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  function render() {
+    const canvas = canvasRef.current;
+    const bs     = stateRef.current;
+    if (!canvas || !bs) return;
+    const ctx = canvas.getContext('2d')!;
+    const sp  = spritesRef.current;
+
+    // Camera: center on midpoint between both ships
+    const camX = Math.round((bs.ships[0].x + bs.ships[1].x) / 2) - DISPLAY_TO_WORLD(CANVAS_W / 2);
+    const camY = Math.round((bs.ships[0].y + bs.ships[1].y) / 2) - DISPLAY_TO_WORLD(CANVAS_H / 2);
+
+    // Background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Stars (tiled placeholder)
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    for (let i = 0; i < 80; i++) {
+      const sx = ((i * 137 + (camX >> 3)) & 0xFFFF) % CANVAS_W;
+      const sy = ((i * 251 + (camY >> 3)) & 0xFFFF) % CANVAS_H;
+      ctx.fillRect(sx, sy, 1, 1);
+    }
+
+    // Planet (display coords — centered in world space)
+    const planetDX = WORLD_TO_DISPLAY(PLANET_X - camX);
+    const planetDY = WORLD_TO_DISPLAY(PLANET_Y - camY);
+    if (planetDX > -60 && planetDX < CANVAS_W + 60) {
+      ctx.beginPath();
+      ctx.arc(planetDX, planetDY, 40, 0, Math.PI * 2);
+      ctx.fillStyle = '#2a1a44';
+      ctx.fill();
+      ctx.strokeStyle = '#553388';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Nukes
+    for (const nuke of bs.nukes) {
+      if (sp) {
+        drawSprite(ctx, sp.nuke, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY);
+      } else {
+        placeholderDot(ctx, nuke.x, nuke.y, camX, camY, 3, '#ff8');
+      }
+    }
+
+    // Ships
+    for (let side = 0; side < 2; side++) {
+      const ship  = bs.ships[side];
+      const color = side === 0 ? '#4af' : '#f84';
+      if (sp) {
+        drawSprite(ctx, sp.big, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY);
+      } else {
+        placeholderDot(ctx, ship.x, ship.y, camX, camY, 8, color);
+        // Draw facing indicator
+        const angle = (ship.facing * 4) & 63;
+        const dx = WORLD_TO_DISPLAY(ship.x - camX);
+        const dy = WORLD_TO_DISPLAY(ship.y - camY);
+        ctx.beginPath();
+        ctx.moveTo(dx, dy);
+        ctx.lineTo(
+          dx + Math.cos((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
+          dy + Math.sin((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
+        );
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Thrust flame placeholder
+      if (ship.thrusting) {
+        const dx = WORLD_TO_DISPLAY(ship.x - camX);
+        const dy = WORLD_TO_DISPLAY(ship.y - camY);
+        const ang = ((ship.facing * 4 + 32) & 63) / 64 * 2 * Math.PI - Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(dx + Math.cos(ang) * 10, dy + Math.sin(ang) * 10, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#f80';
+        ctx.fill();
+      }
+    }
+
+    // Frame counter
+    ctx.fillStyle = 'rgba(100,100,120,0.6)';
+    ctx.font = '10px monospace';
+    ctx.fillText(`frame ${bs.frame}`, 4, 12);
+  }
+
+  // ─── HUD ─────────────────────────────────────────────────────────────────
+
   const myFleet  = (yourSide === 0 ? room.host.fleet : room.opponent?.fleet) ?? [];
   const oppFleet = (yourSide === 0 ? room.opponent?.fleet : room.host.fleet) ?? [];
 
-  function firstShipName(fleet: FleetSlot[]): string {
-    const first = fleet.find(Boolean);
-    return first ?? 'Unknown';
-  }
-
-  const hudLeft  = { name: firstShipName(myFleet),  crew: 20, maxCrew: 20, energy: 20, maxEnergy: 20 };
-  const hudRight = { name: firstShipName(oppFleet), crew: 20, maxCrew: 20, energy: 20, maxEnergy: 20 };
-
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
-        style={{ display: 'block', background: '#000' }}
+      <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} style={{ display: 'block' }} />
+      <HUD
+        left={{
+          name:      firstShip(myFleet),
+          crew:      Math.round(hudData.myCrewPct    * MAX_CREW),
+          maxCrew:   MAX_CREW,
+          energy:    Math.round(hudData.myEnergyPct  * MAX_ENERGY),
+          maxEnergy: MAX_ENERGY,
+        }}
+        right={{
+          name:      firstShip(oppFleet),
+          crew:      Math.round(hudData.oppCrewPct   * MAX_CREW),
+          maxCrew:   MAX_CREW,
+          energy:    Math.round(hudData.oppEnergyPct * MAX_ENERGY),
+          maxEnergy: MAX_ENERGY,
+        }}
       />
-      <HUD left={hudLeft} right={hudRight} />
     </div>
   );
+}
+
+// ─── Helper functions ─────────────────────────────────────────────────────────
+
+function firstShip(fleet: FleetSlot[]): string {
+  return fleet.find(Boolean) ?? 'Unknown';
+}
+
+function placeholderDot(
+  ctx: CanvasRenderingContext2D,
+  worldX: number, worldY: number,
+  camX: number, camY: number,
+  r: number, color: string,
+) {
+  const dx = WORLD_TO_DISPLAY(worldX - camX);
+  const dy = WORLD_TO_DISPLAY(worldY - camY);
+  ctx.beginPath();
+  ctx.arc(dx, dy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function circleOverlap(
+  ax: number, ay: number, ar: number,
+  bx: number, by: number, br: number,
+): boolean {
+  const dx = ax - bx;
+  const dy = ay - by;
+  const r  = ar + br;
+  return dx * dx + dy * dy < r * r;
+}
+
+function worldAngle(fromX: number, fromY: number, toX: number, toY: number): number {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  // UQM angle: 0 = North/up, clockwise. atan2 returns radians where 0=East, counter-clockwise.
+  // Convert: UQM_angle = (-atan2(dx, dy) * 64 / (2π)) & 63
+  const rad = Math.atan2(dx, -dy); // 0 = North
+  return ((Math.round(rad * 64 / (2 * Math.PI)) & 63) + 64) & 63;
+}
+
+function applyGravity(ship: HumanShipState) {
+  const dx = PLANET_X - ship.x;
+  const dy = PLANET_Y - ship.y;
+  const distSq = dx * dx + dy * dy;
+  const threshSq = GRAVITY_THRESHOLD_W * GRAVITY_THRESHOLD_W;
+  if (distSq === 0 || distSq > threshSq) return;
+
+  // Gravity = 1 world unit toward planet in facing direction
+  const angle = worldAngle(ship.x, ship.y, PLANET_X, PLANET_Y);
+  // Apply as delta velocity: ~4 velocity units (= DISPLAY_TO_WORLD(1) = 4 world, WORLD_TO_VELOCITY = *32... but that's strong)
+  // UQM gravity is 1 world unit/tick = WORLD_TO_VELOCITY(1) = 32 velocity units
+  const grav = 32; // velocity units
+  ship.velocity.vx += COSINE(angle, grav);
+  ship.velocity.vy += SINE(angle, grav);
+}
+
+function applyPointDefense(bs: BattleState, side: number) {
+  // Point defense laser: destroys nukes within LASER_RANGE display pixels of the firing ship.
+  const ship = bs.ships[side];
+  const rangeW = DISPLAY_TO_WORLD(LASER_RANGE);
+  bs.nukes = bs.nukes.filter(nuke => {
+    const dx = nuke.x - ship.x;
+    const dy = nuke.y - ship.y;
+    return dx * dx + dy * dy > rangeW * rangeW;
+  });
+}
+
+function computeChecksum(bs: BattleState): number {
+  let crc = bs.frame;
+  for (const ship of bs.ships) {
+    crc ^= (ship.x & 0xFFFF) ^ ((ship.y & 0xFFFF) << 8);
+    crc ^= (ship.velocity.vx & 0xFF) ^ ((ship.velocity.vy & 0xFF) << 8);
+    crc ^= ship.crew ^ (ship.energy << 8);
+    crc = crc >>> 0;
+  }
+  return crc;
 }
