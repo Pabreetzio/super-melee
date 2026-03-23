@@ -5,9 +5,10 @@ import { client } from '../net/client';
 interface Props {
   commanderName: string;
   rooms: RoomSummary[];
+  onSolo: () => void;
 }
 
-export default function GameBrowser({ commanderName, rooms }: Props) {
+export default function GameBrowser({ commanderName, rooms, onSolo }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [password, setPassword] = useState('');
@@ -56,6 +57,17 @@ export default function GameBrowser({ commanderName, rooms }: Props) {
         </div>
 
         {/* Create panel */}
+        {/* Solo practice */}
+        <div className="panel row" style={{ marginBottom: 16, gap: 16, alignItems: 'center' }}>
+          <div className="col" style={{ gap: 4, flex: 1 }}>
+            <span style={{ fontSize: 13, color: 'var(--text-hi)' }}>Practice vs AI</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              Single player — Earthling Cruiser vs AI. No opponent needed.
+            </span>
+          </div>
+          <button onClick={onSolo}>Quick Battle</button>
+        </div>
+
         {showCreate ? (
           <div className="panel col" style={{ marginBottom: 20, gap: 12 }}>
             <h3>Open New Engagement</h3>

@@ -65,12 +65,13 @@ interface Props {
   yourSide:    0 | 1;
   seed:        number;
   inputDelay:  number;
+  isAI?:       boolean;
   onBattleEnd: (winner: 0 | 1 | null) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, onBattleEnd }: Props) {
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const stateRef    = useRef<BattleState | null>(null);
   const keysRef     = useRef(new Set<string>());
@@ -104,8 +105,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBatt
       client.send({ type: 'ship_select', slot: firstSlot });
     }
 
-    // Subscribe to net messages
-    const unsub = client.onMessage(msg => {
+    // Subscribe to net messages (not used in AI mode)
+    const unsub = isAI ? () => {} : client.onMessage(msg => {
       if (msg.type === 'battle_input' && stateRef.current) {
         const opSide = yourSide === 0 ? 1 : 0;
         stateRef.current.inputBuf[opSide].set(msg.frame, msg.input);
@@ -164,29 +165,51 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBatt
     if (!bs) return;
 
     const mySide = yourSide;
-    const opSide = yourSide === 0 ? 1 : 0;
-    const sendFrame = bs.frame + inputDelay;
+    const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
     const myInput = computeInput();
 
-    // Buffer and send my input
-    bs.inputBuf[mySide].set(sendFrame, myInput);
-    client.send({ type: 'battle_input', frame: sendFrame, input: myInput });
+    let i0: number;
+    let i1: number;
 
-    // Wait until both inputs available for current frame
-    const i0 = bs.inputBuf[0].get(bs.frame);
-    const i1 = bs.inputBuf[1].get(bs.frame);
-    if (i0 === undefined || i1 === undefined) return; // stall
+    if (isAI) {
+      // AI mode: no network — compute both inputs locally, no delay
+      const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.nukes, opSide);
+      i0 = mySide === 0 ? myInput : aiInput;
+      i1 = mySide === 1 ? myInput : aiInput;
+    } else {
+      // Lockstep: buffer my input for a future frame, wait for opponent's
+      const sendFrame = bs.frame + inputDelay;
+      bs.inputBuf[mySide].set(sendFrame, myInput);
+      client.send({ type: 'battle_input', frame: sendFrame, input: myInput });
 
-    bs.inputBuf[0].delete(bs.frame);
-    bs.inputBuf[1].delete(bs.frame);
+      const p0 = bs.inputBuf[0].get(bs.frame);
+      const p1 = bs.inputBuf[1].get(bs.frame);
+      if (p0 === undefined || p1 === undefined) return; // stall
+
+      bs.inputBuf[0].delete(bs.frame);
+      bs.inputBuf[1].delete(bs.frame);
+      i0 = p0; i1 = p1;
+    }
 
     // Simulate one frame
     simulateFrame(bs, i0, i1);
     bs.frame++;
 
-    // Checksum
-    const crc = computeChecksum(bs);
-    client.send({ type: 'checksum', frame: bs.frame, crc });
+    // Checksums / battle-over (only in networked mode)
+    if (!isAI) {
+      client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
+    }
+
+    // In AI mode handle battle end locally
+    if (isAI && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const winner: 0 | 1 | null =
+        bs.ships[0].crew <= 0 && bs.ships[1].crew <= 0 ? null
+        : bs.ships[0].crew <= 0 ? 1
+        : 0;
+      onBattleEnd(winner);
+      return;
+    }
 
     // Update HUD
     setHudData({
@@ -419,6 +442,44 @@ function worldAngle(fromX: number, fromY: number, toX: number, toY: number): num
   // Convert: UQM_angle = (-atan2(dx, dy) * 64 / (2π)) & 63
   const rad = Math.atan2(dx, -dy); // 0 = North
   return ((Math.round(rad * 64 / (2 * Math.PI)) & 63) + 64) & 63;
+}
+
+/**
+ * Simple AI based on UQM human_intelligence behavior:
+ * 1. Turn toward enemy
+ * 2. Thrust when roughly facing enemy or when far away
+ * 3. Fire nuke when well-aligned
+ * 4. Fire point defense when enemy nuke is close
+ */
+function computeAIInput(ai: HumanShipState, target: HumanShipState, nukes: BattleNuke[], aiSide: 0 | 1): number {
+  let input = 0;
+
+  // Angle to target (0–63 UQM system)
+  const rawAngle = worldAngle(ai.x, ai.y, target.x, target.y);
+  // Convert to facing (0–15)
+  const targetFacing = Math.round(rawAngle / 4) & 15;
+  const facingDiff = ((targetFacing - ai.facing + 16) % 16);
+
+  // Turn: shortest path. facingDiff > 8 means left is shorter.
+  if (facingDiff >= 1 && facingDiff <= 8)  input |= INPUT_RIGHT;
+  else if (facingDiff > 8)                  input |= INPUT_LEFT;
+
+  // Thrust when within ±3 facings of the target
+  if (facingDiff <= 3 || facingDiff >= 13) input |= INPUT_THRUST;
+
+  // Fire nuke when well-aligned (±1 facing)
+  if (facingDiff <= 1 || facingDiff >= 15) input |= INPUT_FIRE1;
+
+  // Point defense: if any enemy nuke is within 80 display pixels
+  const aiRangeW = DISPLAY_TO_WORLD(80);
+  const hasIncomingNuke = nukes.some(n => {
+    if (n.owner === aiSide) return false; // own nuke, not a threat
+    const dx = n.x - ai.x; const dy = n.y - ai.y;
+    return dx * dx + dy * dy < aiRangeW * aiRangeW;
+  });
+  if (hasIncomingNuke) input |= INPUT_FIRE2;
+
+  return input;
 }
 
 function applyGravity(ship: HumanShipState) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer } from 'react';
 import { client } from './net/client';
-import type { FullRoomState, RoomSummary, ServerMsg } from 'shared/types';
+import type { FullRoomState, FleetSlot, RoomSummary, ServerMsg } from 'shared/types';
 import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
@@ -35,7 +35,8 @@ type Action =
   | { type: 'opponent_left' }
   | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1 }
   | { type: 'battle_over';    winner: 0 | 1 | null }
-  | { type: 'go_browser' };
+  | { type: 'go_browser' }
+  | { type: 'start_solo';     commanderName: string };
 
 function init(): AppState {
   return {
@@ -114,6 +115,41 @@ function reducer(state: AppState, action: Action): AppState {
     case 'go_browser':
       return { ...state, screen: 'browser', room: null, joinError: '' };
 
+    case 'start_solo': {
+      const soloRoom: FullRoomState = {
+        code: 'SOLO',
+        visibility: 'public',
+        state: 'in_battle',
+        rematchReset: false,
+        inputDelay: 0,
+        host: {
+          sessionId: 'player',
+          commanderName: action.commanderName,
+          teamName: 'Your Fleet',
+          fleet: Array(14).fill(null).map((_, i) => i === 0 ? 'human' : null) as FleetSlot[],
+          confirmed: true,
+          shipsAlive: [0],
+        },
+        opponent: {
+          sessionId: 'ai',
+          commanderName: 'AI Commander',
+          teamName: 'AI Fleet',
+          fleet: Array(14).fill(null).map((_, i) => i === 0 ? 'human' : null) as FleetSlot[],
+          confirmed: true,
+          shipsAlive: [0],
+        },
+      };
+      return {
+        ...state,
+        screen: 'battle',
+        room: soloRoom,
+        battleSeed: Date.now() & 0x7FFFFFFF,
+        inputDelay: 0,
+        yourSide: 0,
+        winner: undefined,
+      };
+    }
+
     default:
       return state;
   }
@@ -172,6 +208,8 @@ export default function App() {
 
       // Handle incremental fleet/confirmation patches
       setRoomPatch(prev => {
+        // These always replace roomPatch — must be before the null guard
+        if (msg.type === 'room_joined' || msg.type === 'room_created') return msg.room;
         if (!prev) return prev;
         switch (msg.type) {
           case 'opponent_joined': {
@@ -205,9 +243,6 @@ export default function App() {
           }
           case 'rematch_reset':
             return { ...prev, rematchReset: msg.value };
-          case 'room_joined':
-          case 'room_created':
-            return msg.room;
           default:
             return prev;
         }
@@ -245,7 +280,11 @@ export default function App() {
     case 'browser':
       return (
         <>
-          <GameBrowser commanderName={state.commanderName} rooms={state.rooms} />
+          <GameBrowser
+            commanderName={state.commanderName}
+            rooms={state.rooms}
+            onSolo={() => dispatch({ type: 'start_solo', commanderName: state.commanderName })}
+          />
           {joinError && (
             <div style={{
               position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
@@ -275,6 +314,7 @@ export default function App() {
             yourSide={state.yourSide}
             seed={state.battleSeed}
             inputDelay={state.inputDelay}
+            isAI={roomPatch.code === 'SOLO'}
             onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
           />
         </div>
