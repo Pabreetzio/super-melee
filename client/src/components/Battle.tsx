@@ -47,9 +47,14 @@ const KEY_MAP: Record<string, number> = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+// NukeState extended with owner so we know which ship to target
+interface BattleNuke extends NukeState {
+  owner: 0 | 1;
+}
+
 interface BattleState {
   ships: [HumanShipState, HumanShipState];
-  nukes: NukeState[];
+  nukes: BattleNuke[];
   frame: number;
   // Input buffers: [myInputs, opponentInputs], indexed by frame number
   inputBuf: [Map<number, number>, Map<number, number>];
@@ -91,6 +96,13 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBatt
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
     loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
+
+    // Tell server which ship slot we're entering with (first occupied slot)
+    const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
+    const firstSlot = myFleet.findIndex(s => s !== null);
+    if (firstSlot >= 0) {
+      client.send({ type: 'ship_select', slot: firstSlot });
+    }
 
     // Subscribe to net messages
     const unsub = client.onMessage(msg => {
@@ -200,21 +212,20 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBatt
     bs.ships[1].x = ((bs.ships[1].x % WORLD_W) + WORLD_W) % WORLD_W;
     bs.ships[1].y = ((bs.ships[1].y % WORLD_H) + WORLD_H) % WORLD_H;
 
-    // Spawn nukes from ship 0
+    // Spawn nukes — track owner so each nuke targets the opposite ship
     for (const s of spawns0) {
-      if (s.type === 'nuke') bs.nukes.push(makeNuke(s.x, s.y, s.facing));
+      if (s.type === 'nuke') bs.nukes.push({ ...makeNuke(s.x, s.y, s.facing), owner: 0 });
       if (s.type === 'point_defense') applyPointDefense(bs, 0);
     }
     for (const s of spawns1) {
-      if (s.type === 'nuke') bs.nukes.push(makeNuke(s.x, s.y, s.facing));
+      if (s.type === 'nuke') bs.nukes.push({ ...makeNuke(s.x, s.y, s.facing), owner: 1 });
       if (s.type === 'point_defense') applyPointDefense(bs, 1);
     }
 
-    // Update nukes — track toward enemy
-    const alive: NukeState[] = [];
+    // Update nukes — track toward the opposite ship
+    const alive: BattleNuke[] = [];
     for (const nuke of bs.nukes) {
-      // Determine which ship is the target (the one that didn't fire this nuke — simplified: all nukes target other ship)
-      const targetShip = bs.ships[1]; // TODO: track owner; placeholder uses ship[1] as target
+      const targetShip = bs.ships[nuke.owner === 0 ? 1 : 0];
       const targetAngle = worldAngle(nuke.x, nuke.y, targetShip.x, targetShip.y);
       const still = updateNuke(nuke, targetAngle);
       if (!still) continue;
@@ -232,7 +243,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, onBatt
           hit = true;
         }
       }
-      if (!hit) alive.push(nuke);
+      if (!hit) alive.push(nuke as BattleNuke);
     }
     bs.nukes = alive;
 
