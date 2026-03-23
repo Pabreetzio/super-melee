@@ -2,11 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "kill: port 3001",
+      "type": "shell",
+      "command": "npx --yes kill-port 3001 & exit 0",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "dev: start all",
       "type": "shell",
       "command": "npm run dev",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
+      "dependsOn": [],
       "problemMatcher": {
         "owner": "vite",
         "pattern": [{ "regexp": "^$", "file": 1, "location": 2, "message": 3 }],
@@ -21,6 +34,17 @@
         "panel": "dedicated",
         "group": "dev",
         "clear": true
+      }
+    },
+    {
+      "label": "dev: kill port and start",
+      "dependsOrder": "sequence",
+      "dependsOn": ["kill: port 3001", "dev: start all"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
       }
     },
     {

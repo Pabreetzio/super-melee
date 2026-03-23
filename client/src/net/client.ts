@@ -23,10 +23,13 @@ export class GameClient {
     this.ws = ws;
 
     ws.onopen = () => {
+      if (this.ws !== ws) { ws.close(); return; } // stale — newer socket took over
+      if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
       this.connectListeners.forEach(l => l());
     };
 
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return; // stale
       try {
         const msg = JSON.parse(ev.data as string) as ServerMsg;
         this.listeners.forEach(l => l(msg));
@@ -36,6 +39,8 @@ export class GameClient {
     };
 
     ws.onclose = () => {
+      if (this.ws !== ws) return; // stale — disconnect() already opened a fresh one
+      this.ws = null;
       if (this.shouldReconnect) {
         this.reconnectTimer = setTimeout(() => this._open(), 2000);
       }
