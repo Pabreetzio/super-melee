@@ -182,15 +182,25 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
   } else if ((input & INPUT_FIRE1) && ship.energy >= WEAPON_ENERGY_COST) {
     ship.energy -= WEAPON_ENERGY_COST;
     ship.weaponWait = WEAPON_WAIT;
-    spawns.push({ type: 'nuke', facing: ship.facing, x: ship.x, y: ship.y, life: MISSILE_LIFE });
+    const launchAngle = (ship.facing * 4) & 63;
+    const offsetW = DISPLAY_TO_WORLD(HUMAN_OFFSET); // 42 display px → 168 world units
+    spawns.push({
+      type: 'nuke',
+      facing: ship.facing,
+      x: ship.x + COSINE(launchAngle, offsetW),
+      y: ship.y + SINE(launchAngle, offsetW),
+      life: MISSILE_LIFE,
+    });
   }
 
   // ─── Secondary weapon: point-defense laser ────────────────────────────────
+  // Energy and cooldown are NOT deducted here. UQM spawn_point_defense only
+  // pays when the laser actually hits something (PaidFor flag). applyPointDefense
+  // in Battle.tsx handles deduction. We just gate on energy availability so
+  // we don't spawn the check when the battery is empty.
   if (ship.specialWait > 0) {
     ship.specialWait--;
   } else if ((input & INPUT_FIRE2) && ship.energy >= SPECIAL_ENERGY_COST) {
-    ship.energy -= SPECIAL_ENERGY_COST;
-    ship.specialWait = SPECIAL_WAIT;
     spawns.push({ type: 'point_defense', x: ship.x, y: ship.y });
   }
 
@@ -202,6 +212,25 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
 export type SpawnRequest =
   | { type: 'nuke';         x: number; y: number; facing: number; life: number }
   | { type: 'point_defense'; x: number; y: number };
+
+// ─── Shared tracking helper (mirrors UQM TrackShip ±1-facing-per-cycle logic) ─
+
+/**
+ * Turn facing one step toward targetAngle.
+ * facing:      0–15  (ship/missile facing, 16 steps per full circle)
+ * targetAngle: 0–63  (UQM world angle returned by worldAngle / TrackShip)
+ *
+ * Faithful to UQM weapon.c TrackShip: each call rotates by exactly ±1 facing
+ * unit (= 4 angle units). Exported so every seeking-missile ship can reuse it.
+ */
+export function trackFacing(facing: number, targetAngle: number): number {
+  const targetFacing = ((targetAngle + 2) >> 2) & 15; // angle → nearest facing
+  const diff = (targetFacing - facing + 16) % 16;
+  if (diff === 0) return facing;
+  // diff 1–8 → clockwise is shorter (or equal at 8 — always go CW)
+  if (diff <= 8) return (facing + 1) % 16;
+  return (facing - 1 + 16) % 16;
+}
 
 // ─── Nuke preprocess (called each frame for a live missile) ──────────────────
 
@@ -228,7 +257,7 @@ export function updateNuke(nuke: NukeState, targetAngle: number | null): boolean
   if (nuke.trackWait > 0) {
     nuke.trackWait--;
   } else if (targetAngle !== null) {
-    nuke.facing = Math.round(targetAngle / 4) & 15;
+    nuke.facing = trackFacing(nuke.facing, targetAngle);
     nuke.trackWait = TRACK_WAIT;
   }
 

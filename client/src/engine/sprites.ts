@@ -41,6 +41,20 @@ const SATURN_BIG_HOTSPOTS: [number, number][] = [
   [8,7],[9,8],[10,9],[11,10],[13,11],[14,12],[15,13],[17,14],[18,15],
 ];
 
+// saturn-med (from saturn-med.ani, cols 4+5 = hotX, hotY)
+const SATURN_MED_HOTSPOTS: [number, number][] = [
+  [1,6],[3,6],[5,5],[6,4],[7,1],[6,3],[5,5],[3,6],
+  [1,6],[3,6],[5,5],[6,3],[7,1],[6,3],[5,5],[3,6],
+  [4,4],[4,4],[5,5],[5,5],[6,5],[7,6],[8,6],[8,7],[9,7],
+];
+
+// saturn-sml (from saturn-sml.ani, cols 4+5 = hotX, hotY)
+const SATURN_SML_HOTSPOTS: [number, number][] = [
+  [0,3],[1,3],[2,2],[3,1],[3,0],[3,1],[2,2],[1,3],
+  [0,3],[1,3],[2,2],[3,1],[3,0],[3,1],[2,2],[1,3],
+  [2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,3],[4,3],[4,3],
+];
+
 // ─── Loader ───────────────────────────────────────────────────────────────────
 
 function loadFrame(url: string, hotX: number, hotY: number): Promise<SpriteFrame> {
@@ -83,34 +97,32 @@ export async function loadSpriteSet(
 
 // ─── Ship-specific loaders ────────────────────────────────────────────────────
 
-export async function loadCruiserSprites(): Promise<{
+export interface CruiserSprites {
   big: SpriteSet;
   med: SpriteSet;
   sml: SpriteSet;
-  nuke: SpriteSet;
-}> {
+  nuke: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadCruiserSprites(): Promise<CruiserSprites> {
   const [big, med, sml] = await Promise.all([
     loadSpriteSet('human/cruiser', 'big', 16, CRUISER_BIG_HOTSPOTS),
     loadSpriteSet('human/cruiser', 'med', 16, CRUISER_MED_HOTSPOTS),
     loadSpriteSet('human/cruiser', 'sml', 16, CRUISER_SML_HOTSPOTS),
   ]);
 
-  // Saturn (nuke) sprites use a different filename prefix — load them manually.
-  const saturnFrames: (SpriteFrame | null)[] = Array(16).fill(null);
-  await Promise.all(
-    SATURN_BIG_HOTSPOTS.slice(0, 16).map(([hotX, hotY], i) => {
-      const url = `/ships/human/saturn-big-${pad3(i)}.png`;
-      return loadFrame(url, hotX, hotY)
-        .then(f => { saturnFrames[i] = f; })
-        .catch(() => {});
-    })
-  );
+  // Saturn (nuke) — load all three sizes using the same generic loader
+  const [nukeBig, nukeMed, nukeSml] = await Promise.all([
+    loadSpriteSet('human/saturn', 'big', 16, SATURN_BIG_HOTSPOTS),
+    loadSpriteSet('human/saturn', 'med', 16, SATURN_MED_HOTSPOTS),
+    loadSpriteSet('human/saturn', 'sml', 16, SATURN_SML_HOTSPOTS),
+  ]);
 
   return {
     big,
     med,
     sml,
-    nuke: { frames: saturnFrames, count: 16 },
+    nuke: { big: nukeBig, med: nukeMed, sml: nukeSml },
   };
 }
 

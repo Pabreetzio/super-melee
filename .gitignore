@@ -3,11 +3,20 @@ dist/
 .env
 *.local
 
+# Lock files
+package-lock.json
+client/package-lock.json
+server/package-lock.json
+
+# Claude Code settings
+.claude/
+
 # UQM reference source and content — not part of this repo
 # See CLAUDE.md for setup instructions
 uqm-0.8.0/
 uqm-0.8.0-src.tgz
 *.uqm
+uqm-content/
 
 # Extracted game assets — not committed; extract from content package per SETUP.md
 assets/

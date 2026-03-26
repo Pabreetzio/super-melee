@@ -57,10 +57,22 @@ Tracking: every TRACK_WAIT+1 frames (every 4 frames), the missile re-aims at the
 | SPECIAL_ENERGY_COST | 4    | Battery cost per activation |
 | SPECIAL_WAIT        | 9    | Cooldown frames after activation |
 | LASER_RANGE         | 100  | Display pixels (not world units!) |
+| LASER_DAMAGE        | 1    | From `initialize_laser`: `mass_points = 1` always |
 
-The laser automatically fires at any targetable, non-cloaked object within 100 display pixels of the ship's center. It fires once per activation (costs 4 energy) and hits everything in range that frame. Multiple targets can be hit in a single activation if they're all in range.
+The laser fires at every `CollidingElement` (non-cloaked, non-owner) within 100 display pixels of
+the ship's center. This includes **enemy missiles AND the enemy ship**. All targets in range are
+hit in a single activation; multiple laser lines are drawn in one frame.
 
-The activation is auto-triggered by player pressing SPECIAL (or by AI when threat is within 2–4 turns).
+**Energy/cooldown are deducted lazily (PaidFor flag, from `spawn_point_defense`):**
+- Cost (4 energy) and cooldown (9 frames) are charged **only when the laser actually hits something**
+- If nothing is in range: no energy spent, no cooldown — pressing SPECIAL is free
+- Once it fires at anything, the 9-frame cooldown prevents re-firing — timing matters
+
+**Range check** uses a box pre-filter followed by circle: `|dx| ≤ 100 && |dy| ≤ 100 && dx²+dy² ≤ 100²`
+(all in display pixels; convert from world: `WORLD_TO_DISPLAY(d) = d >> 2`).
+
+The activation is triggered by player pressing SPECIAL, or by AI when enemy weapon is within
+2 turns OR enemy ship within 4 turns (`human_intelligence` in `human.c`).
 
 ## AI Behavior
 
@@ -91,3 +103,27 @@ The thrust model is `inertial_thrust` from `ship.c`:
 4. If at max speed turning → partial velocity vector blending
 
 Energy regen: subtract 1 from `energy_wait` counter each frame; when it reaches 0, restore ENERGY_REGENERATION and reset counter to ENERGY_WAIT.
+
+### Missile tracking (`nuke_preprocess`)
+
+`TrackShip` turns the missile **±1 facing unit** (out of 16) per `TRACK_WAIT+1 = 4` frames toward
+the nearest enemy ship by Manhattan distance. It does NOT snap to the target angle. This is
+implemented as `trackFacing(facing, targetAngle)` in `engine/ships/human.ts` and exported for
+reuse by other seeking-missile ships.
+
+The nuke spawns offset **`HUMAN_OFFSET = 42` display pixels** (168 world units) in the ship's
+facing direction, computed via `COSINE/SINE(launchAngle, DISPLAY_TO_WORLD(42))`.
+
+### Point-defense laser (`spawn_point_defense`)
+
+Implemented as a deferred two-stage spawn in UQM (sentinel element → death_func fires actual
+lasers). In our port, `applyPointDefense` in `Battle.tsx` runs after `updateHumanShip` each
+frame and handles range checks, energy deduction, and laser flash recording directly.
+
+### Plasmoid interaction (for future Mycon implementation)
+
+The Mycon plasmoid has `hit_points = 10` and recalculates them every frame from `life_span`.
+A laser hit (1 damage) reduces `hit_points` by 1 and causes `plasma_preprocess` to shorten
+`life_span = hit_points * PLASMA_DURATION`. The plasmoid is only destroyable by laser when
+`life_span ≤ 14` (hit_points already = 1). Multiple laser hits accelerate dispersal but cannot
+instantly kill a fresh plasmoid.

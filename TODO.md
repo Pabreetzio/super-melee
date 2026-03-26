@@ -15,7 +15,10 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [x] AI solo mode (basic human_intelligence behavior)
 
 ### Ships
-- [x] Earthling Cruiser — fully playable (thrust, nuke, point defense laser)
+- [x] Earthling Cruiser — fully playable
+  - Thrust (inertial, UQM-accurate), turning, energy regen
+  - Nuclear missile: correct spawn offset, ±1-facing-per-cycle tracking (`trackFacing` helper exported)
+  - Point-defense laser: fires at missiles and enemy ship, PaidFor lazy-energy pattern, 1 damage to ships, free to activate when nothing in range
 
 ### UI / Rendering
 - [x] Fleet builder (pick ships for your fleet)
@@ -27,7 +30,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [x] Planet: procedural circle at world center (sprites exist — see below)
 
 ### Assets
-- [x] Extracted Earthling Cruiser sprites (cruiser-big, cruiser-sml, saturn-big — 16+ frames each)
+- [x] Extracted Earthling Cruiser sprites: `cruiser-{big,med,sml}` and `saturn-{big,med,sml}` — 16 rotation frames each, all three zoom sizes
 - [x] Extracted all 24 other ships' 16-frame big rotation sprites into `assets/ships/`
 - [x] Ship sprite path bug fixed (`sprites.ts` was constructing wrong filenames — `human-big-000` instead of `cruiser-big-000`)
 - [x] Battle starfield tiles (`assets/battle/stars-000/001/002.png`)
@@ -41,7 +44,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [x] **Ship sprites don't scale with zoom** — Fixed: UQM uses pre-rendered `big`/`med`/`sml`
   sprite variants per zoom level, not mathematical downscaling. `drawSprite` draws at native
   size; Battle.tsx selects the correct set: `big` at r=0, `med` at r=1, `sml` at r=2–3.
-  All three cruiser variants now extracted with baked hotspots.
+  All three cruiser and saturn variants extracted with baked hotspots from `.ani` files.
 
 - [ ] **Starfield parallax needs verification** — The 3-layer star PNG tile approach uses
   `CanvasPattern.setTransform` with a `DOMMatrix` offset. Needs testing to confirm tiles are

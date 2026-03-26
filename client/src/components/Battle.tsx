@@ -12,9 +12,10 @@ import {
   makeHumanShip, updateHumanShip,
   makeNuke, updateNuke,
   MAX_CREW, MAX_ENERGY, SHIP_RADIUS, LASER_RANGE, MISSILE_DAMAGE,
+  SPECIAL_ENERGY_COST, SPECIAL_WAIT,
   type HumanShipState, type NukeState,
 } from '../engine/ships/human';
-import { loadCruiserSprites, drawSprite, type SpriteSet } from '../engine/sprites';
+import { loadCruiserSprites, drawSprite, type CruiserSprites } from '../engine/sprites';
 import HUD from './HUD';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -43,23 +44,29 @@ const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
 const FRAME_MS = 1000 / BATTLE_FPS;
 
 // Keyboard → input bit maps, keyed by event.code (layout-independent).
-// Bindings match the official UQM uqm.key defaults exactly.
-//   P1 "Arrows": Up=thrust  Left/Right=turn  RightControl=weapon  RightShift=special
-//   P2 "WASD":   W=thrust   A/D=turn         V=weapon             B=special
+// Bindings match the official UQM uqm.key defaults (base/uqm.key in content package).
+//   P1 "Arrows": Up=thrust  Left/Right=turn  RCtrl=weapon  RShift=special
+//                Enter=weapon(alt)  Numpad0=special(alt)
+//   P2 "WASD":   W=thrust   A/D=turn         V=weapon      B=special
+//                Space=weapon(alt)
 const KEY_MAP_P1: Record<string, number> = {
   ArrowUp:      INPUT_THRUST,
   ArrowLeft:    INPUT_LEFT,
   ArrowRight:   INPUT_RIGHT,
   ControlRight: INPUT_FIRE1,
+  Enter:        INPUT_FIRE1,   // alt — from uqm.key weapon.2
   ShiftRight:   INPUT_FIRE2,
+  Numpad0:      INPUT_FIRE2,   // alt — from uqm.key special.2
 };
 
 const KEY_MAP_P2: Record<string, number> = {
-  KeyW: INPUT_THRUST,
-  KeyA: INPUT_LEFT,
-  KeyD: INPUT_RIGHT,
-  KeyV: INPUT_FIRE1,
-  KeyB: INPUT_FIRE2,
+  KeyW:       INPUT_THRUST,
+  KeyA:       INPUT_LEFT,
+  KeyD:       INPUT_RIGHT,
+  KeyV:       INPUT_FIRE1,
+  Space:      INPUT_FIRE1,  // alt
+  KeyB:       INPUT_FIRE2,
+  ShiftLeft:  INPUT_FIRE2,  // alt
 };
 
 // Keys to preventDefault on (avoids browser shortcuts / scroll)
@@ -75,9 +82,16 @@ interface BattleNuke extends NukeState {
   owner: 0 | 1;
 }
 
+// One-frame laser line (point-defense flash), world coords
+interface LaserFlash {
+  x1: number; y1: number;
+  x2: number; y2: number;
+}
+
 interface BattleState {
   ships: [HumanShipState, HumanShipState];
   nukes: BattleNuke[];
+  lasers: LaserFlash[];  // cleared each sim frame; rendered as 1-frame flashes
   frame: number;
   // Input buffers: [myInputs, opponentInputs], indexed by frame number
   inputBuf: [Map<number, number>, Map<number, number>];
@@ -102,7 +116,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const rafRef       = useRef<number | null>(null);
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
-  const spritesRef   = useRef<{ big: SpriteSet; med: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
+  const spritesRef   = useRef<CruiserSprites | null>(null);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
@@ -114,13 +128,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   // Initialize battle state
   useEffect(() => {
     // Use seed to place ships on opposite sides of the world
-    const s0: HumanShipState = makeHumanShip(PLANET_X - DISPLAY_TO_WORLD(120), PLANET_Y);
-    const s1: HumanShipState = makeHumanShip(PLANET_X + DISPLAY_TO_WORLD(120), PLANET_Y);
+    const s0: HumanShipState = makeHumanShip(PLANET_X - DISPLAY_TO_WORLD(300), PLANET_Y);
+    const s1: HumanShipState = makeHumanShip(PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
     s1.facing = 8; // face the other direction
 
     stateRef.current = {
       ships: [s0, s1],
       nukes: [],
+      lasers: [],
       frame: 0,
       inputBuf: [new Map(), new Map()],
     };
@@ -283,6 +298,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   }
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
+    bs.lasers = []; // clear previous frame's laser flashes
+
     // Apply gravity to both ships
     applyGravity(bs.ships[0]);
     applyGravity(bs.ships[1]);
@@ -332,17 +349,28 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
     bs.nukes = alive;
 
-    // Ship–ship collision (simplified box check)
-    const r = DISPLAY_TO_WORLD(SHIP_RADIUS);
-    if (circleOverlap(bs.ships[0].x, bs.ships[0].y, r, bs.ships[1].x, bs.ships[1].y, r)) {
-      // Bounce — swap a fraction of velocities (simplified)
-      const [vx0, vy0] = [bs.ships[0].velocity.vx, bs.ships[0].velocity.vy];
-      bs.ships[0].velocity.vx = bs.ships[1].velocity.vx;
-      bs.ships[0].velocity.vy = bs.ships[1].velocity.vy;
-      bs.ships[1].velocity.vx = vx0;
-      bs.ships[1].velocity.vy = vy0;
-      bs.ships[0].crew = Math.max(0, bs.ships[0].crew - 1);
-      bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
+    // Ship–ship collision
+    {
+      const r = DISPLAY_TO_WORLD(SHIP_RADIUS);
+      const dx = bs.ships[1].x - bs.ships[0].x;
+      const dy = bs.ships[1].y - bs.ships[0].y;
+      const distSq = dx * dx + dy * dy;
+      const minDist = r + r;
+      if (distSq < minDist * minDist && distSq > 0) {
+        resolveShipCollision(bs.ships[0], bs.ships[1]);
+        // Push ships apart so they don't re-trigger next frame
+        const dist = Math.sqrt(distSq);
+        const overlap = minDist - dist;
+        if (overlap > 0) {
+          const push = Math.ceil(overlap / 2);
+          bs.ships[0].x -= Math.round((dx / dist) * push);
+          bs.ships[0].y -= Math.round((dy / dist) * push);
+          bs.ships[1].x += Math.round((dx / dist) * push);
+          bs.ships[1].y += Math.round((dy / dist) * push);
+        }
+        bs.ships[0].crew = Math.max(0, bs.ships[0].crew - 1);
+        bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
+      }
     }
 
     // Check for battle end — only send ack in networked mode
@@ -416,12 +444,27 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Nukes ────────────────────────────────────────────────────────────
+    const nukeSet = sp ? (r >= 2 ? sp.nuke.sml : r === 1 ? sp.nuke.med : sp.nuke.big) : null;
     for (const nuke of bs.nukes) {
-      if (sp) {
-        drawSprite(ctx, sp.nuke, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY, r);
+      if (nukeSet) {
+        drawSprite(ctx, nukeSet, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
         placeholderDot(ctx, nuke.x, nuke.y, camX, camY, 3, '#ff8', r);
       }
+    }
+
+    // ── Point-defense laser flashes (1 frame, white lines) ───────────────
+    if (bs.lasers.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const lz of bs.lasers) {
+        ctx.moveTo(w2d(lz.x1 - camX), w2d(lz.y1 - camY));
+        ctx.lineTo(w2d(lz.x2 - camX), w2d(lz.y2 - camY));
+      }
+      ctx.stroke();
+      ctx.restore();
     }
 
     // ── Ships ────────────────────────────────────────────────────────────
@@ -472,9 +515,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       ctx.globalAlpha = alpha;
       ctx.fillStyle = '#4af';
       ctx.font = '10px monospace';
-      ctx.fillText('P1: Arrows  RCtrl=fire  RShift=special', 4, CANVAS_H - 18);
+      ctx.fillText('P1: Arrows  RCtrl/Enter=fire  RShift/Kp0=special', 4, CANVAS_H - 18);
       ctx.fillStyle = '#f84';
-      ctx.fillText('P2: WASD    V=fire      B=special', 4, CANVAS_H - 6);
+      ctx.fillText('P2: WASD    V/Space=fire       B=special', 4, CANVAS_H - 6);
       ctx.globalAlpha = 1;
     }
   }
@@ -563,6 +606,34 @@ function calcReduction(ships: [HumanShipState, HumanShipState], current: number)
   return MAX_REDUCTION;
 }
 
+/**
+ * Proper equal-mass elastic collision along the collision axis.
+ * Applies impulse only when ships are approaching (dot > 0), so ships
+ * that are already separating pass through without re-firing.
+ * Both ships have SHIP_MASS, so the impulse is split equally.
+ */
+function resolveShipCollision(a: HumanShipState, b: HumanShipState): void {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const distSq = dx * dx + dy * dy;
+  if (distSq === 0) return;
+
+  // Relative velocity projected onto collision axis (unnormalized)
+  const rvx = a.velocity.vx - b.velocity.vx;
+  const rvy = a.velocity.vy - b.velocity.vy;
+  const dot = rvx * dx + rvy * dy;
+  if (dot <= 0) return; // already separating — don't resolve
+
+  // Equal-mass elastic: imp = dot / distSq (implicit unit-normal factor)
+  // For unequal masses this would need 2*massB/(massA+massB) weighting,
+  // but both Earthling Cruisers have SHIP_MASS=6 so the ratio is 1.
+  const imp = dot / distSq;
+  a.velocity.vx = Math.trunc(a.velocity.vx - imp * dx);
+  a.velocity.vy = Math.trunc(a.velocity.vy - imp * dy);
+  b.velocity.vx = Math.trunc(b.velocity.vx + imp * dx);
+  b.velocity.vy = Math.trunc(b.velocity.vy + imp * dy);
+}
+
 function circleOverlap(
   ax: number, ay: number, ar: number,
   bx: number, by: number, br: number,
@@ -637,14 +708,50 @@ function applyGravity(ship: HumanShipState) {
 }
 
 function applyPointDefense(bs: BattleState, side: number) {
-  // Point defense laser: destroys nukes within LASER_RANGE display pixels of the firing ship.
+  // Faithful port of UQM spawn_point_defense (human.c).
+  //
+  // Fires at every collidable, non-cloaked object within LASER_RANGE display px:
+  //   • enemy missiles (destroyed on hit)
+  //   • enemy ship (1 crew damage on hit)
+  //
+  // Energy and cooldown use a PaidFor flag — deducted only on the FIRST hit.
+  // If nothing is in range: no energy spent, no cooldown set (free to spam).
+  // One energy payment per activation covers all targets hit that frame.
   const ship = bs.ships[side];
-  const rangeW = DISPLAY_TO_WORLD(LASER_RANGE);
+  const enemyShip = bs.ships[side === 0 ? 1 : 0];
+  const rangeWSq = DISPLAY_TO_WORLD(LASER_RANGE) ** 2;
+  let paidFor = false;
+
+  function payOnce() {
+    if (paidFor) return;
+    ship.energy -= SPECIAL_ENERGY_COST;
+    ship.specialWait = SPECIAL_WAIT;
+    paidFor = true;
+  }
+
+  // Enemy missiles
   bs.nukes = bs.nukes.filter(nuke => {
+    if (nuke.owner === side) return true; // never fire at own missiles
     const dx = nuke.x - ship.x;
     const dy = nuke.y - ship.y;
-    return dx * dx + dy * dy > rangeW * rangeW;
+    if (dx * dx + dy * dy <= rangeWSq) {
+      payOnce();
+      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: nuke.x, y2: nuke.y });
+      return false; // nuke destroyed
+    }
+    return true;
   });
+
+  // Enemy ship (CollidingElement check in UQM — ships always have COLLISION set)
+  {
+    const dx = enemyShip.x - ship.x;
+    const dy = enemyShip.y - ship.y;
+    if (dx * dx + dy * dy <= rangeWSq) {
+      payOnce();
+      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: enemyShip.x, y2: enemyShip.y });
+      enemyShip.crew = Math.max(0, enemyShip.crew - 1); // laser mass_points = 1
+    }
+  }
 }
 
 function computeChecksum(bs: BattleState): number {
