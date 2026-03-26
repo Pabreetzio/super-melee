@@ -103,7 +103,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
   const spritesRef   = useRef<{ big: SpriteSet; med: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
-  const starPatsRef  = useRef<(CanvasPattern | null)[]>([null, null, null]);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
@@ -128,20 +127,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
     loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
-
-    // Load star tile images for parallax starfield
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d')!;
-      [0, 1, 2].forEach(i => {
-        const img = new Image();
-        img.onload = () => {
-          const pat = ctx.createPattern(img, 'repeat');
-          starPatsRef.current[i] = pat;
-        };
-        img.src = `/battle/stars-00${i}.png`;
-      });
-    }
 
     // Tell server which ship slot we're entering with (first occupied slot)
     const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
@@ -407,18 +392,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // ── Stars: 3 parallax layers, offsets based on world midpoint ────────
-    const starPats = starPatsRef.current;
-    const PARALLAX_SHIFT = [5, 4, 3]; // world-unit shift → tile offset (slow → fast)
-    for (let layer = 0; layer < 3; layer++) {
-      const pat = starPats[layer];
-      if (!pat) continue;
-      const ox = (-(midX >> PARALLAX_SHIFT[layer])) & 0xFF;
-      const oy = (-(midY >> PARALLAX_SHIFT[layer])) & 0xFF;
-      pat.setTransform(new DOMMatrix().translateSelf(ox, oy));
-      ctx.fillStyle = pat;
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    }
+    // ── Stars: TODO ──────────────────────────────────────────────────────
+    // The UQM star tile PNGs have the space background color baked in as
+    // opaque pixels — no compositing mode can strip a colored opaque
+    // background without per-pixel processing. Skipping for now; see
+    // docs/rendering.md for the full analysis. Background stays black.
+    // Options for proper implementation:
+    //   a) Per-pixel: getImageData, replace near-background pixels → black
+    //   b) Procedural: seeded RNG to scatter white dots with parallax
 
     // ── Planet ───────────────────────────────────────────────────────────
     const planetDX = w2d(PLANET_X - camX);

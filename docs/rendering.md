@@ -106,6 +106,36 @@ At `sml`, ships are intentionally very small — they're meant for the full-aren
 
 ---
 
+## Star Tiles
+
+The UQM battle star tiles (`base/battle/stars-000/001/002.png`) are 256×256 PNGs
+with the space background color **baked in as opaque pixels** — they are not
+dot sprites on a transparent background. The "space color" visible in the tile
+background is approximately `#A4ACFC` (a blue-purple).
+
+In UQM, these tiles are drawn with normal `source-over` blending as the battle
+arena background. The colored background IS intentional — UQM space is
+blue-purple-tinted, not pure black.
+
+**Problem for our port:** Drawing them as fill patterns covers the entire canvas
+with the blue-purple space color. No standard canvas compositing mode can strip
+an opaque colored background from an opaque source image without per-pixel work.
+
+**Options for a correct implementation:**
+1. **Per-pixel processing:** `getImageData` on each tile, replace pixels close
+   to the background color with transparent/black, cache the result, then use
+   the modified image as the pattern. One-time cost at load, zero per-frame cost.
+2. **Procedural stars:** Use a seeded RNG to scatter white/gray dots across
+   the arena with 3 parallax speeds. Pure black background, dots move as camera
+   moves. Simple and fast.
+3. **Accept UQM's space color:** Draw tiles as-is; the purple-blue background
+   IS faithful to UQM. Only change if aesthetics demand pure black.
+
+**Current status:** Star tiles disabled; background is pure black. To be
+revisited once option 1 or 2 is implemented.
+
+---
+
 ## Rendering Pipeline and Upscaling
 
 **Key finding:** UQM renders to a 640×480 internal framebuffer regardless of
