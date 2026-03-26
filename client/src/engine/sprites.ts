@@ -53,8 +53,9 @@ function pad3(n: number): string {
   return String(n).padStart(3, '0');
 }
 
+// path = 'species/shipname', e.g. 'human/cruiser' or 'spathi/eluder'
 export async function loadSpriteSet(
-  baseName: string,
+  path: string,
   size: 'big' | 'med' | 'sml',
   count: number,
   hotspots: [number, number][],
@@ -64,7 +65,7 @@ export async function loadSpriteSet(
   await Promise.all(
     Array.from({ length: count }, (_, i) => {
       const [hotX, hotY] = hotspots[i] ?? [0, 0];
-      const url = `/ships/${baseName}/${baseName}-${size}-${pad3(i)}.png`;
+      const url = `/ships/${path}-${size}-${pad3(i)}.png`;
       return loadFrame(url, hotX, hotY)
         .then(f => { frames[i] = f; })
         .catch(() => { /* frame stays null; placeholder rendered */ });
@@ -82,8 +83,8 @@ export async function loadCruiserSprites(): Promise<{
   nuke: SpriteSet;
 }> {
   const [big, sml] = await Promise.all([
-    loadSpriteSet('human', 'big', 16, CRUISER_BIG_HOTSPOTS),
-    loadSpriteSet('human', 'sml', 16, CRUISER_SML_HOTSPOTS),
+    loadSpriteSet('human/cruiser', 'big', 16, CRUISER_BIG_HOTSPOTS),
+    loadSpriteSet('human/cruiser', 'sml', 16, CRUISER_SML_HOTSPOTS),
   ]);
 
   // Saturn (nuke) sprites use a different filename prefix — load them manually.
@@ -120,13 +121,14 @@ export function drawSprite(
   canvasH: number,
   originWorldX: number,  // world X of canvas top-left (camera)
   originWorldY: number,
+  reduction: number = 0, // zoom level: 0=1x, 1=2x, 2=4x, 3=8x
 ): void {
   const frame = set.frames[frameIndex & (set.count - 1)];
   if (!frame) return;
 
-  // World → display: divide by 4 (ONE_SHIFT=2)
-  const displayX = Math.round((worldX - originWorldX) >> 2);
-  const displayY = Math.round((worldY - originWorldY) >> 2);
+  // World → display: divide by 4 at 1x, 8 at 2x, 16 at 4x, 32 at 8x
+  const displayX = Math.round((worldX - originWorldX) >> (2 + reduction));
+  const displayY = Math.round((worldY - originWorldY) >> (2 + reduction));
 
   const drawX = displayX - frame.hotX;
   const drawY = displayY - frame.hotY;

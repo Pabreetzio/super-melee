@@ -25,6 +25,67 @@ The arena wraps toroidally. Logical arena size is `SPACE_WIDTH * 32` × `SPACE_H
 
 ---
 
+## Zoom / Camera System
+
+**Source:** `src/uqm/units.h`, `src/uqm/process.c` (`CalcReduction`, `PreProcessQueue`)
+
+UQM has two zoom modes (`optMeleeScale`): continuous trilinear (default) and fixed-step. For our port we implement fixed-step (simpler, deterministic, still faithful to feel).
+
+### Arena size
+
+```
+SPACE_WIDTH  = 576   (battle area width in display pixels — 640 minus 64px status bar)
+SPACE_HEIGHT = 480
+MAX_REDUCTION = 3    (maximum zoom-out = 2^3 = 8×)
+
+Arena width  = SPACE_WIDTH  * 32 = 18432 world units
+Arena height = SPACE_HEIGHT * 32 = 15360 world units
+```
+
+Our port uses `CANVAS_W = 640` (full canvas, HUD is overlay), so:
+```
+WORLD_W = 640 * 32 = 20480
+WORLD_H = 480 * 32 = 15360
+```
+
+### Zoom levels
+
+| Reduction | Zoom | World units per display pixel | Screen shows (world) |
+|-----------|------|-------------------------------|---------------------|
+| 0 | 1× | 4 | 2560 × 1920 (1/8 arena) |
+| 1 | 2× | 8 | 5120 × 3840 (1/4 arena) |
+| 2 | 4× | 16 | 10240 × 7680 (1/2 arena) |
+| 3 | 8× | 32 | 20480 × 15360 (full arena) |
+
+### Coordinate conversion at zoom level `r`
+
+```
+displayX = (worldX - camOriginX) >> (2 + r)
+```
+
+Camera origin (top-left of view):
+```
+camX = midX - (CANVAS_W << (1 + r))   // midX = wrap-aware ship midpoint
+camY = midY - (CANVAS_H << (1 + r))
+```
+
+### Zoom selection (CalcReduction)
+
+Find the minimum `r` where both ships fit in the view:
+```
+sep = max(|ship1.x - ship0.x|, |ship1.y - ship0.y|)  // wrap-aware
+zoom out  when sep >= CANVAS_W << (1 + r)             // immediate
+zoom in   when sep <  (CANVAS_W << (1 + r)) - 192     // 192 world units hysteresis
+```
+
+UQM's hysteresis values: `HYSTERESIS_X = DISPLAY_TO_WORLD(24) = 96`, `HYSTERESIS_Y = DISPLAY_TO_WORLD(20) = 80` (from `process.c`). We use 192 (slightly larger) to prevent rapid toggling.
+
+**Implementation status:** Implemented in `client/src/components/Battle.tsx` (`calcReduction`) and `client/src/engine/sprites.ts` (`drawSprite` accepts `reduction` parameter).
+
+**Known gap:** `drawSprite` currently passes `reduction` for coordinate positioning but does NOT scale the sprite image itself. Fix: `ctx.drawImage(img, x, y, img.width >> reduction, img.height >> reduction)`. Until fixed, sprites appear at native pixel size regardless of zoom level.
+
+---
+
 ## Angle System
 
 **`FULL_CIRCLE = 64`** — angles are integers 0–63 (6-bit).
@@ -239,10 +300,48 @@ Uses `DrawablesIntersect()` — **sprite-based collision detection**, not boundi
 
 ---
 
-## Open Questions (for follow-up reading)
+## Planet Collision
+
+**Source:** `src/uqm/ship.c`, `collision()` function; `src/uqm/misc.c`, `spawn_planet()`
+
+The battle planet is a special element with `mass_points = 200`, which satisfies
+`GRAVITY_MASS(m) = (m > 100)`. This makes it both a gravity source and an immovable obstacle.
+
+### Planet properties
+- `mass_points = 200` (from `misc.c:62`)
+- `DEFY_PHYSICS` flag set — never moves from collisions
+- Acts as gravity well: pulls all ships within `GRAVITY_THRESHOLD = 255` display pixels
+
+### Collision damage
+```c
+// from ship.c, collision():
+damage = ElementPtr0->hit_points >> 2;  // 1/4 of ship's current HP
+if (damage == 0) damage = 1;            // minimum 1 point
+do_damage(ElementPtr0, damage);
+```
+
+So hitting the planet removes 25% of a ship's current HP (not max HP), minimum 1 crew.
+
+### Implementation needed
+In `simulateFrame()` in `Battle.tsx`, add a planet circle overlap check after wrapping positions:
+```typescript
+// Planet collision: 25% current crew damage, bounce
+const r = PLANET_RADIUS_W + DISPLAY_TO_WORLD(SHIP_RADIUS);
+if (circleOverlap(ship.x, ship.y, 0, PLANET_X, PLANET_Y, r)) {
+  ship.crew = Math.max(0, ship.crew - Math.max(1, ship.crew >> 2));
+  // bounce: reverse velocity component toward planet
+}
+```
+
+The bounce should use the same `worldAngle` + `DeltaVelocityComponents` pattern as gravity,
+but applied in the opposite direction (away from planet) with a larger magnitude.
+
+---
+
+## Open Questions
 
 - [ ] What are the values of `COLLISION_TURN_WAIT` and `COLLISION_THRUST_WAIT`? (check `ship.h` or `races.h`)
 - [ ] How does each ship's max speed interact with the velocity accumulator? Where is max speed enforced?
 - [ ] What exactly does `SetEquFrameIndex` do for collision frames?
-- [ ] Is `GRAVITY_THRESHOLD = 255` display pixels — what does that look like relative to screen size?
 - [ ] What is `NONSOLID` flag used for — which elements pass through others?
+- [ ] Which planet type does Super Melee use? Check `load_gravity_well()` call in battle init.

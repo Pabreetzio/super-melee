@@ -7,7 +7,7 @@ import type { FullRoomState, FleetSlot } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
 import { COSINE, SINE } from '../engine/sinetab';
-import { DISPLAY_TO_WORLD, WORLD_TO_DISPLAY } from '../engine/velocity';
+import { DISPLAY_TO_WORLD } from '../engine/velocity';
 import {
   makeHumanShip, updateHumanShip,
   makeNuke, updateNuke,
@@ -23,13 +23,19 @@ import HUD from './HUD';
 const CANVAS_W = 640;
 const CANVAS_H = 480;
 
-// World dimensions (display * 4)
-const WORLD_W = DISPLAY_TO_WORLD(CANVAS_W); // 2560
-const WORLD_H = DISPLAY_TO_WORLD(CANVAS_H); // 1920
+// Zoom system: 4 discrete levels (reduction 0–3 → 1×/2×/4×/8×).
+// Arena = 1 screen at max zoom (8×). At min zoom (1×) you see 1/8 of arena.
+// Source: UQM units.h, arena = SPACE_WIDTH * 32 × SPACE_HEIGHT * 32 world units.
+const MAX_REDUCTION = 3;
+const WORLD_W = CANVAS_W << (2 + MAX_REDUCTION); // 640 * 32 = 20480
+const WORLD_H = CANVAS_H << (2 + MAX_REDUCTION); // 480 * 32 = 15360
 
 // Planet at world center
-const PLANET_X = WORLD_W >> 1;
-const PLANET_Y = WORLD_H >> 1;
+const PLANET_X = WORLD_W >> 1; // 10240
+const PLANET_Y = WORLD_H >> 1; // 7680
+
+// Planet visual radius in world units (= 40 display px at 1× zoom)
+const PLANET_RADIUS_W = 160;
 
 // Gravity threshold in world units = 255 display pixels * 4
 const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
@@ -90,13 +96,15 @@ interface Props {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, onBattleEnd }: Props) {
-  const canvasRef   = useRef<HTMLCanvasElement>(null);
-  const stateRef    = useRef<BattleState | null>(null);
-  const keysRef     = useRef(new Set<string>());
-  const rafRef      = useRef<number | null>(null);
-  const lastTimeRef = useRef(0);
-  const accumRef    = useRef(0);
-  const spritesRef  = useRef<{ big: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const stateRef     = useRef<BattleState | null>(null);
+  const keysRef      = useRef(new Set<string>());
+  const rafRef       = useRef<number | null>(null);
+  const lastTimeRef  = useRef(0);
+  const accumRef     = useRef(0);
+  const spritesRef   = useRef<{ big: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
+  const starPatsRef  = useRef<(CanvasPattern | null)[]>([null, null, null]);
+  const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
 
   // Initialize battle state
@@ -115,6 +123,20 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
     loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
+
+    // Load star tile images for parallax starfield
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d')!;
+      [0, 1, 2].forEach(i => {
+        const img = new Image();
+        img.onload = () => {
+          const pat = ctx.createPattern(img, 'repeat');
+          starPatsRef.current[i] = pat;
+        };
+        img.src = `/battle/stars-00${i}.png`;
+      });
+    }
 
     // Tell server which ship slot we're entering with (first occupied slot)
     const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
@@ -327,61 +349,82 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const ctx = canvas.getContext('2d')!;
     const sp  = spritesRef.current;
 
-    // Camera: center on midpoint between both ships
-    const camX = Math.round((bs.ships[0].x + bs.ships[1].x) / 2) - DISPLAY_TO_WORLD(CANVAS_W / 2);
-    const camY = Math.round((bs.ships[0].y + bs.ships[1].y) / 2) - DISPLAY_TO_WORLD(CANVAS_H / 2);
+    // ── Zoom level ───────────────────────────────────────────────────────
+    reductionRef.current = calcReduction(bs.ships, reductionRef.current);
+    const r = reductionRef.current;
 
-    // Background
+    // w2d: world-space offset → display pixels at current zoom
+    const w2d = (n: number) => n >> (2 + r);
+
+    // ── Camera: wrap-aware midpoint, then offset by half-view ────────────
+    let ax = bs.ships[0].x, bx = bs.ships[1].x;
+    let ay = bs.ships[0].y, by = bs.ships[1].y;
+    if (Math.abs(bx - ax) > WORLD_W >> 1) bx -= Math.sign(bx - ax) * WORLD_W;
+    if (Math.abs(by - ay) > WORLD_H >> 1) by -= Math.sign(by - ay) * WORLD_H;
+    const midX = ((((ax + bx) >> 1) % WORLD_W) + WORLD_W) % WORLD_W;
+    const midY = ((((ay + by) >> 1) % WORLD_H) + WORLD_H) % WORLD_H;
+
+    // Top-left of camera window in world coords
+    const camX = midX - (CANVAS_W << (1 + r));
+    const camY = midY - (CANVAS_H << (1 + r));
+
+    // ── Background ───────────────────────────────────────────────────────
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Stars (tiled placeholder)
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    for (let i = 0; i < 80; i++) {
-      const sx = ((i * 137 + (camX >> 3)) & 0xFFFF) % CANVAS_W;
-      const sy = ((i * 251 + (camY >> 3)) & 0xFFFF) % CANVAS_H;
-      ctx.fillRect(sx, sy, 1, 1);
+    // ── Stars: 3 parallax layers, offsets based on world midpoint ────────
+    const starPats = starPatsRef.current;
+    const PARALLAX_SHIFT = [5, 4, 3]; // world-unit shift → tile offset (slow → fast)
+    for (let layer = 0; layer < 3; layer++) {
+      const pat = starPats[layer];
+      if (!pat) continue;
+      const ox = (-(midX >> PARALLAX_SHIFT[layer])) & 0xFF;
+      const oy = (-(midY >> PARALLAX_SHIFT[layer])) & 0xFF;
+      pat.setTransform(new DOMMatrix().translateSelf(ox, oy));
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
-    // Planet (display coords — centered in world space)
-    const planetDX = WORLD_TO_DISPLAY(PLANET_X - camX);
-    const planetDY = WORLD_TO_DISPLAY(PLANET_Y - camY);
-    if (planetDX > -60 && planetDX < CANVAS_W + 60) {
+    // ── Planet ───────────────────────────────────────────────────────────
+    const planetDX = w2d(PLANET_X - camX);
+    const planetDY = w2d(PLANET_Y - camY);
+    const planetR  = Math.max(2, PLANET_RADIUS_W >> (2 + r));
+    if (planetDX > -planetR * 2 && planetDX < CANVAS_W + planetR * 2) {
       ctx.beginPath();
-      ctx.arc(planetDX, planetDY, 40, 0, Math.PI * 2);
+      ctx.arc(planetDX, planetDY, planetR, 0, Math.PI * 2);
       ctx.fillStyle = '#2a1a44';
       ctx.fill();
       ctx.strokeStyle = '#553388';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = Math.max(1, 2 >> r);
       ctx.stroke();
     }
 
-    // Nukes
+    // ── Nukes ────────────────────────────────────────────────────────────
     for (const nuke of bs.nukes) {
       if (sp) {
-        drawSprite(ctx, sp.nuke, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY);
+        drawSprite(ctx, sp.nuke, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
-        placeholderDot(ctx, nuke.x, nuke.y, camX, camY, 3, '#ff8');
+        placeholderDot(ctx, nuke.x, nuke.y, camX, camY, 3, '#ff8', r);
       }
     }
 
-    // Ships
+    // ── Ships ────────────────────────────────────────────────────────────
     for (let side = 0; side < 2; side++) {
       const ship  = bs.ships[side];
       const color = side === 0 ? '#4af' : '#f84';
       if (sp) {
-        drawSprite(ctx, sp.big, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY);
+        drawSprite(ctx, sp.big, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
-        placeholderDot(ctx, ship.x, ship.y, camX, camY, 8, color);
-        // Draw facing indicator
+        placeholderDot(ctx, ship.x, ship.y, camX, camY, 8, color, r);
+        // Facing indicator
         const angle = (ship.facing * 4) & 63;
-        const dx = WORLD_TO_DISPLAY(ship.x - camX);
-        const dy = WORLD_TO_DISPLAY(ship.y - camY);
+        const sdx = w2d(ship.x - camX);
+        const sdy = w2d(ship.y - camY);
         ctx.beginPath();
-        ctx.moveTo(dx, dy);
+        ctx.moveTo(sdx, sdy);
         ctx.lineTo(
-          dx + Math.cos((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
-          dy + Math.sin((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
+          sdx + Math.cos((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
+          sdy + Math.sin((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
         );
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
@@ -390,22 +433,21 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
       // Thrust flame placeholder
       if (ship.thrusting) {
-        const dx = WORLD_TO_DISPLAY(ship.x - camX);
-        const dy = WORLD_TO_DISPLAY(ship.y - camY);
+        const sdx = w2d(ship.x - camX);
+        const sdy = w2d(ship.y - camY);
         const ang = ((ship.facing * 4 + 32) & 63) / 64 * 2 * Math.PI - Math.PI / 2;
         ctx.beginPath();
-        ctx.arc(dx + Math.cos(ang) * 10, dy + Math.sin(ang) * 10, 3, 0, Math.PI * 2);
+        ctx.arc(sdx + Math.cos(ang) * 10, sdy + Math.sin(ang) * 10, 3, 0, Math.PI * 2);
         ctx.fillStyle = '#f80';
         ctx.fill();
       }
     }
 
-    // Frame counter
+    // ── HUD overlays ─────────────────────────────────────────────────────
     ctx.fillStyle = 'rgba(100,100,120,0.6)';
     ctx.font = '10px monospace';
-    ctx.fillText(`frame ${bs.frame}`, 4, 12);
+    ctx.fillText(`frame ${bs.frame}  zoom ${1 << r}×`, 4, 12);
 
-    // Key reference (local2P only — shows for first 300 frames ~12s then fades)
     if (isLocal2P && bs.frame < 360) {
       const alpha = bs.frame < 240 ? 0.7 : 0.7 * (1 - (bs.frame - 240) / 120);
       ctx.globalAlpha = alpha;
@@ -456,14 +498,41 @@ function placeholderDot(
   ctx: CanvasRenderingContext2D,
   worldX: number, worldY: number,
   camX: number, camY: number,
-  r: number, color: string,
+  dotR: number, color: string,
+  reduction: number = 0,
 ) {
-  const dx = WORLD_TO_DISPLAY(worldX - camX);
-  const dy = WORLD_TO_DISPLAY(worldY - camY);
+  const dx = (worldX - camX) >> (2 + reduction);
+  const dy = (worldY - camY) >> (2 + reduction);
   ctx.beginPath();
-  ctx.arc(dx, dy, r, 0, Math.PI * 2);
+  ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
+}
+
+/**
+ * Pick the smallest zoom-out level (0–MAX_REDUCTION) that keeps both ships
+ * on screen. Zoom out immediately; zoom in only after separation drops below
+ * threshold by HYSTERESIS_W world units to prevent jitter at the boundary.
+ */
+function calcReduction(ships: [HumanShipState, HumanShipState], current: number): number {
+  // Wrap-aware separation
+  let dx = Math.abs(ships[1].x - ships[0].x);
+  let dy = Math.abs(ships[1].y - ships[0].y);
+  if (dx > WORLD_W >> 1) dx = WORLD_W - dx;
+  if (dy > WORLD_H >> 1) dy = WORLD_H - dy;
+  const sep = Math.max(dx, dy);
+
+  const HYSTERESIS_W = 192; // ~48 display px — prevents rapid zoom toggling
+
+  // Find the minimum reduction where ships fit within the half-view width.
+  // When zooming IN (r < current), require the hysteresis margin so we don't
+  // oscillate at the threshold.
+  for (let candidate = 0; candidate < MAX_REDUCTION; candidate++) {
+    const halfView = CANVAS_W << (1 + candidate); // world units of half-view
+    const threshold = candidate < current ? halfView - HYSTERESIS_W : halfView;
+    if (sep < threshold) return candidate;
+  }
+  return MAX_REDUCTION;
 }
 
 function circleOverlap(
