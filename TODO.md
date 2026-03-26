@@ -38,8 +38,10 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 ## Known Issues (fix next session)
 
 ### Rendering Bugs
-- [x] **Ship sprites don't scale with zoom** — Fixed: `drawSprite` now scales sprite dimensions
-  and hotspot by `reduction` and passes `w`/`h` to `ctx.drawImage`.
+- [x] **Ship sprites don't scale with zoom** — Fixed: UQM uses pre-rendered `big`/`med`/`sml`
+  sprite variants per zoom level, not mathematical downscaling. `drawSprite` now draws at
+  native size; Battle.tsx selects `big` for r=0–1 and `sml` for r=2–3. No `med` sprites
+  extracted yet — `big` is used as fallback at r=1.
 
 - [ ] **Starfield parallax needs verification** — The 3-layer star PNG tile approach uses
   `CanvasPattern.setTransform` with a `DOMMatrix` offset. Needs testing to confirm tiles are

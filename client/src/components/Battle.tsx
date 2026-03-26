@@ -409,11 +409,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Ships ────────────────────────────────────────────────────────────
+    // Select sprite size matching zoom level. UQM uses pre-rendered big/med/sml
+    // variants rather than scaling. We have big (r=0–1) and sml (r=2–3); no med.
+    const shipSet = sp ? (r >= 2 ? sp.sml : sp.big) : null;
     for (let side = 0; side < 2; side++) {
       const ship  = bs.ships[side];
       const color = side === 0 ? '#4af' : '#f84';
-      if (sp) {
-        drawSprite(ctx, sp.big, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
+      if (shipSet) {
+        drawSprite(ctx, shipSet, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
         placeholderDot(ctx, ship.x, ship.y, camX, camY, 8, color, r);
         // Facing indicator

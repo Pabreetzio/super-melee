@@ -130,18 +130,16 @@ export function drawSprite(
   const displayX = Math.round((worldX - originWorldX) >> (2 + reduction));
   const displayY = Math.round((worldY - originWorldY) >> (2 + reduction));
 
-  // Scale sprite dimensions and hotspot by zoom reduction
-  const w  = frame.img.width  >> reduction;
-  const h  = frame.img.height >> reduction;
-  const hx = frame.hotX >> reduction;
-  const hy = frame.hotY >> reduction;
-
-  const drawX = displayX - hx;
-  const drawY = displayY - hy;
+  // Draw sprite at native size using its own hotspot.
+  // Callers are responsible for passing the correct size sprite set for the
+  // current zoom level (big → r=0/1, sml → r=2/3). UQM uses pre-rendered
+  // sprites per zoom level rather than scaling a single sprite down.
+  const drawX = displayX - frame.hotX;
+  const drawY = displayY - frame.hotY;
 
   // Only draw if on screen
-  if (drawX + w < 0 || drawX > canvasW) return;
-  if (drawY + h < 0 || drawY > canvasH) return;
+  if (drawX + frame.img.width < 0 || drawX > canvasW) return;
+  if (drawY + frame.img.height < 0 || drawY > canvasH) return;
 
-  ctx.drawImage(frame.img, drawX, drawY, w, h);
+  ctx.drawImage(frame.img, drawX, drawY);
 }
