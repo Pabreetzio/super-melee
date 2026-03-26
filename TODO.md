@@ -38,16 +38,8 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 ## Known Issues (fix next session)
 
 ### Rendering Bugs
-- [ ] **Ship sprites don't scale with zoom** — `drawSprite` draws at native pixel size regardless of
-  reduction level. At 8× zoom a ship sprite should appear ~1/8 its normal size. Fix: pass
-  `reduction` into `ctx.drawImage` as scaled width/height and adjust hotspot:
-  ```
-  const w = frame.img.width  >> reduction;
-  const h = frame.img.height >> reduction;
-  const hx = frame.hotX >> reduction;
-  const hy = frame.hotY >> reduction;
-  ctx.drawImage(frame.img, drawX - hx, drawY - hy, w, h);
-  ```
+- [x] **Ship sprites don't scale with zoom** — Fixed: `drawSprite` now scales sprite dimensions
+  and hotspot by `reduction` and passes `w`/`h` to `ctx.drawImage`.
 
 - [ ] **Starfield parallax needs verification** — The 3-layer star PNG tile approach uses
   `CanvasPattern.setTransform` with a `DOMMatrix` offset. Needs testing to confirm tiles are

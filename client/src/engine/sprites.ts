@@ -130,12 +130,18 @@ export function drawSprite(
   const displayX = Math.round((worldX - originWorldX) >> (2 + reduction));
   const displayY = Math.round((worldY - originWorldY) >> (2 + reduction));
 
-  const drawX = displayX - frame.hotX;
-  const drawY = displayY - frame.hotY;
+  // Scale sprite dimensions and hotspot by zoom reduction
+  const w  = frame.img.width  >> reduction;
+  const h  = frame.img.height >> reduction;
+  const hx = frame.hotX >> reduction;
+  const hy = frame.hotY >> reduction;
+
+  const drawX = displayX - hx;
+  const drawY = displayY - hy;
 
   // Only draw if on screen
-  if (drawX + frame.img.width < 0 || drawX > canvasW) return;
-  if (drawY + frame.img.height < 0 || drawY > canvasH) return;
+  if (drawX + w < 0 || drawX > canvasW) return;
+  if (drawY + h < 0 || drawY > canvasH) return;
 
-  ctx.drawImage(frame.img, drawX, drawY);
+  ctx.drawImage(frame.img, drawX, drawY, w, h);
 }
