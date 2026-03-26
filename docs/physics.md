@@ -82,7 +82,7 @@ UQM's hysteresis values: `HYSTERESIS_X = DISPLAY_TO_WORLD(24) = 96`, `HYSTERESIS
 
 **Implementation status:** Implemented in `client/src/components/Battle.tsx` (`calcReduction`) and `client/src/engine/sprites.ts` (`drawSprite` accepts `reduction` parameter).
 
-**Known gap:** `drawSprite` currently passes `reduction` for coordinate positioning but does NOT scale the sprite image itself. Fix: `ctx.drawImage(img, x, y, img.width >> reduction, img.height >> reduction)`. Until fixed, sprites appear at native pixel size regardless of zoom level.
+**Sprite zoom:** UQM does NOT scale a single sprite — it switches between pre-rendered `big`/`med`/`sml` variants. `drawSprite` draws at native pixel size; the caller (Battle.tsx) selects the correct set based on `r`: big→r=0, med→r=1, sml→r=2–3. See `docs/rendering.md` for full details.
 
 ---
 

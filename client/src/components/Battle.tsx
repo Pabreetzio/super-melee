@@ -106,7 +106,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const starPatsRef  = useRef<(CanvasPattern | null)[]>([null, null, null]);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
-  const [scale, setScale] = useState(1);
+  // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
+  // Stored in a ref so the render loop always sees the current value without
+  // needing to re-bind the tick/render closures on every resize.
+  const uiScaleRef  = useRef(1);
+  const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
 
   // Initialize battle state
   useEffect(() => {
@@ -185,9 +189,21 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   }, []);
 
   // ─── Fill screen ─────────────────────────────────────────────────────────
+  // We render to a native-resolution canvas (no CSS scaling) so sprites are
+  // drawn at physical screen pixels. ctx.scale(uiScale) is applied each frame
+  // so all game logic stays in the 640×480 logical coordinate space.
   useEffect(() => {
     function updateScale() {
-      setScale(Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H));
+      const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
+      uiScaleRef.current = s;
+      const w = Math.round(CANVAS_W * s);
+      const h = Math.round(CANVAS_H * s);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width  = w;
+        canvas.height = h;
+      }
+      setDisplaySize({ w, h });
     }
     updateScale();
     window.addEventListener('resize', updateScale);
@@ -360,6 +376,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const ctx = canvas.getContext('2d')!;
     const sp  = spritesRef.current;
 
+    // Scale all canvas operations to physical pixels.
+    // All game coordinates remain in the logical 640×480 space.
+    // imageSmoothingEnabled = false gives nearest-neighbor scaling for
+    // sprites — crisp pixel art without blur, same as UQM's original output.
+    const s = uiScaleRef.current;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+
     // ── Zoom level ───────────────────────────────────────────────────────
     reductionRef.current = calcReduction(bs.ships, reductionRef.current);
     const r = reductionRef.current;
@@ -479,36 +503,33 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const myFleet  = (yourSide === 0 ? room.host.fleet : room.opponent?.fleet) ?? [];
   const oppFleet = (yourSide === 0 ? room.opponent?.fleet : room.host.fleet) ?? [];
 
+  // Canvas pixel dims are set via the resize effect. The container div is
+  // sized to match so the HUD (absolutely positioned inside it) covers the
+  // game area correctly without any CSS transform.
   return (
     <div style={{
       position: 'fixed', inset: 0,
       background: '#000',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div style={{
-        position: 'relative',
-        transform: `scale(${scale})`,
-        transformOrigin: 'center center',
-        // imageRendering keeps pixel art crisp when scaled up
-        imageRendering: 'pixelated',
-      }}>
-      <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} style={{ display: 'block', imageRendering: 'pixelated' }} />
-      <HUD
-        left={{
-          name:      firstShip(myFleet),
-          crew:      Math.round(hudData.myCrewPct    * MAX_CREW),
-          maxCrew:   MAX_CREW,
-          energy:    Math.round(hudData.myEnergyPct  * MAX_ENERGY),
-          maxEnergy: MAX_ENERGY,
-        }}
-        right={{
-          name:      firstShip(oppFleet),
-          crew:      Math.round(hudData.oppCrewPct   * MAX_CREW),
-          maxCrew:   MAX_CREW,
-          energy:    Math.round(hudData.oppEnergyPct * MAX_ENERGY),
-          maxEnergy: MAX_ENERGY,
-        }}
-      />
+      <div style={{ position: 'relative', width: displaySize.w, height: displaySize.h }}>
+        <canvas ref={canvasRef} style={{ display: 'block' }} />
+        <HUD
+          left={{
+            name:      firstShip(myFleet),
+            crew:      Math.round(hudData.myCrewPct    * MAX_CREW),
+            maxCrew:   MAX_CREW,
+            energy:    Math.round(hudData.myEnergyPct  * MAX_ENERGY),
+            maxEnergy: MAX_ENERGY,
+          }}
+          right={{
+            name:      firstShip(oppFleet),
+            crew:      Math.round(hudData.oppCrewPct   * MAX_CREW),
+            maxCrew:   MAX_CREW,
+            energy:    Math.round(hudData.oppEnergyPct * MAX_ENERGY),
+            maxEnergy: MAX_ENERGY,
+          }}
+        />
       </div>
     </div>
   );
