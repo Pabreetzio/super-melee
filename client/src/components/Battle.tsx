@@ -427,9 +427,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     if (planetDX > -planetR * 2 && planetDX < CANVAS_W + planetR * 2) {
       ctx.beginPath();
       ctx.arc(planetDX, planetDY, planetR, 0, Math.PI * 2);
-      ctx.fillStyle = '#2a1a44';
+      ctx.fillStyle = '#1a1a1a';
       ctx.fill();
-      ctx.strokeStyle = '#553388';
+      ctx.strokeStyle = '#444';
       ctx.lineWidth = Math.max(1, 2 >> r);
       ctx.stroke();
     }
