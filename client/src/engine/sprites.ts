@@ -22,6 +22,12 @@ const CRUISER_BIG_HOTSPOTS: [number, number][] = [
   [7,17],[13,17],[17,15],[20,13],[23,6],[19,11],[17,16],[13,19],
 ];
 
+// cruiser-med (16 rotation frames) — from cruiser-med.ani
+const CRUISER_MED_HOTSPOTS: [number, number][] = [
+  [2,9],[6,8],[9,7],[12,5],[10,2],[12,7],[9,9],[7,10],
+  [3,9],[6,10],[7,9],[9,7],[10,3],[8,5],[7,7],[6,8],
+];
+
 // cruiser-sml (16 rotation frames)
 const CRUISER_SML_HOTSPOTS: [number, number][] = [
   [1,4],[3,4],[4,4],[5,2],[6,1],[5,3],[4,4],[3,5],
@@ -79,11 +85,13 @@ export async function loadSpriteSet(
 
 export async function loadCruiserSprites(): Promise<{
   big: SpriteSet;
+  med: SpriteSet;
   sml: SpriteSet;
   nuke: SpriteSet;
 }> {
-  const [big, sml] = await Promise.all([
+  const [big, med, sml] = await Promise.all([
     loadSpriteSet('human/cruiser', 'big', 16, CRUISER_BIG_HOTSPOTS),
+    loadSpriteSet('human/cruiser', 'med', 16, CRUISER_MED_HOTSPOTS),
     loadSpriteSet('human/cruiser', 'sml', 16, CRUISER_SML_HOTSPOTS),
   ]);
 
@@ -100,6 +108,7 @@ export async function loadCruiserSprites(): Promise<{
 
   return {
     big,
+    med,
     sml,
     nuke: { frames: saturnFrames, count: 16 },
   };

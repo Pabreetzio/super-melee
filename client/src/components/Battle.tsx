@@ -102,10 +102,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const rafRef       = useRef<number | null>(null);
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
-  const spritesRef   = useRef<{ big: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
+  const spritesRef   = useRef<{ big: SpriteSet; med: SpriteSet; sml: SpriteSet; nuke: SpriteSet } | null>(null);
   const starPatsRef  = useRef<(CanvasPattern | null)[]>([null, null, null]);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
+  const [scale, setScale] = useState(1);
 
   // Initialize battle state
   useEffect(() => {
@@ -181,6 +182,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       unsub();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Fill screen ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    function updateScale() {
+      setScale(Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H));
+    }
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
   }, []);
 
   // ─── Game loop ───────────────────────────────────────────────────────────
@@ -409,9 +420,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Ships ────────────────────────────────────────────────────────────
-    // Select sprite size matching zoom level. UQM uses pre-rendered big/med/sml
-    // variants rather than scaling. We have big (r=0–1) and sml (r=2–3); no med.
-    const shipSet = sp ? (r >= 2 ? sp.sml : sp.big) : null;
+    // Select sprite size matching zoom level. UQM uses pre-rendered big/med/sml.
+    //   r=0 → big, r=1 → med, r=2–3 → sml
+    const shipSet = sp ? (r >= 2 ? sp.sml : r === 1 ? sp.med : sp.big) : null;
     for (let side = 0; side < 2; side++) {
       const ship  = bs.ships[side];
       const color = side === 0 ? '#4af' : '#f84';
@@ -469,8 +480,19 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const oppFleet = (yourSide === 0 ? room.opponent?.fleet : room.host.fleet) ?? [];
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} style={{ display: 'block' }} />
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: '#000',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        position: 'relative',
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        // imageRendering keeps pixel art crisp when scaled up
+        imageRendering: 'pixelated',
+      }}>
+      <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} style={{ display: 'block', imageRendering: 'pixelated' }} />
       <HUD
         left={{
           name:      firstShip(myFleet),
@@ -487,6 +509,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           maxEnergy: MAX_ENERGY,
         }}
       />
+      </div>
     </div>
   );
 }

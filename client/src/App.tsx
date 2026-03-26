@@ -397,17 +397,15 @@ export default function App() {
       // roomPatch may lag state.room by one render for solo_engage; use state.room as fallback
       const battleRoom = roomPatch ?? state.room;
       return battleRoom ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-          <Battle
-            room={battleRoom}
-            yourSide={state.yourSide}
-            seed={state.battleSeed}
-            inputDelay={state.inputDelay}
-            isAI={battleRoom.code === 'SOLO'}
-            isLocal2P={battleRoom.code === 'LOCAL2P'}
-            onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
-          />
-        </div>
+        <Battle
+          room={battleRoom}
+          yourSide={state.yourSide}
+          seed={state.battleSeed}
+          inputDelay={state.inputDelay}
+          isAI={battleRoom.code === 'SOLO'}
+          isLocal2P={battleRoom.code === 'LOCAL2P'}
+          onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
+        />
       ) : null;
     }
 
