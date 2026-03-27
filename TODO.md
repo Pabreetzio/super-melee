@@ -83,14 +83,16 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [x] Parse `.ani` files for all 24 non-human ships — hotspots baked into `sprites.ts`
 
 ### Rendering / Polish
-- [x] Thrust flame animation — procedural gradient cone (yellow-white→orange), 3-frame flicker, scales with zoom
-- [x] Explosion/destruction animations — `boom` on ship death, `blast` on missile impact; UQM sprites with canvas circle fallback
+- [x] Thrust flame animation — UQM-faithful ion trail dots (orange→red→dark-red), 12-color cycle from `cycle_ion_trail`, 1×1 px dots trailing behind ship
+- [x] Explosion/destruction animations — `boom` on ship death, `blast` on missile impact; UQM sprites with canvas circle fallback; battle end delayed 10 frames to let boom play
+- [x] Warp-in animation — 15-frame (HYPERJUMP_LIFE) invisible countdown when ship enters; shadow dot approaches from facing direction with UQM ion-trail colors; ship nonsolid during warp-in
 - [ ] Ship radar / minimap (shows both ships across the large toroidal arena)
 
 ### Gameplay
 - [ ] Asteroid hazards (sprites available: `asteroid-big/med/sml` in battle assets)
 - [x] Fleet progression: winner keeps ship, loser queues next; match ends when one fleet is gone
 - [x] Between-round ship selection UI (loser picks next ship from remaining fleet)
+- [x] Winner preserves state (crew/energy/position/velocity/facing) across rounds; only new ship warps in
 - [ ] Score tracking
 
 ### Netplay / Lobby
@@ -100,7 +102,10 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 
 ### Audio
 - [ ] Per-ship combat music (each ship has a unique track in SC2)
-- [ ] Weapon SFX, thrust sound, explosion sounds, UI sounds
+- [x] Weapon SFX: primary/secondary fire, fighter laser — extracted from UQM content to `assets/sounds/ships/<species>/`
+- [x] Explosion SFX: `boom1/23/45/67.wav` for missile impacts, `shipdies.wav` for ship destruction
+- [ ] Thrust sound
+- [ ] UI sounds (menu, selection)
 
 ### Input
 - [ ] Gamepad support (see `docs/architecture.md` for axis/button mapping)

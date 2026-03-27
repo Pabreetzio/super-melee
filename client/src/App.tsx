@@ -5,6 +5,7 @@ import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
 import Battle from './components/Battle';
+import type { WinnerShipState } from './components/Battle';
 import { SHIP_ICON } from './components/ShipPicker';
 
 // ─── App state ────────────────────────────────────────────────────────────────
@@ -24,6 +25,8 @@ interface AppState {
   winner:        0 | 1 | null | undefined; // undefined = not yet
   joinError:     string;
   shipSelectSide: 0 | 1 | null;
+  // Winner's ship state preserved between rounds (offline modes only)
+  winnerState:   WinnerShipState | null;
   // Original fleets captured at first engage; used to restore on rematch
   originalFleets: { host: FleetSlot[]; opponent: FleetSlot[] } | null;
 }
@@ -38,7 +41,7 @@ type Action =
   | { type: 'join_error';     reason: string }
   | { type: 'opponent_left' }
   | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
-  | { type: 'battle_over';    winner: 0 | 1 | null }
+  | { type: 'battle_over';    winner: 0 | 1 | null; winnerState?: WinnerShipState }
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'start_solo';     commanderName: string }
@@ -60,6 +63,7 @@ function init(): AppState {
     winner:        undefined,
     joinError:     '',
     shipSelectSide: null,
+    winnerState:   null,
     originalFleets: null,
   };
 }
@@ -136,10 +140,13 @@ function reducer(state: AppState, action: Action): AppState {
       const isLocal2P = state.room?.code === 'LOCAL2P';
       if ((!isSolo && !isLocal2P) || !state.room) {
         // Online: server handles the multi-ship flow; go straight to post_battle
-        return { ...state, screen: 'post_battle', winner: action.winner };
+        return { ...state, screen: 'post_battle', winner: action.winner, winnerState: null };
       }
 
       const winner = action.winner;
+      // Preserve the winner's ship state for the next battle (offline modes only).
+      // On draw, clear winner state.
+      const nextWinnerState = winner !== null ? (action.winnerState ?? null) : null;
       const hostFleet = [...state.room.host.fleet] as FleetSlot[];
       const oppFleet  = [...(state.room.opponent?.fleet ?? [])] as FleetSlot[];
 
@@ -163,7 +170,7 @@ function reducer(state: AppState, action: Action): AppState {
         const finalWinner: 0 | 1 | null =
           !hostHasShips && !oppHasShips ? null
           : !hostHasShips ? 1 : 0;
-        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner };
+        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner, winnerState: null };
       }
 
       // Who needs to pick?  Loser picks; on draw, host picks first.
@@ -178,6 +185,7 @@ function reducer(state: AppState, action: Action): AppState {
             ...state, room: updatedRoom,
             screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
             winner: undefined, shipSelectSide: null,
+            winnerState: nextWinnerState,
           };
         }
         shipSelectSide = 1;
@@ -190,6 +198,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state, room: updatedRoom,
         screen: 'ship_select', shipSelectSide,
         winner, // keep so ship_chosen knows if it was a draw
+        winnerState: nextWinnerState,
       };
     }
 
@@ -280,6 +289,7 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
+        winnerState: null, // fresh start / rematch clears winner state
         // Capture original fleets on first engage only; rematch restores from these
         originalFleets: state.originalFleets ?? { host: action.fleet0, opponent: action.fleet1 },
       };
@@ -343,6 +353,7 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
+        winnerState: null, // fresh start / rematch clears winner state
         // Capture original fleets on first engage only; rematch restores from these
         originalFleets: state.originalFleets ?? {
           host:     action.fleet,
@@ -545,7 +556,8 @@ export default function App() {
           inputDelay={state.inputDelay}
           isAI={battleRoom.code === 'SOLO'}
           isLocal2P={battleRoom.code === 'LOCAL2P'}
-          onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
+          winnerState={state.winnerState}
+          onBattleEnd={(winner, ws) => dispatch({ type: 'battle_over', winner, winnerState: ws })}
         />
       ) : null;
     }

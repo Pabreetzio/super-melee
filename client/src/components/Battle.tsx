@@ -39,6 +39,7 @@ import { trackFacing } from '../engine/ships/human';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import HUD from './HUD';
+import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,23 @@ interface BattleExplosion {
   frame: number; // current frame index; advances each sim tick
 }
 
+// Cosmetic ion trail dot emitted while thrusting (not checksummed)
+interface IonDot {
+  x: number; y: number; age: number; // age 0–11; fades and colors cycle
+}
+
+// Winner ship state preserved between rounds (offline modes only)
+export interface WinnerShipState {
+  side: 0 | 1;
+  crew: number;
+  energy: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  facing: number;
+}
+
 interface BattleState {
   ships:     [HumanShipState, HumanShipState];
   shipTypes: [ShipId, ShipId];
@@ -159,10 +177,14 @@ interface BattleState {
   fighters:  BattleFighter[];
   lasers:    LaserFlash[];      // cleared each sim frame; rendered as 1-frame flashes
   explosions: BattleExplosion[]; // cosmetic; not checksum'd
+  ionTrails:  [IonDot[], IonDot[]]; // cosmetic thruster exhaust dots; not checksum'd
+  warpIn:     [number, number];     // countdown 15→0; ship invisible + nonsolid during warp-in
   shipAlive:  [boolean, boolean]; // tracks alive→dead transition for boom spawn
   frame: number;
   // Input buffers: [myInputs, opponentInputs], indexed by frame number
   inputBuf: [Map<number, number>, Map<number, number>];
+  // Pending battle end: counts down after death to let explosion animate
+  pendingEnd: { winner: 0 | 1 | null; countdown: number } | null;
 }
 
 interface Props {
@@ -172,12 +194,13 @@ interface Props {
   inputDelay:  number;
   isAI?:       boolean;
   isLocal2P?:  boolean;
-  onBattleEnd: (winner: 0 | 1 | null) => void;
+  winnerState?: WinnerShipState | null;
+  onBattleEnd: (winner: 0 | 1 | null, winnerState?: WinnerShipState) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, winnerState = null, onBattleEnd }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
@@ -237,6 +260,25 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const s1 = makeShip(type1, PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
     s1.facing = 8; // face the other direction
 
+    // Apply winner state if this is a continuation battle (offline modes).
+    // Winner keeps exact crew/energy/position/velocity from previous fight.
+    // The loser's new ship starts at the default spawn position (above).
+    let warpIn0 = 15;
+    let warpIn1 = 15;
+    if (winnerState) {
+      const ws = winnerState;
+      const wShip = ws.side === 0 ? s0 : s1;
+      wShip.crew    = ws.crew;
+      wShip.energy  = ws.energy;
+      wShip.x       = ws.x;
+      wShip.y       = ws.y;
+      wShip.velocity.vx = ws.vx;
+      wShip.velocity.vy = ws.vy;
+      wShip.facing  = ws.facing;
+      // Winner skips warp-in (they're already in the arena)
+      if (ws.side === 0) warpIn0 = 0; else warpIn1 = 0;
+    }
+
     // Pre-seed input buffers for frames 0..inputDelay-1 with zero input.
     // Both sides agree that the game starts with no input held, so we can
     // fill these locally without network communication. Without this, the
@@ -255,10 +297,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       fighters: [],
       lasers: [],
       explosions: [],
+      ionTrails: [[], []],
+      warpIn: [warpIn0, warpIn1],
       shipAlive: [true, true],
       frame: 0,
       inputBuf,
+      pendingEnd: null,
     };
+
+    // Preload sounds (non-blocking; silently ignored if files are missing)
+    preloadBattleSounds([type0, type1]);
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
     loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
@@ -301,8 +349,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         const opSide = yourSide === 0 ? 1 : 0;
         stateRef.current.inputBuf[opSide].set(msg.frame, msg.input);
       } else if (msg.type === 'battle_over') {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        onBattleEnd(msg.winner);
+        // Don't end immediately — let the explosion animation play out.
+        const bs = stateRef.current;
+        if (bs) {
+          if (!bs.pendingEnd) {
+            bs.pendingEnd = { winner: msg.winner, countdown: 10 };
+          } else {
+            bs.pendingEnd.winner = msg.winner; // server's winner is authoritative
+          }
+        } else {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          onBattleEnd(msg.winner);
+        }
       } else if (msg.type === 'checksum_mismatch') {
         console.error(`Desync at frame ${msg.frame}`);
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -441,15 +499,41 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     }
 
-    // In offline modes handle battle end locally
-    if (isOffline && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      const winner: 0 | 1 | null =
-        bs.ships[0].crew <= 0 && bs.ships[1].crew <= 0 ? null
-        : bs.ships[0].crew <= 0 ? 1
-        : 0;
-      onBattleEnd(winner);
-      return;
+    // Detect battle end and start countdown to let explosion animate.
+    // pendingEnd is set once (when the first ship death is detected) and then
+    // counts down to 0 before calling onBattleEnd. Both offline and online modes
+    // use this path; online mode also receives an authoritative winner from server.
+    const s0dead = bs.ships[0].crew <= 0;
+    const s1dead = bs.ships[1].crew <= 0;
+    if ((s0dead || s1dead) && !bs.pendingEnd) {
+      const winner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : 0;
+      bs.pendingEnd = { winner, countdown: 10 }; // ~10 frames ≈ 415 ms
+      if (!isAI && !isLocal2P) {
+        client.send({ type: 'battle_over_ack' });
+      }
+    }
+    if (bs.pendingEnd) {
+      bs.pendingEnd.countdown--;
+      if (bs.pendingEnd.countdown <= 0) {
+        const w = bs.pendingEnd.winner;
+        let ws: WinnerShipState | undefined;
+        if (w !== null) {
+          const wShip = bs.ships[w];
+          ws = {
+            side: w,
+            crew:    wShip.crew,
+            energy:  wShip.energy,
+            x:       wShip.x,
+            y:       wShip.y,
+            vx:      wShip.velocity.vx,
+            vy:      wShip.velocity.vy,
+            facing:  wShip.facing,
+          };
+        }
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        onBattleEnd(w, ws);
+        return;
+      }
     }
 
     // Update HUD (use per-ship max stats)
@@ -472,16 +556,22 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     applyGravity(bs.ships[0]);
     applyGravity(bs.ships[1]);
 
-    // Update ships — dispatch to correct ship update function
-    const updateShip = (ship: HumanShipState, input: number, type: ShipId): SpawnRequest[] => {
+    // Decrement warp-in countdown (ship is invisible and nonsolid during this)
+    if (bs.warpIn[0] > 0) bs.warpIn[0]--;
+    if (bs.warpIn[1] > 0) bs.warpIn[1]--;
+
+    // Update ships — dispatch to correct ship update function.
+    // Ships still warping in cannot act (no weapons, no steering).
+    const updateShip = (ship: HumanShipState, input: number, type: ShipId, warping: boolean): SpawnRequest[] => {
+      if (warping) return []; // frozen during warp-in
       if (type === 'spathi') return updateSpathiShip(ship, input);
       if (type === 'urquan') return updateUrquanShip(ship, input);
       if (type === 'pkunk')  return updatePkunkShip(ship, input);
       if (type === 'vux')    return updateVuxShip(ship, input);
       return updateHumanShip(ship, input);
     };
-    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0]);
-    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1]);
+    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0);
+    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0);
 
     // Wrap positions
     bs.ships[0].x = ((bs.ships[0].x % WORLD_W) + WORLD_W) % WORLD_W;
@@ -520,11 +610,15 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     };
     for (const s of spawns0) {
       spawnRequest(s, 0);
-      if (s.type === 'point_defense') applyPointDefense(bs, 0);
+      if (s.type === 'point_defense') { applyPointDefense(bs, 0); playSecondary(bs.shipTypes[0]); }
+      else if (s.type === 'missile')  playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
     }
     for (const s of spawns1) {
       spawnRequest(s, 1);
-      if (s.type === 'point_defense') applyPointDefense(bs, 1);
+      if (s.type === 'point_defense') { applyPointDefense(bs, 1); playSecondary(bs.shipTypes[1]); }
+      else if (s.type === 'missile')  playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
     }
 
     // Update missiles
@@ -570,13 +664,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       m.x = ((m.x % WORLD_W) + WORLD_W) % WORLD_W;
       m.y = ((m.y % WORLD_H) + WORLD_H) % WORLD_H;
 
-      // Collision with ships (missile only hits the opposing side)
+      // Collision with ships (missile only hits the opposing side; skip if target is warping in)
       let hit = false;
       const targetSide = m.owner === 0 ? 1 : 0;
       const targetShip = bs.ships[targetSide];
-      if (circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
+      if (bs.warpIn[targetSide] === 0 && circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
         targetShip.crew = Math.max(0, targetShip.crew - m.damage);
         bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        playBlast(m.damage);
         // VUX limpet: apply movement impairment (increase turn/thrust wait)
         if (m.limpet) {
           targetShip.turnWait  = Math.min(15, targetShip.turnWait  + 1);
@@ -640,6 +735,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
             bs.lasers.push({ x1: f.x, y1: f.y, x2: f.x + ex, y2: f.y + ey });
             enemyShip.crew = Math.max(0, enemyShip.crew - 1);
             f.weaponWait = FIGHTER_WEAPON_WAIT;
+            playFighterLaser();
           }
         }
         if (f.weaponWait > 0) f.weaponWait--;
@@ -665,14 +761,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       return e.frame < (e.type === 'boom' ? 9 : 8);
     });
 
-    // Ship–ship collision
+    // Ship–ship collision (skip if either ship is still warping in)
     {
       const r = DISPLAY_TO_WORLD(SHIP_RADIUS);
       const dx = bs.ships[1].x - bs.ships[0].x;
       const dy = bs.ships[1].y - bs.ships[0].y;
       const distSq = dx * dx + dy * dy;
       const minDist = r + r;
-      if (distSq < minDist * minDist && distSq > 0) {
+      if (bs.warpIn[0] === 0 && bs.warpIn[1] === 0 && distSq < minDist * minDist && distSq > 0) {
         resolveShipCollision(bs.ships[0], bs.ships[1]);
         // Push ships apart so they don't re-trigger next frame
         const dist = Math.sqrt(distSq);
@@ -731,14 +827,27 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       const alive = bs.ships[side].crew > 0;
       if (bs.shipAlive[side] && !alive) {
         bs.explosions.push({ type: 'boom', x: bs.ships[side].x, y: bs.ships[side].y, frame: 0 });
+        playShipDies();
       }
       bs.shipAlive[side] = alive;
     }
 
-    // Check for battle end — only send ack in networked mode
-    // (offline modes detect end in advance() above)
-    if (!isAI && !isLocal2P && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
-      client.send({ type: 'battle_over_ack' });
+    // Update ion trail dots (cosmetic thruster exhaust; not checksummed).
+    // Colors cycle from orange → red → dark red per UQM cycle_ion_trail.
+    for (let side = 0; side < 2; side++) {
+      const ship = bs.ships[side];
+      // Advance age and cull expired dots
+      for (const dot of bs.ionTrails[side]) dot.age++;
+      bs.ionTrails[side] = bs.ionTrails[side].filter(d => d.age < 12);
+      // Spawn a new dot behind the ship when thrusting and not warping in
+      if (ship.thrusting && bs.warpIn[side] === 0 && ship.crew > 0) {
+        const backAng = ((ship.facing * 4 + 32) & 63);
+        bs.ionTrails[side].push({
+          x: ship.x + COSINE(backAng, 28), // ~7 display px at 1× zoom
+          y: ship.y + SINE(backAng, 28),
+          age: 0,
+        });
+      }
     }
   }
 
@@ -907,6 +1016,37 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       ctx.restore();
     }
 
+    // ── Ion trails (thruster exhaust dots) ──────────────────────────────
+    // UQM-style: small 1×1 dots cycling orange → red → dark red → gone.
+    // Colors from UQM tactrans.c cycle_ion_trail colorTab (RGB15 values).
+    {
+      // Per-age color: [r, g, b] — 12 steps matching UQM colorTab
+      const ION_COLORS: [number, number, number][] = [
+        [255, 171,  0], // age 0  (0x1F,0x15,0x00)
+        [255, 142,  0], // age 1  (0x1F,0x11,0x00)
+        [255, 113,  0], // age 2  (0x1F,0x0E,0x00)
+        [255,  85,  0], // age 3  (0x1F,0x0A,0x00)
+        [255,  57,  0], // age 4  (0x1F,0x07,0x00)
+        [255,  28,  0], // age 5  (0x1F,0x03,0x00)
+        [255,   0,  0], // age 6  (0x1F,0x00,0x00)
+        [219,   0,  0], // age 7  (0x1B,0x00,0x00)
+        [183,   0,  0], // age 8  (0x17,0x00,0x00)
+        [147,   0,  0], // age 9  (0x13,0x00,0x00)
+        [111,   0,  0], // age 10 (0x0F,0x00,0x00)
+        [ 75,   0,  0], // age 11 (0x0B,0x00,0x00)
+      ];
+      for (let side = 0; side < 2; side++) {
+        for (const dot of bs.ionTrails[side]) {
+          const [cr, cg, cb] = ION_COLORS[Math.min(dot.age, 11)];
+          const dotDX = w2d(dot.x - camX);
+          const dotDY = w2d(dot.y - camY);
+          if (dotDX < -1 || dotDX > CANVAS_W + 1 || dotDY < -1 || dotDY > CANVAS_H + 1) continue;
+          ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+          ctx.fillRect(dotDX, dotDY, 1, 1);
+        }
+      }
+    }
+
     // ── Ships ────────────────────────────────────────────────────────────
     // Select sprite set based on ship type and zoom level.
     for (let side = 0; side < 2; side++) {
@@ -934,6 +1074,28 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           shipSet = sp ? (r >= 2 ? sp.sml : r === 1 ? sp.med : sp.big) : null;
         }
       }
+
+      // Warp-in: ship is invisible during countdown (HYPERJUMP_LIFE=15 frames).
+      // Render orange→red ion-trail-colored dots approaching from the facing
+      // direction, simulating UQM's ship_transition shadow elements.
+      if (bs.warpIn[side] > 0) {
+        const wi = bs.warpIn[side];
+        // Shadow dot approaches ship from the facing direction
+        const ang = (ship.facing * 4) & 63; // facing angle
+        const distW = Math.round((wi / 15) * DISPLAY_TO_WORLD(120)); // world units
+        const shadowX = ship.x + COSINE(ang, distW);
+        const shadowY = ship.y + SINE(ang, distW);
+        const sdx = w2d(shadowX - camX);
+        const sdy = w2d(shadowY - camY);
+        // Color cycles: starts bright orange (far), gets redder as it approaches
+        const colorStep = Math.min(11, Math.floor((15 - wi) * 12 / 15));
+        const ionR = [255, 255, 255, 255, 255, 255, 255, 219, 183, 147, 111, 75][colorStep];
+        const ionG = [171, 142, 113, 85, 57, 28, 0, 0, 0, 0, 0, 0][colorStep];
+        ctx.fillStyle = `rgb(${ionR},${ionG},0)`;
+        ctx.fillRect(sdx - 1, sdy - 1, 3, 3);
+        continue; // skip normal ship rendering while warping in
+      }
+
       if (shipSet) {
         drawSprite(ctx, shipSet, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
@@ -951,35 +1113,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.stroke();
-      }
-
-      // Thrust flame — procedural gradient cone pointing backward from ship
-      if (ship.thrusting) {
-        const sdx = w2d(ship.x - camX);
-        const sdy = w2d(ship.y - camY);
-        // Backward angle: facing + 32 (180°) in UQM units → canvas radians
-        const ang = ((ship.facing * 4 + 32) & 63) / 64 * 2 * Math.PI - Math.PI / 2;
-        const flameLen    = Math.max(3, 13 - r * 3);
-        const flameW      = Math.max(2, 6 - r);
-        const nozzleOff   = Math.max(2, 6 - r);
-        const flicker     = [0, 2, 1][(bs.frame + side) % 3];
-        const fLen        = flameLen + flicker;
-        ctx.save();
-        ctx.translate(sdx + Math.cos(ang) * nozzleOff, sdy + Math.sin(ang) * nozzleOff);
-        ctx.rotate(ang - Math.PI / 2); // +y axis now points in backward direction
-        const grad = ctx.createLinearGradient(0, 0, 0, fLen);
-        grad.addColorStop(0,   'rgba(255,255,180,0.95)');
-        grad.addColorStop(0.2, 'rgba(255,160,20,0.9)');
-        grad.addColorStop(0.7, 'rgba(255,80,0,0.6)');
-        grad.addColorStop(1,   'rgba(255,60,0,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(-flameW / 2, 0);
-        ctx.lineTo( flameW / 2, 0);
-        ctx.lineTo(0, fLen);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
       }
     }
 
