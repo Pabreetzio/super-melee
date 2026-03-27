@@ -89,8 +89,8 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 
 ### Gameplay
 - [ ] Asteroid hazards (sprites available: `asteroid-big/med/sml` in battle assets)
-- [ ] Fleet progression: winner keeps ship, loser queues next; match ends when one fleet is gone
-- [ ] Victory/defeat screen between rounds
+- [x] Fleet progression: winner keeps ship, loser queues next; match ends when one fleet is gone
+- [x] Between-round ship selection UI (loser picks next ship from remaining fleet)
 - [ ] Score tracking
 
 ### Netplay / Lobby
@@ -106,7 +106,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [ ] Gamepad support (see `docs/architecture.md` for axis/button mapping)
 
 ### Infrastructure
-- [ ] Hosting (Vercel/Fly.io)
+- [x] Hosting — Railway deploy: `start` script added, client dist path fixed, compiled server path corrected
 - [ ] CI / physics determinism tests
 
 ---

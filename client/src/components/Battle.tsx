@@ -206,9 +206,12 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   // Initialize battle state
   useEffect(() => {
-    // Determine each player's active ship type from their fleet
-    const fleet0 = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
-    const fleet1 = yourSide === 0 ? room.opponent?.fleet ?? [] : room.host.fleet;
+    // Determine each player's active ship type from their fleet.
+    // fleet0 = host (ship 0), fleet1 = opponent (ship 1) — always absolute,
+    // never relative to yourSide. Both clients must compute the same types
+    // for the lockstep simulation to remain in sync.
+    const fleet0 = room.host.fleet;
+    const fleet1 = room.opponent?.fleet ?? [];
     const type0 = (fleet0.find(Boolean) ?? 'human') as ShipId;
     const type1 = (fleet1.find(Boolean) ?? 'human') as ShipId;
 
@@ -234,6 +237,17 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const s1 = makeShip(type1, PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
     s1.facing = 8; // face the other direction
 
+    // Pre-seed input buffers for frames 0..inputDelay-1 with zero input.
+    // Both sides agree that the game starts with no input held, so we can
+    // fill these locally without network communication. Without this, the
+    // lockstep stalls forever because sendFrame = frame + inputDelay means
+    // we never enqueue anything for the earliest frames.
+    const inputBuf: [Map<number,number>, Map<number,number>] = [new Map(), new Map()];
+    for (let f = 0; f < inputDelay; f++) {
+      inputBuf[0].set(f, 0);
+      inputBuf[1].set(f, 0);
+    }
+
     stateRef.current = {
       ships: [s0, s1],
       shipTypes: [type0, type1],
@@ -243,7 +257,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       explosions: [],
       shipAlive: [true, true],
       frame: 0,
-      inputBuf: [new Map(), new Map()],
+      inputBuf,
     };
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)

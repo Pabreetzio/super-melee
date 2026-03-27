@@ -1,14 +1,15 @@
 import { useState, useEffect, useReducer } from 'react';
 import { client } from './net/client';
-import type { FullRoomState, FleetSlot, RoomSummary, ServerMsg } from 'shared/types';
+import type { FullRoomState, FleetSlot, RoomSummary, ServerMsg, ShipId } from 'shared/types';
 import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
 import Battle from './components/Battle';
+import { SHIP_ICON } from './components/ShipPicker';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
-type Screen = 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle';
+type Screen = 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select';
 
 interface AppState {
   screen:        Screen;
@@ -22,6 +23,9 @@ interface AppState {
   inputDelay:    number;
   winner:        0 | 1 | null | undefined; // undefined = not yet
   joinError:     string;
+  shipSelectSide: 0 | 1 | null;
+  // Original fleets captured at first engage; used to restore on rematch
+  originalFleets: { host: FleetSlot[]; opponent: FleetSlot[] } | null;
 }
 
 type Action =
@@ -35,6 +39,7 @@ type Action =
   | { type: 'opponent_left' }
   | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1 }
   | { type: 'battle_over';    winner: 0 | 1 | null }
+  | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'start_solo';     commanderName: string }
   | { type: 'solo_engage';    fleet: FleetSlot[] }
@@ -54,6 +59,8 @@ function init(): AppState {
     inputDelay:    2,
     winner:        undefined,
     joinError:     '',
+    shipSelectSide: null,
+    originalFleets: null,
   };
 }
 
@@ -112,11 +119,111 @@ function reducer(state: AppState, action: Action): AppState {
         winner:     undefined,
       };
 
-    case 'battle_over':
-      return { ...state, screen: 'post_battle', winner: action.winner };
+    case 'battle_over': {
+      const isSolo    = state.room?.code === 'SOLO';
+      const isLocal2P = state.room?.code === 'LOCAL2P';
+      if ((!isSolo && !isLocal2P) || !state.room) {
+        // Online: server handles the multi-ship flow; go straight to post_battle
+        return { ...state, screen: 'post_battle', winner: action.winner };
+      }
+
+      const winner = action.winner;
+      const hostFleet = [...state.room.host.fleet] as FleetSlot[];
+      const oppFleet  = [...(state.room.opponent?.fleet ?? [])] as FleetSlot[];
+
+      // Consume the losing (or both-on-draw) active ships
+      const hostIdx = hostFleet.findIndex(s => s !== null);
+      const oppIdx  = oppFleet.findIndex(s => s !== null);
+      if (winner !== 0 && hostIdx >= 0) hostFleet[hostIdx] = null; // host lost or draw
+      if (winner !== 1 && oppIdx  >= 0) oppFleet[oppIdx]  = null; // opp lost or draw
+
+      const updatedRoom: FullRoomState = {
+        ...state.room,
+        host:     { ...state.room.host,      fleet: hostFleet },
+        opponent: state.room.opponent ? { ...state.room.opponent, fleet: oppFleet } : undefined,
+      };
+
+      const hostHasShips = hostFleet.some(Boolean);
+      const oppHasShips  = oppFleet.some(Boolean);
+
+      // True game over — at least one side exhausted
+      if (!hostHasShips || !oppHasShips) {
+        const finalWinner: 0 | 1 | null =
+          !hostHasShips && !oppHasShips ? null
+          : !hostHasShips ? 1 : 0;
+        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner };
+      }
+
+      // Who needs to pick?  Loser picks; on draw, host picks first.
+      // In SOLO mode, the AI (side 1) never needs the picker — it auto-picks
+      // by virtue of having the next non-null ship already at the front.
+      let shipSelectSide: 0 | 1;
+      if (winner === 0) {
+        // Host won → opponent (side 1) lost
+        if (isSolo) {
+          // AI auto-picks: no UI needed, just restart
+          return {
+            ...state, room: updatedRoom,
+            screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
+            winner: undefined, shipSelectSide: null,
+          };
+        }
+        shipSelectSide = 1;
+      } else {
+        // Opponent won, or draw → host (side 0) lost and must pick
+        shipSelectSide = 0;
+      }
+
+      return {
+        ...state, room: updatedRoom,
+        screen: 'ship_select', shipSelectSide,
+        winner, // keep so ship_chosen knows if it was a draw
+      };
+    }
+
+    case 'ship_chosen': {
+      if (!state.room) return state;
+      const { side, slot } = action;
+      const isSolo = state.room.code === 'SOLO';
+
+      // Move chosen slot to be the first non-null position so Battle's
+      // fleet.find(Boolean) picks it up correctly.
+      const swapToFront = (fleet: FleetSlot[], idx: number): FleetSlot[] => {
+        const first = fleet.findIndex(s => s !== null);
+        if (first < 0 || first === idx) return fleet;
+        const f = [...fleet];
+        [f[first], f[idx]] = [f[idx], f[first]];
+        return f;
+      };
+
+      const hostFleet = side === 0
+        ? swapToFront([...state.room.host.fleet], slot)
+        : [...state.room.host.fleet];
+      const oppFleet = side === 1
+        ? swapToFront([...(state.room.opponent?.fleet ?? [])], slot)
+        : [...(state.room.opponent?.fleet ?? [])];
+
+      const updatedRoom: FullRoomState = {
+        ...state.room,
+        host:     { ...state.room.host,      fleet: hostFleet },
+        opponent: state.room.opponent ? { ...state.room.opponent, fleet: oppFleet } : undefined,
+      };
+
+      // Draw + LOCAL2P: host just picked, now opponent must pick
+      if (state.winner === null && !isSolo && side === 0) {
+        return { ...state, room: updatedRoom, screen: 'ship_select', shipSelectSide: 1 };
+      }
+
+      // Otherwise start the next battle
+      return {
+        ...state, room: updatedRoom,
+        screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
+        winner: undefined, shipSelectSide: null,
+      };
+    }
 
     case 'go_browser':
-      return { ...state, screen: 'browser', room: null, joinError: '' };
+      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null };
 
     case 'start_local2p': {
       const localRoom: FullRoomState = {
@@ -142,7 +249,7 @@ function reducer(state: AppState, action: Action): AppState {
           shipsAlive: [],
         },
       };
-      return { ...state, screen: 'fleet_builder', room: localRoom, yourSide: 0, winner: undefined };
+      return { ...state, screen: 'fleet_builder', room: localRoom, yourSide: 0, winner: undefined, originalFleets: null };
     }
 
     case 'local2p_engage': {
@@ -161,12 +268,13 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
+        // Capture original fleets on first engage only; rematch restores from these
+        originalFleets: state.originalFleets ?? { host: action.fleet0, opponent: action.fleet1 },
       };
     }
 
     case 'start_solo': {
-      // AI gets a varied preset fleet. Battle currently uses human physics for all
-      // ships regardless, so this is just for display in the fleet builder.
+      // AI gets a varied preset fleet.
       const aiFleet: FleetSlot[] = [
         'urquan',    'chmmr',    'orz',       'androsynth',
         'yehat',     'mycon',    'spathi',     'thraddash',
@@ -202,6 +310,7 @@ function reducer(state: AppState, action: Action): AppState {
         room: soloRoom,
         yourSide: 0,
         winner: undefined,
+        originalFleets: null,
       };
     }
 
@@ -222,6 +331,11 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
+        // Capture original fleets on first engage only; rematch restores from these
+        originalFleets: state.originalFleets ?? {
+          host:     action.fleet,
+          opponent: state.room.opponent!.fleet,
+        },
       };
     }
 
@@ -394,10 +508,15 @@ export default function App() {
     }
 
     case 'battle': {
-      // roomPatch may lag state.room by one render for solo_engage; use state.room as fallback
-      const battleRoom = roomPatch ?? state.room;
+      // Offline modes: use state.room directly — roomPatch lags one render
+      // behind and would supply stale null fleets on the first battle frame.
+      // Online modes: use roomPatch which carries incremental fleet patches
+      // applied by the server message handler.
+      const isOfflineBattle = state.room?.code === 'SOLO' || state.room?.code === 'LOCAL2P';
+      const battleRoom = isOfflineBattle ? state.room : (roomPatch ?? state.room);
       return battleRoom ? (
         <Battle
+          key={state.battleSeed}
           room={battleRoom}
           yourSide={state.yourSide}
           seed={state.battleSeed}
@@ -407,6 +526,20 @@ export default function App() {
           onBattleEnd={winner => dispatch({ type: 'battle_over', winner })}
         />
       ) : null;
+    }
+
+    case 'ship_select': {
+      if (!state.room || state.shipSelectSide === null) return null;
+      const side  = state.shipSelectSide;
+      const fleet = side === 0 ? state.room.host.fleet : (state.room.opponent?.fleet ?? []);
+      const label = side === 0 ? state.room.host.teamName : (state.room.opponent?.teamName ?? 'Opponent');
+      return (
+        <ShipSelectFromFleet
+          fleet={fleet}
+          playerLabel={label}
+          onSelect={slot => dispatch({ type: 'ship_chosen', side, slot })}
+        />
+      );
     }
 
     case 'post_battle': {
@@ -421,9 +554,15 @@ export default function App() {
           isSolo={isOffline}
           onRematch={() => {
             if (isSolo) {
-              dispatch({ type: 'solo_engage', fleet: state.room!.host.fleet });
+              // Restore original fleet so rematch starts fresh, not from consumed state
+              const orig = state.originalFleets;
+              dispatch({ type: 'solo_engage', fleet: orig?.host ?? state.room!.host.fleet });
             } else if (isLocal2P) {
-              dispatch({ type: 'local2p_engage', fleet0: state.room!.host.fleet, fleet1: state.room!.opponent!.fleet });
+              const orig = state.originalFleets;
+              dispatch({ type: 'local2p_engage',
+                fleet0: orig?.host     ?? state.room!.host.fleet,
+                fleet1: orig?.opponent ?? state.room!.opponent!.fleet,
+              });
             } else {
               client.send({ type: 'rematch' });
             }
@@ -438,6 +577,61 @@ export default function App() {
   }
 }
 
+
+// ─── Between-round ship selection ─────────────────────────────────────────────
+
+interface ShipSelectFromFleetProps {
+  fleet:       FleetSlot[];
+  playerLabel: string;
+  onSelect:    (slot: number) => void;
+}
+
+function ShipSelectFromFleet({ fleet, playerLabel, onSelect }: ShipSelectFromFleetProps) {
+  const available = fleet
+    .map((ship, idx) => ({ ship, idx }))
+    .filter((e): e is { ship: ShipId; idx: number } => e.ship !== null);
+
+  return (
+    <div className="screen">
+      <div className="panel col" style={{ width: 560, gap: 20, textAlign: 'center' }}>
+        <h2>{playerLabel}</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: 0 }}>
+          Choose your next ship, Commander.
+        </p>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 8,
+        }}>
+          {available.map(({ ship, idx }) => {
+            const icon = SHIP_ICON[ship];
+            return (
+              <button
+                key={idx}
+                onClick={() => onSelect(idx)}
+                style={{
+                  padding: '10px 6px',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', gap: 6,
+                  minHeight: 90, background: 'var(--bg2)',
+                }}
+              >
+                {icon && (
+                  <img src={icon} alt={ship}
+                    style={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'pixelated' }}
+                  />
+                )}
+                <span style={{ fontSize: 11, color: 'var(--text-hi)', textTransform: 'none' }}>
+                  {ship}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Post-battle screen ───────────────────────────────────────────────────────
 

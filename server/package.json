@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/super-melee/server/src/server.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",
