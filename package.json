@@ -5,7 +5,7 @@
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix server && npm run build --prefix client",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
-    "start": "node server/dist/super-melee/server/src/server.js"
+    "start": "node server/dist/server/src/server.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
