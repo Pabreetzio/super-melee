@@ -200,12 +200,16 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       if (rooms.bothConfirmed(room)) {
         const seed = rooms.startBattle(room);
         battleState.set(room.code, { hostActive: null, oppActive: null });
+        const hostFleet = [...room.host.fleet];
+        const oppFleet  = room.opponent ? [...room.opponent.fleet] : [];
         sendTo(room.host.sessionId, {
           type: 'battle_start', seed, inputDelay: room.inputDelay, yourSide: 0,
+          hostFleet, oppFleet,
         });
         if (room.opponent) {
           sendTo(room.opponent.sessionId, {
             type: 'battle_start', seed, inputDelay: room.inputDelay, yourSide: 1,
+            hostFleet, oppFleet,
           });
         }
         broadcastRoomList();

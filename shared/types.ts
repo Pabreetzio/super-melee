@@ -85,7 +85,7 @@ export type ServerMsg =
   | { type: 'opponent_confirmed' }
   | { type: 'opponent_cancelled' }
   | { type: 'rematch_reset';       value: boolean }
-  | { type: 'battle_start';        seed: number; inputDelay: number; yourSide: 0 | 1 }
+  | { type: 'battle_start';        seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
   | { type: 'battle_input';        frame: number; input: number }
   | { type: 'checksum_mismatch';   frame: number }
   | { type: 'ship_select_prompt' }

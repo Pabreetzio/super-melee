@@ -37,7 +37,7 @@ type Action =
   | { type: 'room_updated';   room: FullRoomState }
   | { type: 'join_error';     reason: string }
   | { type: 'opponent_left' }
-  | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1 }
+  | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
   | { type: 'battle_over';    winner: 0 | 1 | null }
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
@@ -109,7 +109,17 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, room: updated };
     }
 
-    case 'battle_start':
+    case 'battle_start': {
+      // Patch room with authoritative fleet from server so Battle.tsx sees
+      // the correct ship types on both sides (roomPatch only tracks opponent
+      // incremental updates; local fleet changes never echo back to roomPatch).
+      const patchedRoom = state.room ? {
+        ...state.room,
+        host:     { ...state.room.host,     fleet: action.hostFleet },
+        opponent: state.room.opponent
+          ? { ...state.room.opponent, fleet: action.oppFleet }
+          : state.room.opponent,
+      } : state.room;
       return {
         ...state,
         screen:     'battle',
@@ -117,7 +127,9 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay: action.inputDelay,
         yourSide:   action.yourSide,
         winner:     undefined,
+        room:       patchedRoom,
       };
+    }
 
     case 'battle_over': {
       const isSolo    = state.room?.code === 'SOLO';
@@ -368,7 +380,7 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
       dispatch({ type: 'opponent_left' });
       break;
     case 'battle_start':
-      dispatch({ type: 'battle_start', seed: msg.seed, inputDelay: msg.inputDelay, yourSide: msg.yourSide });
+      dispatch({ type: 'battle_start', seed: msg.seed, inputDelay: msg.inputDelay, yourSide: msg.yourSide, hostFleet: msg.hostFleet, oppFleet: msg.oppFleet });
       break;
     case 'battle_over':
       dispatch({ type: 'battle_over', winner: msg.winner });
@@ -432,6 +444,16 @@ export default function App() {
           }
           case 'rematch_reset':
             return { ...prev, rematchReset: msg.value };
+          case 'battle_start':
+            // Stamp authoritative fleet onto roomPatch so Battle.tsx reads the
+            // correct ship types — local fleet changes never echo back via ws.
+            return {
+              ...prev,
+              host:     { ...prev.host,     fleet: msg.hostFleet },
+              opponent: prev.opponent
+                ? { ...prev.opponent, fleet: msg.oppFleet }
+                : prev.opponent,
+            };
           default:
             return prev;
         }
