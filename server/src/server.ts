@@ -352,6 +352,15 @@ function handleBattleOverAck(sessionId: string) {
   }
 }
 
+// ─── Keepalive ping (prevents Railway/proxy idle-connection timeout) ──────────
+
+const PING_INTERVAL_MS = 30_000;
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) ws.ping();
+  });
+}, PING_INTERVAL_MS);
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 server.listen(PORT, () => {

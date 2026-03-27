@@ -18,5 +18,6 @@ uqm-0.8.0-src.tgz
 *.uqm
 uqm-content/
 
-# Extracted game assets — not committed; extract from content package per SETUP.md
-assets/
+# Extracted game assets are committed to the repo (6.9 MB, 1582 PNGs)
+# See CLAUDE.md for how to re-extract them from the UQM content package
+# assets/  ← intentionally NOT ignored
