@@ -185,11 +185,17 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
     const launchAngle = (ship.facing * 4) & 63;
     const offsetW = DISPLAY_TO_WORLD(HUMAN_OFFSET); // 42 display px → 168 world units
     spawns.push({
-      type: 'nuke',
+      type: 'missile',
       facing: ship.facing,
       x: ship.x + COSINE(launchAngle, offsetW),
       y: ship.y + SINE(launchAngle, offsetW),
-      life: MISSILE_LIFE,
+      speed:    MISSILE_SPEED,
+      maxSpeed: MAX_MISSILE_SPEED,
+      accel:    THRUST_SCALE,
+      life:     MISSILE_LIFE,
+      damage:   MISSILE_DAMAGE,
+      tracks:   true,
+      trackRate: TRACK_WAIT,
     });
   }
 
@@ -210,8 +216,22 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
 // ─── Spawn request types ──────────────────────────────────────────────────────
 
 export type SpawnRequest =
-  | { type: 'nuke';         x: number; y: number; facing: number; life: number }
-  | { type: 'point_defense'; x: number; y: number };
+  | {
+      type: 'missile';
+      x: number; y: number; facing: number;
+      speed: number;    // initial speed (world units)
+      maxSpeed: number; // maximum speed cap
+      accel: number;    // speed increase per frame (0 = fixed)
+      life: number;
+      damage: number;
+      tracks: boolean;
+      trackRate: number; // frames between track steps
+      inheritVelocity?: boolean; // add owner ship velocity (e.g. Pkunk bug-gun)
+      limpet?: boolean;         // VUX limpet: applies movement impairment on hit
+    }
+  | { type: 'point_defense'; x: number; y: number }
+  | { type: 'fighter'; x: number; y: number; facing: number }
+  | { type: 'vux_laser'; x: number; y: number; facing: number };
 
 // ─── Shared tracking helper (mirrors UQM TrackShip ±1-facing-per-cycle logic) ─
 

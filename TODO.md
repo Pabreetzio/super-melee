@@ -74,29 +74,17 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 ## Next Up (after fixing known issues)
 
 ### Ships — Tier 1
-- [ ] **Spathi Eluder** — `engine/ships/spathi.ts`
-  - BUTT (Rear-Mounted Automatic Tracking Torpedo) — fires backward, homes on enemy
-  - Emergency Escape Warp (special) — instant teleport to random position
-  - Hotspot data: parse `assets/ships/spathi/eluder-big.ani`
-- [ ] **Ur-Quan Dreadnought** — `engine/ships/urquan.ts`
-  - Fusion Blast (primary)
-  - Fighter launch (special — autonomous fighters that fight independently)
-- [ ] **Pkunk Fury** — `engine/ships/pkunk.ts`
-  - Triple-shot spread gun (primary)
-  - Resurrection (special — random chance to fully respawn on death)
-- [ ] **VUX Intruder** — `engine/ships/vux.ts`
-  - Laser (primary)
-  - Limpet mines (special — attach to enemy, constant drain)
+- [x] **Spathi Eluder** — `engine/ships/spathi.ts` (BUTT torpedo, Emergency Escape Warp)
+- [x] **Ur-Quan Dreadnought** — `engine/ships/urquan.ts` (Fusion Blast, autonomous fighter launch)
+- [x] **Pkunk Fury** — `engine/ships/pkunk.ts` (triple spread gun, 50% resurrection on death)
+- [x] **VUX Intruder** — `engine/ships/vux.ts` (forward laser, limpet mines with movement impairment)
 
 ### Hotspot Data
-- [ ] Parse `.ani` files for all 24 non-human ships and bake hotspots into `sprites.ts`
-  - `.ani` format: see existing `assets/ships/human/cruiser-big.ani` for reference
-  - Until done, ships render with (0,0) hotspot — visually offset from their actual position
+- [x] Parse `.ani` files for all 24 non-human ships — hotspots baked into `sprites.ts`
 
 ### Rendering / Polish
-- [ ] Thrust flame animation (UQM uses per-ship thruster sprites, currently orange circle)
-- [ ] Explosion/destruction animations (`boom-big/med/sml`, `blast-big/med/sml` in `uqm-content/base/battle/`)
-  - Copy to `assets/battle/`, play on ship death and projectile impact
+- [x] Thrust flame animation — procedural gradient cone (yellow-white→orange), 3-frame flicker, scales with zoom
+- [x] Explosion/destruction animations — `boom` on ship death, `blast` on missile impact; UQM sprites with canvas circle fallback
 - [ ] Ship radar / minimap (shows both ships across the large toroidal arena)
 
 ### Gameplay

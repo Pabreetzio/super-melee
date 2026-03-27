@@ -10,12 +10,34 @@ import { COSINE, SINE } from '../engine/sinetab';
 import { DISPLAY_TO_WORLD } from '../engine/velocity';
 import {
   makeHumanShip, updateHumanShip,
-  makeNuke, updateNuke,
-  MAX_CREW, MAX_ENERGY, SHIP_RADIUS, LASER_RANGE, MISSILE_DAMAGE,
+  MAX_CREW, MAX_ENERGY, SHIP_RADIUS, LASER_RANGE,
   SPECIAL_ENERGY_COST, SPECIAL_WAIT,
-  type HumanShipState, type NukeState,
+  type HumanShipState, type SpawnRequest,
 } from '../engine/ships/human';
-import { loadCruiserSprites, drawSprite, type CruiserSprites } from '../engine/sprites';
+import { makeSpathiShip, updateSpathiShip, SPATHI_MAX_CREW, SPATHI_MAX_ENERGY } from '../engine/ships/spathi';
+import {
+  makeUrquanShip, updateUrquanShip, URQUAN_MAX_CREW, URQUAN_MAX_ENERGY,
+  FIGHTER_LIFE, ONE_WAY_FLIGHT, FIGHTER_SPEED, FIGHTER_LASER_RANGE, FIGHTER_WEAPON_WAIT,
+} from '../engine/ships/urquan';
+import {
+  makePkunkShip, updatePkunkShip, PKUNK_MAX_CREW, PKUNK_MAX_ENERGY,
+  type PkunkShipState,
+} from '../engine/ships/pkunk';
+import {
+  makeVuxShip, updateVuxShip, VUX_MAX_CREW, VUX_MAX_ENERGY, VUX_LASER_RANGE,
+} from '../engine/ships/vux';
+import {
+  loadCruiserSprites, loadSpathiSprites, loadUrquanSprites, loadPkunkSprites, loadVuxSprites,
+  loadGenericShipSprites, loadExplosionSprites, drawSprite,
+  type CruiserSprites, type SpathiSprites, type UrquanSprites, type PkunkSprites, type VuxSprites,
+  type ShipSpriteSet, type ExplosionSprites,
+} from '../engine/sprites';
+import {
+  setVelocityVector, VELOCITY_TO_WORLD, type VelocityDesc,
+} from '../engine/velocity';
+import { trackFacing } from '../engine/ships/human';
+import { RNG } from '../engine/rng';
+import type { ShipId } from 'shared/types';
 import HUD from './HUD';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -42,6 +64,17 @@ const PLANET_RADIUS_W = 160;
 const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
 
 const FRAME_MS = 1000 / BATTLE_FPS;
+
+// Star field: 3 tiers matching UQM galaxy.c (BIG=30, MED=60, SML=90)
+const STAR_COUNTS = [30, 60, 90] as const;
+
+// Oolite planet sprite hotspots from oolite-{big|med|sml}.ani
+// Format: <file> 0 -1 <hotX> <hotY>  (hotspot = sprite center)
+const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
+  big: [37, 33],
+  med: [19, 17],
+  sml: [9, 8],
+};
 
 // Keyboard → input bit maps, keyed by event.code (layout-independent).
 // Bindings match the official UQM uqm.key defaults (base/uqm.key in content package).
@@ -77,21 +110,56 @@ const GAME_KEYS = new Set([
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// NukeState extended with owner so we know which ship to target
-interface BattleNuke extends NukeState {
+// General missile — covers nukes, BUTT, limpets, and all future ship weapons.
+// All fields come from the ship's SpawnRequest + initial velocity state.
+interface BattleMissile {
+  x: number; y: number;
+  facing: number;      // 0–15
+  velocity: VelocityDesc;
+  life: number;
+  speed: number;       // current speed (world units)
+  maxSpeed: number;
+  accel: number;       // speed increase per frame
+  damage: number;
+  tracks: boolean;
+  trackWait: number;   // frames until next tracking step
+  trackRate: number;   // reset value for trackWait
   owner: 0 | 1;
+  limpet?: boolean;    // VUX limpet: applies movement impairment on hit
 }
 
-// One-frame laser line (point-defense flash), world coords
+// One-frame laser line (point-defense flash or fighter laser), world coords
 interface LaserFlash {
   x1: number; y1: number;
   x2: number; y2: number;
 }
 
+// Ur-Quan autonomous fighter craft
+interface BattleFighter {
+  x: number; y: number;
+  facing: number;
+  velocity: VelocityDesc;
+  life: number;    // counts down; 0 = dead
+  weaponWait: number;
+  owner: 0 | 1;
+}
+
+// Cosmetic explosion animation (not included in checksum; purely visual)
+interface BattleExplosion {
+  type: 'boom' | 'blast';
+  x: number;
+  y: number;
+  frame: number; // current frame index; advances each sim tick
+}
+
 interface BattleState {
-  ships: [HumanShipState, HumanShipState];
-  nukes: BattleNuke[];
-  lasers: LaserFlash[];  // cleared each sim frame; rendered as 1-frame flashes
+  ships:     [HumanShipState, HumanShipState];
+  shipTypes: [ShipId, ShipId];
+  missiles:  BattleMissile[];
+  fighters:  BattleFighter[];
+  lasers:    LaserFlash[];      // cleared each sim frame; rendered as 1-frame flashes
+  explosions: BattleExplosion[]; // cosmetic; not checksum'd
+  shipAlive:  [boolean, boolean]; // tracks alive→dead transition for boom spawn
   frame: number;
   // Input buffers: [myInputs, opponentInputs], indexed by frame number
   inputBuf: [Map<number, number>, Map<number, number>];
@@ -116,8 +184,19 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const rafRef       = useRef<number | null>(null);
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
-  const spritesRef   = useRef<CruiserSprites | null>(null);
+  const spritesRef       = useRef<CruiserSprites | null>(null);
+  const spathiSpritesRef = useRef<SpathiSprites | null>(null);
+  const urquanSpritesRef = useRef<UrquanSprites | null>(null);
+  const pkunkSpritesRef  = useRef<PkunkSprites  | null>(null);
+  const vuxSpritesRef         = useRef<VuxSprites       | null>(null);
+  const explosionSpritesRef   = useRef<ExplosionSprites | null>(null);
+  // Cache for generic ship sprites (ships without specific weapon sprite loaders)
+  const genericSpritesRef = useRef<Map<string, ShipSpriteSet>>(new Map());
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
+  // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
+  const starsRef = useRef<{ x: number; y: number }[]>([]);
+  // Planet sprite images (oolite big/med/sml); null until loaded
+  const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
@@ -127,21 +206,73 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   // Initialize battle state
   useEffect(() => {
-    // Use seed to place ships on opposite sides of the world
-    const s0: HumanShipState = makeHumanShip(PLANET_X - DISPLAY_TO_WORLD(300), PLANET_Y);
-    const s1: HumanShipState = makeHumanShip(PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
+    // Determine each player's active ship type from their fleet
+    const fleet0 = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
+    const fleet1 = yourSide === 0 ? room.opponent?.fleet ?? [] : room.host.fleet;
+    const type0 = (fleet0.find(Boolean) ?? 'human') as ShipId;
+    const type1 = (fleet1.find(Boolean) ?? 'human') as ShipId;
+
+    const rng = new RNG(_seed || 1);
+    // Generate star field using seed for determinism.
+    {
+      const stars: { x: number; y: number }[] = [];
+      for (let i = 0; i < STAR_COUNTS[0] + STAR_COUNTS[1] + STAR_COUNTS[2]; i++) {
+        stars.push({ x: rng.rand(WORLD_W), y: rng.rand(WORLD_H) });
+      }
+      starsRef.current = stars;
+    }
+
+    const makeShip = (type: ShipId, x: number, y: number) => {
+      if (type === 'spathi') return makeSpathiShip(x, y);
+      if (type === 'urquan') return makeUrquanShip(x, y);
+      if (type === 'pkunk')  return makePkunkShip(x, y, () => rng.rand(1000) / 1000);
+      if (type === 'vux')    return makeVuxShip(x, y);
+      return makeHumanShip(x, y);
+    };
+
+    const s0 = makeShip(type0, PLANET_X - DISPLAY_TO_WORLD(300), PLANET_Y);
+    const s1 = makeShip(type1, PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
     s1.facing = 8; // face the other direction
 
     stateRef.current = {
       ships: [s0, s1],
-      nukes: [],
+      shipTypes: [type0, type1],
+      missiles: [],
+      fighters: [],
       lasers: [],
+      explosions: [],
+      shipAlive: [true, true],
       frame: 0,
       inputBuf: [new Map(), new Map()],
     };
 
     // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
     loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
+    loadSpathiSprites().then(sp => { spathiSpritesRef.current = sp; }).catch(() => {});
+    loadUrquanSprites().then(sp => { urquanSpritesRef.current = sp; }).catch(() => {});
+    loadPkunkSprites().then(sp => { pkunkSpritesRef.current = sp; }).catch(() => {});
+    loadVuxSprites().then(sp => { vuxSpritesRef.current = sp; }).catch(() => {});
+    loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
+
+    // Load generic sprites for any ship types without specific weapon loaders
+    const handledTypes = new Set(['human', 'spathi', 'urquan', 'pkunk', 'vux']);
+    for (const t of [type0, type1]) {
+      if (!handledTypes.has(t)) {
+        loadGenericShipSprites(t).then(sp => {
+          if (sp) genericSpritesRef.current.set(t, sp);
+        }).catch(() => {});
+      }
+    }
+
+    // Load oolite planet sprites (non-blocking)
+    {
+      const big = new Image(); big.src = '/assets/battle/oolite-big-000.png';
+      const med = new Image(); med.src = '/assets/battle/oolite-med-000.png';
+      const sml = new Image(); sml.src = '/assets/battle/oolite-sml-000.png';
+      let n = 0;
+      const done = () => { if (++n === 3) planetImgRef.current = { big, med, sml }; };
+      big.onload = med.onload = sml.onload = done;
+    }
 
     // Tell server which ship slot we're entering with (first occupied slot)
     const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
@@ -249,7 +380,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       i1 = computeInput(KEY_MAP_P2);
     } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
-      const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.nukes, opSide);
+      const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
       i0 = mySide === 0 ? myInput : aiInput;
       i1 = mySide === 1 ? myInput : aiInput;
     } else {
@@ -277,6 +408,25 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
 
+    // Pkunk resurrection: if a Pkunk's crew hits 0 and canResurrect is set,
+    // respawn it at a random position with full stats (UQM new_pkunk behavior).
+    for (let side = 0; side < 2; side++) {
+      const ship = bs.ships[side];
+      if (ship.crew <= 0 && bs.shipTypes[side] === 'pkunk') {
+        const pkunk = ship as PkunkShipState;
+        if (pkunk.canResurrect) {
+          pkunk.canResurrect = false; // one resurrection per life
+          pkunk.crew = PKUNK_MAX_CREW;
+          pkunk.energy = PKUNK_MAX_ENERGY;
+          // Random respawn position in world
+          pkunk.x = Math.floor(Math.random() * WORLD_W);
+          pkunk.y = Math.floor(Math.random() * WORLD_H);
+          pkunk.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+          pkunk.facing = Math.floor(Math.random() * 16);
+        }
+      }
+    }
+
     // In offline modes handle battle end locally
     if (isOffline && (bs.ships[0].crew <= 0 || bs.ships[1].crew <= 0)) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -288,12 +438,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       return;
     }
 
-    // Update HUD
+    // Update HUD (use per-ship max stats)
+    const maxCrewFor  = (t: ShipId) =>
+      t === 'spathi' ? SPATHI_MAX_CREW   : t === 'urquan' ? URQUAN_MAX_CREW   : t === 'pkunk' ? PKUNK_MAX_CREW   : t === 'vux' ? VUX_MAX_CREW   : MAX_CREW;
+    const maxEnergyFor = (t: ShipId) =>
+      t === 'spathi' ? SPATHI_MAX_ENERGY : t === 'urquan' ? URQUAN_MAX_ENERGY : t === 'pkunk' ? PKUNK_MAX_ENERGY : t === 'vux' ? VUX_MAX_ENERGY : MAX_ENERGY;
     setHudData({
-      myCrewPct:    bs.ships[mySide].crew    / MAX_CREW,
-      oppCrewPct:   bs.ships[opSide].crew    / MAX_CREW,
-      myEnergyPct:  bs.ships[mySide].energy  / MAX_ENERGY,
-      oppEnergyPct: bs.ships[opSide].energy  / MAX_ENERGY,
+      myCrewPct:    bs.ships[mySide].crew    / maxCrewFor(bs.shipTypes[mySide]),
+      oppCrewPct:   bs.ships[opSide].crew    / maxCrewFor(bs.shipTypes[opSide]),
+      myEnergyPct:  bs.ships[mySide].energy  / maxEnergyFor(bs.shipTypes[mySide]),
+      oppEnergyPct: bs.ships[opSide].energy  / maxEnergyFor(bs.shipTypes[opSide]),
     });
   }
 
@@ -304,9 +458,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     applyGravity(bs.ships[0]);
     applyGravity(bs.ships[1]);
 
-    // Update ships
-    const spawns0 = updateHumanShip(bs.ships[0], input0);
-    const spawns1 = updateHumanShip(bs.ships[1], input1);
+    // Update ships — dispatch to correct ship update function
+    const updateShip = (ship: HumanShipState, input: number, type: ShipId): SpawnRequest[] => {
+      if (type === 'spathi') return updateSpathiShip(ship, input);
+      if (type === 'urquan') return updateUrquanShip(ship, input);
+      if (type === 'pkunk')  return updatePkunkShip(ship, input);
+      if (type === 'vux')    return updateVuxShip(ship, input);
+      return updateHumanShip(ship, input);
+    };
+    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0]);
+    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1]);
 
     // Wrap positions
     bs.ships[0].x = ((bs.ships[0].x % WORLD_W) + WORLD_W) % WORLD_W;
@@ -314,40 +475,181 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     bs.ships[1].x = ((bs.ships[1].x % WORLD_W) + WORLD_W) % WORLD_W;
     bs.ships[1].y = ((bs.ships[1].y % WORLD_H) + WORLD_H) % WORLD_H;
 
-    // Spawn nukes — track owner so each nuke targets the opposite ship
+    // Spawn weapons
+    const spawnRequest = (s: SpawnRequest, owner: 0 | 1) => {
+      if (s.type === 'missile') {
+        const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+        setVelocityVector(v, s.speed, s.facing);
+        // Pkunk bug-gun: add ship velocity to missile velocity (UQM DeltaVelocityComponents)
+        if (s.inheritVelocity) {
+          const ownerShip = bs.ships[owner];
+          v.vx += ownerShip.velocity.vx;
+          v.vy += ownerShip.velocity.vy;
+        }
+        bs.missiles.push({
+          x: s.x, y: s.y, facing: s.facing, velocity: v,
+          life: s.life, speed: s.speed, maxSpeed: s.maxSpeed,
+          accel: s.accel, damage: s.damage,
+          tracks: s.tracks, trackWait: s.trackRate, trackRate: s.trackRate,
+          owner,
+        });
+      } else if (s.type === 'fighter') {
+        const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+        setVelocityVector(v, FIGHTER_SPEED, s.facing);
+        bs.fighters.push({
+          x: s.x, y: s.y, facing: s.facing, velocity: v,
+          life: FIGHTER_LIFE, weaponWait: 0, owner,
+        });
+      } else if (s.type === 'vux_laser') {
+        applyVuxLaser(bs, owner, s.x, s.y, s.facing);
+      }
+    };
     for (const s of spawns0) {
-      if (s.type === 'nuke') bs.nukes.push({ ...makeNuke(s.x, s.y, s.facing), owner: 0 });
+      spawnRequest(s, 0);
       if (s.type === 'point_defense') applyPointDefense(bs, 0);
     }
     for (const s of spawns1) {
-      if (s.type === 'nuke') bs.nukes.push({ ...makeNuke(s.x, s.y, s.facing), owner: 1 });
+      spawnRequest(s, 1);
       if (s.type === 'point_defense') applyPointDefense(bs, 1);
     }
 
-    // Update nukes — track toward the opposite ship
-    const alive: BattleNuke[] = [];
-    for (const nuke of bs.nukes) {
-      const targetShip = bs.ships[nuke.owner === 0 ? 1 : 0];
-      const targetAngle = worldAngle(nuke.x, nuke.y, targetShip.x, targetShip.y);
-      const still = updateNuke(nuke, targetAngle);
-      if (!still) continue;
+    // Update missiles
+    const aliveMissiles: BattleMissile[] = [];
+    for (const m of bs.missiles) {
+      m.life--;
+      if (m.life <= 0) continue;
 
-      // Wrap nuke position
-      nuke.x = ((nuke.x % WORLD_W) + WORLD_W) % WORLD_W;
-      nuke.y = ((nuke.y % WORLD_H) + WORLD_H) % WORLD_H;
-
-      // Collision with ships
-      let hit = false;
-      for (let side = 0; side < 2; side++) {
-        const ship = bs.ships[side];
-        if (circleOverlap(nuke.x, nuke.y, 4, ship.x, ship.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
-          ship.crew = Math.max(0, ship.crew - MISSILE_DAMAGE);
-          hit = true;
+      // Tracking
+      if (m.tracks) {
+        const targetShip = bs.ships[m.owner === 0 ? 1 : 0];
+        const targetAngle = worldAngle(m.x, m.y, targetShip.x, targetShip.y);
+        if (m.trackWait > 0) {
+          m.trackWait--;
+        } else {
+          m.facing = trackFacing(m.facing, targetAngle);
+          m.trackWait = m.trackRate;
         }
       }
-      if (!hit) alive.push(nuke as BattleNuke);
+
+      // Acceleration (nuke) or fixed speed (BUTT / Spathi gun)
+      m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
+      setVelocityVector(m.velocity, m.speed, m.facing);
+
+      // Position advance (Bresenham sub-pixel, same as ships)
+      {
+        const fracX = Math.abs(m.velocity.vx) & 31;
+        m.velocity.ex += fracX;
+        const carryX = m.velocity.ex >= 32 ? 1 : 0;
+        m.velocity.ex &= 31;
+        m.x += VELOCITY_TO_WORLD(Math.abs(m.velocity.vx)) * Math.sign(m.velocity.vx)
+              + (m.velocity.vx >= 0 ? carryX : -carryX);
+
+        const fracY = Math.abs(m.velocity.vy) & 31;
+        m.velocity.ey += fracY;
+        const carryY = m.velocity.ey >= 32 ? 1 : 0;
+        m.velocity.ey &= 31;
+        m.y += VELOCITY_TO_WORLD(Math.abs(m.velocity.vy)) * Math.sign(m.velocity.vy)
+              + (m.velocity.vy >= 0 ? carryY : -carryY);
+      }
+
+      // Wrap
+      m.x = ((m.x % WORLD_W) + WORLD_W) % WORLD_W;
+      m.y = ((m.y % WORLD_H) + WORLD_H) % WORLD_H;
+
+      // Collision with ships (missile only hits the opposing side)
+      let hit = false;
+      const targetSide = m.owner === 0 ? 1 : 0;
+      const targetShip = bs.ships[targetSide];
+      if (circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
+        targetShip.crew = Math.max(0, targetShip.crew - m.damage);
+        bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        // VUX limpet: apply movement impairment (increase turn/thrust wait)
+        if (m.limpet) {
+          targetShip.turnWait  = Math.min(15, targetShip.turnWait  + 1);
+          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + 1);
+        }
+        hit = true;
+      }
+      if (!hit) aliveMissiles.push(m);
     }
-    bs.nukes = alive;
+    bs.missiles = aliveMissiles;
+
+    // Update fighters (Ur-Quan autonomous craft)
+    {
+      const aliveFighters: BattleFighter[] = [];
+      for (const f of bs.fighters) {
+        f.life--;
+        if (f.life <= 0) continue;
+
+        const motherShip = bs.ships[f.owner];
+        const enemyShip  = bs.ships[f.owner === 0 ? 1 : 0];
+
+        // Phase: if enough life left to return, track enemy; else track mothership
+        const returning = f.life < ONE_WAY_FLIGHT && motherShip.crew > 0;
+        const navTarget = returning ? motherShip : enemyShip;
+
+        // Turn toward target
+        const targetAngle = worldAngle(f.x, f.y, navTarget.x, navTarget.y);
+        f.facing = trackFacing(f.facing, targetAngle);
+
+        // Set velocity
+        setVelocityVector(f.velocity, FIGHTER_SPEED, f.facing);
+
+        // Advance position
+        {
+          const fracX = Math.abs(f.velocity.vx) & 31;
+          f.velocity.ex += fracX;
+          const carryX = f.velocity.ex >= 32 ? 1 : 0;
+          f.velocity.ex &= 31;
+          f.x += VELOCITY_TO_WORLD(Math.abs(f.velocity.vx)) * Math.sign(f.velocity.vx)
+                + (f.velocity.vx >= 0 ? carryX : -carryX);
+
+          const fracY = Math.abs(f.velocity.vy) & 31;
+          f.velocity.ey += fracY;
+          const carryY = f.velocity.ey >= 32 ? 1 : 0;
+          f.velocity.ey &= 31;
+          f.y += VELOCITY_TO_WORLD(Math.abs(f.velocity.vy)) * Math.sign(f.velocity.vy)
+                + (f.velocity.vy >= 0 ? carryY : -carryY);
+        }
+        f.x = ((f.x % WORLD_W) + WORLD_W) % WORLD_W;
+        f.y = ((f.y % WORLD_H) + WORLD_H) % WORLD_H;
+
+        // Fighter laser: fire when enemy within 3/4 of laser range
+        const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
+        if (!returning && f.weaponWait === 0) {
+          const dx = enemyShip.x - f.x;
+          const dy = enemyShip.y - f.y;
+          if (dx * dx + dy * dy < laserRangeSq) {
+            const laserAngle = worldAngle(f.x, f.y, enemyShip.x, enemyShip.y);
+            const ex = COSINE(laserAngle, FIGHTER_LASER_RANGE);
+            const ey = SINE(laserAngle, FIGHTER_LASER_RANGE);
+            bs.lasers.push({ x1: f.x, y1: f.y, x2: f.x + ex, y2: f.y + ey });
+            enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+            f.weaponWait = FIGHTER_WEAPON_WAIT;
+          }
+        }
+        if (f.weaponWait > 0) f.weaponWait--;
+
+        // Returning fighter: die if it reaches mothership (restores 1 crew)
+        if (returning) {
+          const dx = motherShip.x - f.x;
+          const dy = motherShip.y - f.y;
+          if (dx * dx + dy * dy < DISPLAY_TO_WORLD(SHIP_RADIUS) ** 2) {
+            motherShip.crew = Math.min(motherShip.crew + 1, URQUAN_MAX_CREW);
+            continue; // removed (don't push to aliveFighters)
+          }
+        }
+
+        aliveFighters.push(f);
+      }
+      bs.fighters = aliveFighters;
+    }
+
+    // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
+    bs.explosions = bs.explosions.filter(e => {
+      e.frame++;
+      return e.frame < (e.type === 'boom' ? 9 : 8);
+    });
 
     // Ship–ship collision
     {
@@ -371,6 +673,52 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         bs.ships[0].crew = Math.max(0, bs.ships[0].crew - 1);
         bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
       }
+    }
+
+    // Ship–planet collision (UQM misc.c / ship.c behavior):
+    //   damage = ship.crew >> 2  (25% current HP, min 1)
+    //   planet has DEFY_PHYSICS — ship bounces, planet doesn't move
+    {
+      const minDist = DISPLAY_TO_WORLD(SHIP_RADIUS) + PLANET_RADIUS_W;
+      const minDistSq = minDist * minDist;
+      for (let side = 0; side < 2; side++) {
+        const ship = bs.ships[side];
+        const pdx = ship.x - PLANET_X;
+        const pdy = ship.y - PLANET_Y;
+        const distSq = pdx * pdx + pdy * pdy;
+        if (distSq >= minDistSq || distSq === 0) continue;
+
+        // Bounce: reflect velocity away from planet center using COSINE/SINE tables
+        // (integer-safe; same trig tables used everywhere in UQM port)
+        const angle = worldAngle(PLANET_X, PLANET_Y, ship.x, ship.y); // away from planet
+        const cx = COSINE(angle, 64);
+        const cy = SINE(angle, 64);
+        const dot = ship.velocity.vx * cx + ship.velocity.vy * cy; // projected onto away-normal
+        if (dot < 0) {
+          // Approaching — reflect the toward-planet component
+          ship.velocity.vx = Math.trunc(ship.velocity.vx - 2 * dot * cx / 4096);
+          ship.velocity.vy = Math.trunc(ship.velocity.vy - 2 * dot * cy / 4096);
+        }
+
+        // Push ship outside collision radius
+        const dist = Math.sqrt(distSq);
+        const overlap = minDist - dist;
+        ship.x += Math.round((pdx / dist) * overlap);
+        ship.y += Math.round((pdy / dist) * overlap);
+
+        // Damage: 25% current HP, min 1
+        const damage = Math.max(1, ship.crew >> 2);
+        ship.crew = Math.max(0, ship.crew - damage);
+      }
+    }
+
+    // Spawn boom explosion when a ship transitions alive→dead
+    for (let side = 0; side < 2; side++) {
+      const alive = bs.ships[side].crew > 0;
+      if (bs.shipAlive[side] && !alive) {
+        bs.explosions.push({ type: 'boom', x: bs.ships[side].x, y: bs.ships[side].y, frame: 0 });
+      }
+      bs.shipAlive[side] = alive;
     }
 
     // Check for battle end — only send ack in networked mode
@@ -420,36 +768,114 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // ── Stars: TODO ──────────────────────────────────────────────────────
-    // The UQM star tile PNGs have the space background color baked in as
-    // opaque pixels — no compositing mode can strip a colored opaque
-    // background without per-pixel processing. Skipping for now; see
-    // docs/rendering.md for the full analysis. Background stays black.
-    // Options for proper implementation:
-    //   a) Per-pixel: getImageData, replace near-background pixels → black
-    //   b) Procedural: seeded RNG to scatter white dots with parallax
-
-    // ── Planet ───────────────────────────────────────────────────────────
-    const planetDX = w2d(PLANET_X - camX);
-    const planetDY = w2d(PLANET_Y - camY);
-    const planetR  = Math.max(2, PLANET_RADIUS_W >> (2 + r));
-    if (planetDX > -planetR * 2 && planetDX < CANVAS_W + planetR * 2) {
-      ctx.beginPath();
-      ctx.arc(planetDX, planetDY, planetR, 0, Math.PI * 2);
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fill();
-      ctx.strokeStyle = '#444';
-      ctx.lineWidth = Math.max(1, 2 >> r);
-      ctx.stroke();
+    // ── Stars ────────────────────────────────────────────────────────────
+    // 180 stars placed in world space (fixed, like UQM's galaxy.c stars).
+    // 3 tiers: big (2×2 white), med (1×1 light), sml (1×1 dim).
+    // Stars scroll with the camera; wrap toroidally at world edges.
+    {
+      const worldDW = WORLD_W >> (2 + r); // world width in display pixels
+      const worldDH = WORLD_H >> (2 + r);
+      const stars = starsRef.current;
+      const med0 = STAR_COUNTS[0];
+      const sml0 = STAR_COUNTS[0] + STAR_COUNTS[1];
+      const total = sml0 + STAR_COUNTS[2];
+      for (let i = 0; i < total; i++) {
+        let sx = (stars[i].x - camX) >> (2 + r);
+        let sy = (stars[i].y - camY) >> (2 + r);
+        // Wrap single step — world is always >= screen width at any zoom
+        if (sx < 0) sx += worldDW; else if (sx >= CANVAS_W) sx -= worldDW;
+        if (sy < 0) sy += worldDH; else if (sy >= CANVAS_H) sy -= worldDH;
+        if (sx < 0 || sx >= CANVAS_W || sy < 0 || sy >= CANVAS_H) continue;
+        if (i < med0) {
+          // Big star: 2×2 bright white
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(sx - 1, sy - 1, 2, 2);
+        } else if (i < sml0) {
+          // Med star: 1×1 light grey
+          ctx.fillStyle = '#ccc';
+          ctx.fillRect(sx, sy, 1, 1);
+        } else {
+          // Small star: 1×1 dim grey
+          ctx.fillStyle = '#777';
+          ctx.fillRect(sx, sy, 1, 1);
+        }
+      }
     }
 
-    // ── Nukes ────────────────────────────────────────────────────────────
-    const nukeSet = sp ? (r >= 2 ? sp.nuke.sml : r === 1 ? sp.nuke.med : sp.nuke.big) : null;
-    for (const nuke of bs.nukes) {
-      if (nukeSet) {
-        drawSprite(ctx, nukeSet, nuke.facing, nuke.x, nuke.y, CANVAS_W, CANVAS_H, camX, camY, r);
-      } else {
-        placeholderDot(ctx, nuke.x, nuke.y, camX, camY, 3, '#ff8', r);
+    // ── Planet ───────────────────────────────────────────────────────────
+    // Oolite sprite: big at r=0, med at r=1, sml at r≥2.
+    // Hotspot (sprite center) from oolite-{big|med|sml}.ani.
+    // Falls back to a grey circle if images aren't loaded yet.
+    {
+      const pDX = w2d(PLANET_X - camX);
+      const pDY = w2d(PLANET_Y - camY);
+      const pi = planetImgRef.current;
+      const sizeKey = r === 0 ? 'big' : r === 1 ? 'med' : 'sml';
+      const planetR = Math.max(2, PLANET_RADIUS_W >> (2 + r));
+      if (pDX > -planetR * 4 && pDX < CANVAS_W + planetR * 4) {
+        if (pi) {
+          const img = pi[sizeKey];
+          const [hx, hy] = PLANET_HOT[sizeKey];
+          ctx.drawImage(img, pDX - hx, pDY - hy);
+        } else {
+          ctx.beginPath();
+          ctx.arc(pDX, pDY, planetR, 0, Math.PI * 2);
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fill();
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = Math.max(1, 2 >> r);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ── Missiles ─────────────────────────────────────────────────────────
+    {
+      const spSp = spathiSpritesRef.current;
+      const uqSp = urquanSpritesRef.current;
+      const pkSp = pkunkSpritesRef.current;
+      const nukeSet    = sp   ? (r >= 2 ? sp.nuke.sml      : r === 1 ? sp.nuke.med      : sp.nuke.big)      : null;
+      const buttSet    = spSp ? (r >= 2 ? spSp.butt.sml    : r === 1 ? spSp.butt.med    : spSp.butt.big)    : null;
+      const sMissSet   = spSp ? (r >= 2 ? spSp.missile.sml : r === 1 ? spSp.missile.med : spSp.missile.big) : null;
+      const fusionSet  = uqSp ? (r >= 2 ? uqSp.fusion.sml  : r === 1 ? uqSp.fusion.med  : uqSp.fusion.big)  : null;
+      const bugSet     = pkSp ? (r >= 2 ? pkSp.bug.sml     : r === 1 ? pkSp.bug.med     : pkSp.bug.big)     : null;
+      const vxSp      = vuxSpritesRef.current;
+      const limpetSet  = vxSp ? (r >= 2 ? vxSp.limpets.sml : r === 1 ? vxSp.limpets.med : vxSp.limpets.big) : null;
+
+      for (const m of bs.missiles) {
+        let mset = nukeSet;
+        if (bs.shipTypes[m.owner] === 'spathi') {
+          mset = m.tracks ? buttSet : sMissSet;
+        } else if (bs.shipTypes[m.owner] === 'urquan') {
+          mset = fusionSet;
+        } else if (bs.shipTypes[m.owner] === 'pkunk') {
+          mset = bugSet;
+        } else if (bs.shipTypes[m.owner] === 'vux') {
+          // Limpet missiles cycle through their 4 animation frames
+          mset = limpetSet;
+        }
+        if (mset) {
+          // Limpets cycle through animation frames; others use facing for rotation
+          const frameIdx = (bs.shipTypes[m.owner] === 'vux' && m.limpet)
+            ? (FIGHTER_LIFE - m.life) & 3  // cycle 0–3 based on age
+            : m.facing;
+          drawSprite(ctx, mset, frameIdx, m.x, m.y, CANVAS_W, CANVAS_H, camX, camY, r);
+        } else {
+          placeholderDot(ctx, m.x, m.y, camX, camY, 3, '#ff8', r);
+        }
+      }
+    }
+
+    // ── Fighters ─────────────────────────────────────────────────────────
+    {
+      const uqSp = urquanSpritesRef.current;
+      const fighterSet = uqSp ? (r >= 2 ? uqSp.fighter.sml : r === 1 ? uqSp.fighter.med : uqSp.fighter.big) : null;
+      for (const f of bs.fighters) {
+        if (fighterSet) {
+          drawSprite(ctx, fighterSet, f.facing, f.x, f.y, CANVAS_W, CANVAS_H, camX, camY, r);
+        } else {
+          placeholderDot(ctx, f.x, f.y, camX, camY, 3, '#8ff', r);
+        }
       }
     }
 
@@ -468,12 +894,32 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Ships ────────────────────────────────────────────────────────────
-    // Select sprite size matching zoom level. UQM uses pre-rendered big/med/sml.
-    //   r=0 → big, r=1 → med, r=2–3 → sml
-    const shipSet = sp ? (r >= 2 ? sp.sml : r === 1 ? sp.med : sp.big) : null;
+    // Select sprite set based on ship type and zoom level.
     for (let side = 0; side < 2; side++) {
       const ship  = bs.ships[side];
       const color = side === 0 ? '#4af' : '#f84';
+      const spSp = spathiSpritesRef.current;
+      const uqSp = urquanSpritesRef.current;
+      const pkSp = pkunkSpritesRef.current;
+      const vxSp = vuxSpritesRef.current;
+      let shipSet = null;
+      if (bs.shipTypes[side] === 'spathi') {
+        shipSet = spSp ? (r >= 2 ? spSp.sml : r === 1 ? spSp.med : spSp.big) : null;
+      } else if (bs.shipTypes[side] === 'urquan') {
+        shipSet = uqSp ? (r >= 2 ? uqSp.sml : r === 1 ? uqSp.med : uqSp.big) : null;
+      } else if (bs.shipTypes[side] === 'pkunk') {
+        shipSet = pkSp ? (r >= 2 ? pkSp.sml : r === 1 ? pkSp.med : pkSp.big) : null;
+      } else if (bs.shipTypes[side] === 'vux') {
+        shipSet = vxSp ? (r >= 2 ? vxSp.sml : r === 1 ? vxSp.med : vxSp.big) : null;
+      } else {
+        // Try generic sprite cache first, then fall back to cruiser sprites for human
+        const generic = genericSpritesRef.current.get(bs.shipTypes[side]);
+        if (generic) {
+          shipSet = r >= 2 ? generic.sml : r === 1 ? generic.med : generic.big;
+        } else {
+          shipSet = sp ? (r >= 2 ? sp.sml : r === 1 ? sp.med : sp.big) : null;
+        }
+      }
       if (shipSet) {
         drawSprite(ctx, shipSet, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
       } else {
@@ -493,15 +939,58 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         ctx.stroke();
       }
 
-      // Thrust flame placeholder
+      // Thrust flame — procedural gradient cone pointing backward from ship
       if (ship.thrusting) {
         const sdx = w2d(ship.x - camX);
         const sdy = w2d(ship.y - camY);
+        // Backward angle: facing + 32 (180°) in UQM units → canvas radians
         const ang = ((ship.facing * 4 + 32) & 63) / 64 * 2 * Math.PI - Math.PI / 2;
+        const flameLen    = Math.max(3, 13 - r * 3);
+        const flameW      = Math.max(2, 6 - r);
+        const nozzleOff   = Math.max(2, 6 - r);
+        const flicker     = [0, 2, 1][(bs.frame + side) % 3];
+        const fLen        = flameLen + flicker;
+        ctx.save();
+        ctx.translate(sdx + Math.cos(ang) * nozzleOff, sdy + Math.sin(ang) * nozzleOff);
+        ctx.rotate(ang - Math.PI / 2); // +y axis now points in backward direction
+        const grad = ctx.createLinearGradient(0, 0, 0, fLen);
+        grad.addColorStop(0,   'rgba(255,255,180,0.95)');
+        grad.addColorStop(0.2, 'rgba(255,160,20,0.9)');
+        grad.addColorStop(0.7, 'rgba(255,80,0,0.6)');
+        grad.addColorStop(1,   'rgba(255,60,0,0)');
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(sdx + Math.cos(ang) * 10, sdy + Math.sin(ang) * 10, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#f80';
+        ctx.moveTo(-flameW / 2, 0);
+        ctx.lineTo( flameW / 2, 0);
+        ctx.lineTo(0, fLen);
+        ctx.closePath();
         ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ── Explosions ───────────────────────────────────────────────────────
+    {
+      const exSp = explosionSpritesRef.current;
+      for (const ex of bs.explosions) {
+        const set = ex.type === 'boom'
+          ? (exSp ? (r >= 2 ? exSp.boom.sml : r === 1 ? exSp.boom.med : exSp.boom.big) : null)
+          : (exSp ? (r >= 2 ? exSp.blast.sml : r === 1 ? exSp.blast.med : exSp.blast.big) : null);
+        if (set) {
+          drawSprite(ctx, set, ex.frame, ex.x, ex.y, CANVAS_W, CANVAS_H, camX, camY, r);
+        } else {
+          // Fallback: colored expanding circle
+          const frac = ex.frame / (ex.type === 'boom' ? 8 : 7);
+          const radius = (ex.type === 'boom' ? 12 : 6) * frac;
+          const sx = w2d(ex.x - camX);
+          const sy = w2d(ex.y - camY);
+          ctx.beginPath();
+          ctx.arc(sx, sy, Math.max(1, radius), 0, Math.PI * 2);
+          ctx.fillStyle = ex.type === 'boom'
+            ? `rgba(255,${Math.round(160 * (1 - frac))},0,${0.8 * (1 - frac)})`
+            : `rgba(255,255,${Math.round(200 * (1 - frac))},${0.9 * (1 - frac)})`;
+          ctx.fill();
+        }
       }
     }
 
@@ -660,7 +1149,7 @@ function worldAngle(fromX: number, fromY: number, toX: number, toY: number): num
  * 3. Fire nuke when well-aligned
  * 4. Fire point defense when enemy nuke is close
  */
-function computeAIInput(ai: HumanShipState, target: HumanShipState, nukes: BattleNuke[], aiSide: 0 | 1): number {
+function computeAIInput(ai: HumanShipState, target: HumanShipState, nukes: BattleMissile[], aiSide: 0 | 1): number {
   let input = 0;
 
   // Angle to target (0–63 UQM system)
@@ -730,14 +1219,14 @@ function applyPointDefense(bs: BattleState, side: number) {
   }
 
   // Enemy missiles
-  bs.nukes = bs.nukes.filter(nuke => {
-    if (nuke.owner === side) return true; // never fire at own missiles
-    const dx = nuke.x - ship.x;
-    const dy = nuke.y - ship.y;
+  bs.missiles = bs.missiles.filter(m => {
+    if (m.owner === side) return true; // never fire at own missiles
+    const dx = m.x - ship.x;
+    const dy = m.y - ship.y;
     if (dx * dx + dy * dy <= rangeWSq) {
       payOnce();
-      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: nuke.x, y2: nuke.y });
-      return false; // nuke destroyed
+      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: m.x, y2: m.y });
+      return false; // missile destroyed
     }
     return true;
   });
@@ -754,12 +1243,54 @@ function applyPointDefense(bs: BattleState, side: number) {
   }
 }
 
+/**
+ * VUX forward laser: fires in the ship's facing direction and hits the first
+ * target in range. Line-segment collision with enemy ship uses point-to-line
+ * distance check. Deals 1 crew damage.
+ */
+function applyVuxLaser(bs: BattleState, owner: 0 | 1, ox: number, oy: number, facing: number) {
+  const enemySide = owner === 0 ? 1 : 0;
+  const enemyShip = bs.ships[enemySide];
+
+  const angle = (facing * 4) & 63;
+  const ex = COSINE(angle, VUX_LASER_RANGE);
+  const ey = SINE(angle, VUX_LASER_RANGE);
+
+  // Check if enemy ship circle intersects the laser line segment
+  const dx = enemyShip.x - ox;
+  const dy = enemyShip.y - oy;
+  const lenSq = ex * ex + ey * ey;
+
+  if (lenSq === 0) return;
+
+  // Project ship onto line segment, clamp t to [0,1]
+  const t = Math.max(0, Math.min(1, (dx * ex + dy * ey) / lenSq));
+  const closestX = ox + t * ex;
+  const closestY = oy + t * ey;
+  const distSq = (enemyShip.x - closestX) ** 2 + (enemyShip.y - closestY) ** 2;
+  const shipRadW = DISPLAY_TO_WORLD(SHIP_RADIUS);
+
+  if (distSq <= shipRadW * shipRadW) {
+    // Hit
+    bs.lasers.push({ x1: ox, y1: oy, x2: ox + ex, y2: oy + ey });
+    enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+  } else {
+    // Miss: still show laser flash (cosmetic)
+    bs.lasers.push({ x1: ox, y1: oy, x2: ox + ex, y2: oy + ey });
+  }
+}
+
 function computeChecksum(bs: BattleState): number {
   let crc = bs.frame;
   for (const ship of bs.ships) {
     crc ^= (ship.x & 0xFFFF) ^ ((ship.y & 0xFFFF) << 8);
     crc ^= (ship.velocity.vx & 0xFF) ^ ((ship.velocity.vy & 0xFF) << 8);
     crc ^= ship.crew ^ (ship.energy << 8);
+    crc = crc >>> 0;
+  }
+  for (const f of bs.fighters) {
+    crc ^= (f.x & 0xFFFF) ^ ((f.y & 0xFFFF) << 8);
+    crc ^= f.facing ^ (f.life << 4);
     crc = crc >>> 0;
   }
   return crc;
