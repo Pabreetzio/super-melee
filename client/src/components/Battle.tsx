@@ -219,6 +219,54 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
   const starsRef = useRef<{ x: number; y: number }[]>([]);
   const rngRef   = useRef<RNG | null>(null);
+
+  // ─── Desync diagnostics ──────────────────────────────────────────────────
+  // Ring buffer: last 64 frames of full game state + inputs used.
+  // Populated every frame; read when checksum_mismatch arrives from server.
+  interface FrameSnap {
+    frame:    number;
+    i0:       number;
+    i1:       number;
+    ships: Array<{
+      x: number; y: number;
+      vx: number; vy: number; ex: number; ey: number; travelAngle: number;
+      facing: number; crew: number; energy: number;
+      thrustWait: number; turnWait: number; weaponWait: number;
+      specialWait: number; energyWait: number; thrusting: boolean;
+    }>;
+    missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
+    fighters: Array<{ x: number; y: number; facing: number; life: number; weaponWait: number; owner: number }>;
+    warpIn:   [number, number];
+  }
+  const snapHistoryRef = useRef<FrameSnap[]>([]);
+
+  function captureSnap(bs: BattleState, i0: number, i1: number): FrameSnap {
+    return {
+      frame: bs.frame,
+      i0, i1,
+      ships: bs.ships.map(s => ({
+        x: s.x, y: s.y,
+        vx: s.velocity.vx, vy: s.velocity.vy,
+        ex: s.velocity.ex, ey: s.velocity.ey,
+        travelAngle: s.velocity.travelAngle,
+        facing: s.facing,
+        crew: s.crew, energy: s.energy,
+        thrustWait: s.thrustWait, turnWait: s.turnWait,
+        weaponWait: s.weaponWait, specialWait: s.specialWait,
+        energyWait: s.energyWait, thrusting: s.thrusting,
+      })),
+      missiles: bs.missiles.map(m => ({
+        x: m.x, y: m.y, facing: m.facing, life: m.life,
+        speed: m.speed, owner: m.owner, tracks: m.tracks,
+      })),
+      fighters: bs.fighters.map(f => ({
+        x: f.x, y: f.y, facing: f.facing, life: f.life,
+        weaponWait: f.weaponWait, owner: f.owner,
+      })),
+      warpIn: [...bs.warpIn] as [number, number],
+    };
+  }
+
   // Planet sprite images (oolite big/med/sml); null until loaded
   const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
@@ -364,7 +412,27 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           onBattleEnd(msg.winner);
         }
       } else if (msg.type === 'checksum_mismatch') {
-        console.error(`Desync at frame ${msg.frame}`);
+        const mf = msg.frame;
+        const cur = stateRef.current?.frame ?? -1;
+        const snap = snapHistoryRef.current.find(s => s.frame === mf);
+        console.group(
+          `%c[DESYNC] Checksum mismatch — diverged at frame ${mf}, currently at frame ${cur}`,
+          'color:red;font-weight:bold;font-size:14px'
+        );
+        console.log('yourSide:', yourSide);
+        console.log('frames in ring buffer:', snapHistoryRef.current.map(s => s.frame));
+        if (snap) {
+          console.log('--- SHIP 0 ---', JSON.stringify(snap.ships[0]));
+          console.log('--- SHIP 1 ---', JSON.stringify(snap.ships[1]));
+          console.log('--- MISSILES (' + snap.missiles.length + ') ---', JSON.stringify(snap.missiles));
+          console.log('--- FIGHTERS (' + snap.fighters.length + ') ---', JSON.stringify(snap.fighters));
+          console.log('--- warpIn ---', snap.warpIn);
+          console.log('--- inputs used (i0,i1) ---', snap.i0, snap.i1);
+        } else {
+          console.warn('Snapshot not in ring buffer — divergence frame too old (RTT too high?)');
+          console.log('Oldest buffered frame:', snapHistoryRef.current[0]?.frame);
+        }
+        console.groupEnd();
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         onBattleEnd(null);
       }
@@ -476,8 +544,15 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     simulateFrame(bs, i0, i1);
     bs.frame++;
 
-    // Checksums / battle-over (only in networked mode)
+    // Record snapshot for desync diagnostics (networked mode only)
     const isOffline = isAI || isLocal2P;
+    if (!isOffline) {
+      const snaps = snapHistoryRef.current;
+      snaps.push(captureSnap(bs, i0, i1));
+      if (snaps.length > 64) snaps.shift();
+    }
+
+    // Checksums / battle-over (only in networked mode)
     if (!isOffline) {
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
