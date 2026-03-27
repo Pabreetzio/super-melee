@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FullRoomState, FleetSlot } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
-import { COSINE, SINE } from '../engine/sinetab';
+import { COSINE, SINE, tableAngle } from '../engine/sinetab';
 import { DISPLAY_TO_WORLD } from '../engine/velocity';
 import {
   makeHumanShip, updateHumanShip,
@@ -1376,12 +1376,9 @@ function circleOverlap(
 }
 
 function worldAngle(fromX: number, fromY: number, toX: number, toY: number): number {
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  // UQM angle: 0 = North/up, clockwise. atan2 returns radians where 0=East, counter-clockwise.
-  // Convert: UQM_angle = (-atan2(dx, dy) * 64 / (2π)) & 63
-  const rad = Math.atan2(dx, -dy); // 0 = North
-  return ((Math.round(rad * 64 / (2 * Math.PI)) & 63) + 64) & 63;
+  // Use the deterministic integer sine-table lookup — identical on all platforms.
+  // tableAngle(dx, dy): dx>0=East, dy>0=South → UQM angle 0=North, 16=East, 32=South.
+  return tableAngle(toX - fromX, toY - fromY);
 }
 
 /**

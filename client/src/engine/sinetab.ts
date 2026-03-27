@@ -31,3 +31,30 @@ export function SINE(angle: number, magnitude: number): number {
 export function COSINE(angle: number, magnitude: number): number {
   return (sinetab[(angle + QUADRANT) & 63] * magnitude) >> 14;
 }
+
+/**
+ * Deterministic integer atan2 using the UQM sine table.
+ *
+ * Returns the UQM angle (0–63, 0=North, 16=East, 32=South, 48=West clockwise)
+ * that best matches direction vector (dx, dy) by maximising the integer dot
+ * product with each table entry.
+ *
+ * Unlike Math.atan2, this is pure integer arithmetic and produces bit-identical
+ * results on every JS engine and platform.  Use this everywhere an angle must be
+ * computed deterministically inside the lockstep simulation.
+ *
+ * dx > 0 = rightward (East), dy > 0 = downward (South) — matches world coords.
+ */
+export function tableAngle(dx: number, dy: number): number {
+  const ix = Math.trunc(dx);
+  const iy = Math.trunc(dy);
+  if (ix === 0 && iy === 0) return 0;
+  let best = 0;
+  // sinetab[(i+16)&63] is the cosine component, sinetab[i] is the sine component
+  let bestDot = sinetab[16] * ix + sinetab[0] * iy; // i = 0
+  for (let i = 1; i < FULL_CIRCLE; i++) {
+    const dot = sinetab[(i + QUADRANT) & 63] * ix + sinetab[i] * iy;
+    if (dot > bestDot) { bestDot = dot; best = i; }
+  }
+  return best;
+}

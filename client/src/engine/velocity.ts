@@ -9,7 +9,7 @@
 // Position advances by vx/32 world units per frame, with Bresenham sub-pixel
 // carries handling the fractional part.
 
-import { SINE, COSINE, QUADRANT, FULL_CIRCLE } from './sinetab';
+import { SINE, COSINE, tableAngle } from './sinetab';
 
 export const VELOCITY_SHIFT  = 5;
 export const VELOCITY_SCALE  = 1 << VELOCITY_SHIFT; // 32
@@ -42,8 +42,10 @@ export function setVelocityComponents(v: VelocityDesc, dx: number, dy: number): 
   v.vy = Math.trunc(dy);
   v.ex = 0;
   v.ey = 0;
-  // Compute travel angle from direction
-  v.travelAngle = arctan2(dx, dy);
+  // Use integer table lookup on the already-truncated vx/vy so travelAngle is
+  // identical on every platform (Math.atan2 is not guaranteed bit-identical
+  // for non-integer inputs and is the root cause of multiplayer desyncs).
+  v.travelAngle = tableAngle(v.vx, v.vy);
 }
 
 /**
@@ -110,8 +112,3 @@ export function addImpulse(v: VelocityDesc, dx: number, dy: number): void {
 /** Type alias for compatibility */
 export type Velocity = VelocityDesc;
 
-/** Integer atan2 returning angle in UQM 0–63 system */
-function arctan2(dx: number, dy: number): number {
-  if (dx === 0 && dy === 0) return 0;
-  return Math.round(Math.atan2(dy, dx) * FULL_CIRCLE / (2 * Math.PI) + QUADRANT) & 63;
-}
