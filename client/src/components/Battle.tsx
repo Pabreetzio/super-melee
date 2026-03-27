@@ -414,23 +414,40 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       } else if (msg.type === 'checksum_mismatch') {
         const mf = msg.frame;
         const cur = stateRef.current?.frame ?? -1;
-        const snap = snapHistoryRef.current.find(s => s.frame === mf);
+        const allSnaps = snapHistoryRef.current;
+        const snap = allSnaps.find(s => s.frame === mf);
         console.group(
           `%c[DESYNC] Checksum mismatch — diverged at frame ${mf}, currently at frame ${cur}`,
           'color:red;font-weight:bold;font-size:14px'
         );
         console.log('yourSide:', yourSide);
-        console.log('frames in ring buffer:', snapHistoryRef.current.map(s => s.frame));
+        // Compact per-frame table: find where Ship 1 state first changed unusually.
+        // Both players paste this; compare row-by-row to find first divergence.
+        console.log('--- FRAME HISTORY (compact) ---');
+        console.log('frm  i0 i1 | s0.facing s0.turnW s0.vx  s0.vy  | s1.facing s1.turnW s1.vx  s1.vy  s1.trvlA');
+        for (const s of allSnaps) {
+          const s0 = s.ships[0]; const s1 = s.ships[1];
+          const mark = s.frame === mf ? '*** ' : '    ';
+          console.log(
+            mark + String(s.frame).padStart(3) + '  ' +
+            String(s.i0).padStart(2) + ' ' + String(s.i1).padStart(2) + ' | ' +
+            String(s0.facing).padStart(9) + ' ' + String(s0.turnWait).padStart(7) + ' ' +
+            String(s0.vx).padStart(6) + ' ' + String(s0.vy).padStart(6) + ' | ' +
+            String(s1.facing).padStart(9) + ' ' + String(s1.turnWait).padStart(7) + ' ' +
+            String(s1.vx).padStart(6) + ' ' + String(s1.vy).padStart(6) + ' ' +
+            String(s1.travelAngle).padStart(7)
+          );
+        }
+        console.log('--- MISMATCH FRAME FULL STATE ---');
         if (snap) {
-          console.log('--- SHIP 0 ---', JSON.stringify(snap.ships[0]));
-          console.log('--- SHIP 1 ---', JSON.stringify(snap.ships[1]));
-          console.log('--- MISSILES (' + snap.missiles.length + ') ---', JSON.stringify(snap.missiles));
-          console.log('--- FIGHTERS (' + snap.fighters.length + ') ---', JSON.stringify(snap.fighters));
-          console.log('--- warpIn ---', snap.warpIn);
-          console.log('--- inputs used (i0,i1) ---', snap.i0, snap.i1);
+          console.log('SHIP 0:', JSON.stringify(snap.ships[0]));
+          console.log('SHIP 1:', JSON.stringify(snap.ships[1]));
+          console.log('MISSILES:', snap.missiles.length, JSON.stringify(snap.missiles));
+          console.log('FIGHTERS:', snap.fighters.length, JSON.stringify(snap.fighters));
+          console.log('warpIn:', snap.warpIn, ' inputs(i0,i1):', snap.i0, snap.i1);
         } else {
-          console.warn('Snapshot not in ring buffer — divergence frame too old (RTT too high?)');
-          console.log('Oldest buffered frame:', snapHistoryRef.current[0]?.frame);
+          console.warn('Mismatch frame not in ring buffer — RTT too high?');
+          console.log('Oldest buffered frame:', allSnaps[0]?.frame);
         }
         console.groupEnd();
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
