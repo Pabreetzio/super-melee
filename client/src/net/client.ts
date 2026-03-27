@@ -38,9 +38,15 @@ export class GameClient {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       if (this.ws !== ws) return; // stale — disconnect() already opened a fresh one
       this.ws = null;
+      if (ev.code === 4001) {
+        // Server closed this connection because another tab opened with the same
+        // session token. With sessionStorage this should never happen anymore,
+        // but log it prominently if it does.
+        console.warn('[WS] Kicked by server (4001) — another tab is using the same session token. Check for duplicate tabs.');
+      }
       if (this.shouldReconnect) {
         this.reconnectTimer = setTimeout(() => this._open(), 2000);
       }
@@ -48,10 +54,15 @@ export class GameClient {
   }
 
   private _getToken(): string {
-    let token = localStorage.getItem('smToken');
+    // sessionStorage is scoped per tab, so multiple tabs don't share a session
+    // ID and fight each other (each new tab connection kicks the previous one,
+    // causing a 2s reconnect loop). localStorage would persist across tabs.
+    // On page refresh within the same tab, sessionStorage survives, so the
+    // server's room-restore path still works after an accidental refresh.
+    let token = sessionStorage.getItem('smToken');
     if (!token) {
       token = crypto.randomUUID();
-      localStorage.setItem('smToken', token);
+      sessionStorage.setItem('smToken', token);
     }
     return token;
   }
