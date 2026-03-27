@@ -218,6 +218,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
   const starsRef = useRef<{ x: number; y: number }[]>([]);
+  const rngRef   = useRef<RNG | null>(null);
   // Planet sprite images (oolite big/med/sml); null until loaded
   const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
   const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
@@ -239,6 +240,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const type1 = (fleet1.find(Boolean) ?? 'human') as ShipId;
 
     const rng = new RNG(_seed || 1);
+    rngRef.current = rng;
     // Generate star field using seed for determinism.
     {
       const stars: { x: number; y: number }[] = [];
@@ -491,10 +493,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           pkunk.crew = PKUNK_MAX_CREW;
           pkunk.energy = PKUNK_MAX_ENERGY;
           // Random respawn position in world
-          pkunk.x = Math.floor(Math.random() * WORLD_W);
-          pkunk.y = Math.floor(Math.random() * WORLD_H);
+          const rng = rngRef.current!;
+          pkunk.x = rng.rand(WORLD_W);
+          pkunk.y = rng.rand(WORLD_H);
           pkunk.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
-          pkunk.facing = Math.floor(Math.random() * 16);
+          pkunk.facing = rng.rand(16);
         }
       }
     }
