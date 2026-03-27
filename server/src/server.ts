@@ -31,8 +31,8 @@ const battleState = new Map<string, { hostActive: number | null; oppActive: numb
 // Pending checksums: roomCode → frame → {s0?, s1?}
 const pendingChecksums = new Map<string, Map<number, { s0?: number; s1?: number }>>();
 
-// Battle-over acks: roomCode → Set<sessionId>
-const battleOverAcks = new Map<string, Set<string>>();
+// Battle-over acks: roomCode → { acks, winners }
+const battleOverAcks = new Map<string, { acks: Set<string>; winners: (0 | 1 | null)[] }>();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -270,7 +270,7 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
     }
 
     case 'battle_over_ack': {
-      handleBattleOverAck(sessionId);
+      handleBattleOverAck(sessionId, msg.winner);
       break;
     }
 
@@ -322,35 +322,30 @@ function handleChecksum(sessionId: string, frame: number, crc: number) {
 
 // ─── Battle-over coordination ─────────────────────────────────────────────────
 
-function handleBattleOverAck(sessionId: string) {
+function handleBattleOverAck(sessionId: string, winner: 0 | 1 | null) {
   const room = rooms.getRoomBySession(sessionId);
   if (!room || room.state !== 'in_battle') return;
-  const side = rooms.getSide(room, sessionId);
-  if (side === null) return;
 
-  // Kill the player's last active ship (it just died)
-  const bs = battleState.get(room.code);
-  if (bs) {
-    const activeShip = side === 0 ? bs.hostActive : bs.oppActive;
-    if (activeShip !== null) {
-      rooms.shipKilled(room, side, activeShip);
-    }
+  let entry = battleOverAcks.get(room.code);
+  if (!entry) {
+    entry = { acks: new Set(), winners: [] };
+    battleOverAcks.set(room.code, entry);
   }
+  if (entry.acks.has(sessionId)) return; // ignore duplicate acks
+  entry.acks.add(sessionId);
+  entry.winners.push(winner);
 
-  let acks = battleOverAcks.get(room.code);
-  if (!acks) {
-    acks = new Set();
-    battleOverAcks.set(room.code, acks);
-  }
-  acks.add(sessionId);
-
-  const bothAcked = acks.has(room.host.sessionId) &&
-    (!room.opponent || acks.has(room.opponent.sessionId));
+  const bothAcked = entry.acks.has(room.host.sessionId) &&
+    (!room.opponent || entry.acks.has(room.opponent.sessionId));
 
   if (bothAcked) {
+    // Both clients agree on winner; if they disagree it's a desync → null
+    const w0 = entry.winners[0];
+    const w1 = entry.winners[1] ?? w0;
+    const agreedWinner: 0 | 1 | null = (w0 === w1) ? w0 : null;
     cleanupBattleState(room.code);
-    const winner = rooms.endBattle(room);
-    const overMsg: ServerMsg = { type: 'battle_over', winner };
+    rooms.endBattle(room);
+    const overMsg: ServerMsg = { type: 'battle_over', winner: agreedWinner };
     sendTo(room.host.sessionId, overMsg);
     if (room.opponent) sendTo(room.opponent.sessionId, overMsg);
   }

@@ -68,7 +68,7 @@ export type ClientMsg =
   | { type: 'ship_select';     slot: number }   // between rounds
   | { type: 'battle_input';    frame: number; input: number }
   | { type: 'checksum';        frame: number; crc: number }
-  | { type: 'battle_over_ack' }
+  | { type: 'battle_over_ack'; winner: 0 | 1 | null }
   | { type: 'rematch' };
 
 // Server → Client

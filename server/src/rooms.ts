@@ -232,14 +232,8 @@ class RoomManager {
     player.shipsAlive = player.shipsAlive.filter(i => i !== slot);
   }
 
-  endBattle(room: Room): 0 | 1 | null {
+  endBattle(room: Room): void {
     room.state = 'post_battle';
-    const hostDead = room.host.shipsAlive.length === 0;
-    const oppDead = !room.opponent || room.opponent.shipsAlive.length === 0;
-    if (hostDead && oppDead) return null;
-    if (hostDead) return 1;
-    if (oppDead) return 0;
-    return null;
   }
 
   rematch(room: Room) {
