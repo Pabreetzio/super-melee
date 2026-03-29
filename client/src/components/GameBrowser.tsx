@@ -7,9 +7,10 @@ interface Props {
   rooms: RoomSummary[];
   onSolo: () => void;
   onLocal2P: () => void;
+  onBack?: () => void;
 }
 
-export default function GameBrowser({ commanderName, rooms, onSolo, onLocal2P }: Props) {
+export default function GameBrowser({ commanderName, rooms, onSolo, onLocal2P, onBack }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [password, setPassword] = useState('');
@@ -51,7 +52,14 @@ export default function GameBrowser({ commanderName, rooms, onSolo, onLocal2P }:
       <div style={{ width: '100%', maxWidth: 760 }}>
         {/* Header */}
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2>Engagement Roster</h2>
+          <div className="row" style={{ gap: 14 }}>
+            {onBack && (
+              <button onClick={onBack} style={{ padding: '4px 12px', fontSize: 12 }}>
+                ← Back
+              </button>
+            )}
+            <h2>Engagement Roster</h2>
+          </div>
           <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
             Commander: <span style={{ color: 'var(--accent)' }}>{commanderName}</span>
           </span>

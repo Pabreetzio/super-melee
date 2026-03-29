@@ -27,9 +27,12 @@ import {
   makeVuxShip, updateVuxShip, VUX_MAX_CREW, VUX_MAX_ENERGY, VUX_LASER_RANGE,
 } from '../engine/ships/vux';
 import {
-  loadCruiserSprites, loadSpathiSprites, loadUrquanSprites, loadPkunkSprites, loadVuxSprites,
+  makeKohrahShip, updateKohrahShip, BUZZSAW_LIFE,
+} from '../engine/ships/kohrah';
+import {
+  loadCruiserSprites, loadSpathiSprites, loadUrquanSprites, loadPkunkSprites, loadVuxSprites, loadKohrahSprites,
   loadGenericShipSprites, loadExplosionSprites, drawSprite,
-  type CruiserSprites, type SpathiSprites, type UrquanSprites, type PkunkSprites, type VuxSprites,
+  type CruiserSprites, type SpathiSprites, type UrquanSprites, type PkunkSprites, type VuxSprites, type KohrahSprites,
   type ShipSpriteSet, type ExplosionSprites,
 } from '../engine/sprites';
 import {
@@ -127,6 +130,10 @@ interface BattleMissile {
   trackRate: number;   // reset value for trackWait
   owner: 0 | 1;
   limpet?: boolean;    // VUX limpet: applies movement impairment on hit
+  // Kohr-Ah Buzzsaw-specific fields
+  weaponType?: 'buzzsaw' | 'gas_cloud';
+  fireHeld?: boolean;  // buzzsaw: whether fire button is currently held
+  decelWait?: number;  // buzzsaw: frames spent decelerating before homing
 }
 
 // One-frame laser line (point-defense flash or fighter laser), world coords
@@ -211,7 +218,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   const spathiSpritesRef = useRef<SpathiSprites | null>(null);
   const urquanSpritesRef = useRef<UrquanSprites | null>(null);
   const pkunkSpritesRef  = useRef<PkunkSprites  | null>(null);
-  const vuxSpritesRef         = useRef<VuxSprites       | null>(null);
+  const vuxSpritesRef    = useRef<VuxSprites    | null>(null);
+  const kohrahSpritesRef = useRef<KohrahSprites | null>(null);
   const explosionSpritesRef   = useRef<ExplosionSprites | null>(null);
   // Cache for generic ship sprites (ships without specific weapon sprite loaders)
   const genericSpritesRef = useRef<Map<string, ShipSpriteSet>>(new Map());
@@ -305,6 +313,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       if (type === 'urquan') return makeUrquanShip(x, y);
       if (type === 'pkunk')  return makePkunkShip(x, y, () => rng.rand(1000) / 1000);
       if (type === 'vux')    return makeVuxShip(x, y);
+      if (type === 'kohrah') return makeKohrahShip(x, y);
       return makeHumanShip(x, y);
     };
 
@@ -366,10 +375,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     loadUrquanSprites().then(sp => { urquanSpritesRef.current = sp; }).catch(() => {});
     loadPkunkSprites().then(sp => { pkunkSpritesRef.current = sp; }).catch(() => {});
     loadVuxSprites().then(sp => { vuxSpritesRef.current = sp; }).catch(() => {});
+    loadKohrahSprites().then(sp => { kohrahSpritesRef.current = sp; }).catch(() => {});
     loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
 
     // Load generic sprites for any ship types without specific weapon loaders
-    const handledTypes = new Set(['human', 'spathi', 'urquan', 'pkunk', 'vux']);
+    const handledTypes = new Set(['human', 'spathi', 'urquan', 'pkunk', 'vux', 'kohrah']);
     for (const t of [type0, type1]) {
       if (!handledTypes.has(t)) {
         loadGenericShipSprites(t).then(sp => {
@@ -670,6 +680,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       if (type === 'urquan') return updateUrquanShip(ship, input);
       if (type === 'pkunk')  return updatePkunkShip(ship, input);
       if (type === 'vux')    return updateVuxShip(ship, input);
+      if (type === 'kohrah') return updateKohrahShip(ship, input);
       return updateHumanShip(ship, input);
     };
     const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0);
@@ -699,6 +710,34 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           tracks: s.tracks, trackWait: s.trackRate, trackRate: s.trackRate,
           owner,
         });
+      } else if (s.type === 'buzzsaw') {
+        const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+        setVelocityVector(v, s.speed, s.facing);
+        bs.missiles.push({
+          x: s.x, y: s.y, facing: s.facing, velocity: v,
+          life: s.life, speed: s.speed, maxSpeed: s.speed, // buzzsaw doesn't accelerate
+          accel: 0, damage: s.damage,
+          tracks: s.fireHeld ? false : true, // homing when fire released
+          trackWait: 4, trackRate: 4,
+          owner,
+          weaponType: 'buzzsaw',
+          fireHeld: s.fireHeld,
+          decelWait: 0,
+        });
+      } else if (s.type === 'gas_cloud') {
+        const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+        setVelocityVector(v, s.speed, s.facing);
+        // Add ship velocity to gas cloud (DeltaVelocityComponents from UQM)
+        v.vx += s.shipVelocity.vx;
+        v.vy += s.shipVelocity.vy;
+        bs.missiles.push({
+          x: s.x, y: s.y, facing: s.facing, velocity: v,
+          life: 64, speed: s.speed, maxSpeed: s.speed,
+          accel: 0, damage: s.damage,
+          tracks: false, trackWait: 0, trackRate: 0,
+          owner,
+          weaponType: 'gas_cloud',
+        });
       } else if (s.type === 'fighter') {
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, FIGHTER_SPEED, s.facing);
@@ -714,12 +753,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       spawnRequest(s, 0);
       if (s.type === 'point_defense') { applyPointDefense(bs, 0); playSecondary(bs.shipTypes[0]); }
       else if (s.type === 'missile')  playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'buzzsaw')  playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[0]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
     }
     for (const s of spawns1) {
       spawnRequest(s, 1);
       if (s.type === 'point_defense') { applyPointDefense(bs, 1); playSecondary(bs.shipTypes[1]); }
       else if (s.type === 'missile')  playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'buzzsaw')  playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[1]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
     }
 
@@ -741,7 +784,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         }
       }
 
-      // Acceleration (nuke) or fixed speed (BUTT / Spathi gun)
+      // Acceleration (nuke) or fixed speed (BUTT / Spathi gun / Buzzsaw)
       m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
       setVelocityVector(m.velocity, m.speed, m.facing);
 
@@ -1075,10 +1118,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       const bugSet     = pkSp ? (r >= 2 ? pkSp.bug.sml     : r === 1 ? pkSp.bug.med     : pkSp.bug.big)     : null;
       const vxSp      = vuxSpritesRef.current;
       const limpetSet  = vxSp ? (r >= 2 ? vxSp.limpets.sml : r === 1 ? vxSp.limpets.med : vxSp.limpets.big) : null;
+      const kohrahSp   = kohrahSpritesRef.current;
+      const buzzawSet  = kohrahSp ? (r >= 2 ? kohrahSp.buzzsaw.sml : r === 1 ? kohrahSp.buzzsaw.med : kohrahSp.buzzsaw.big) : null;
+      const gasMissSet = kohrahSp ? (r >= 2 ? kohrahSp.gas.sml : r === 1 ? kohrahSp.gas.med : kohrahSp.gas.big) : null;
 
       for (const m of bs.missiles) {
         let mset = nukeSet;
-        if (bs.shipTypes[m.owner] === 'spathi') {
+        if (m.weaponType === 'buzzsaw') {
+          mset = buzzawSet;
+        } else if (m.weaponType === 'gas_cloud') {
+          // Gas clouds cycle through their 8 animation frames based on age
+          mset = gasMissSet;
+        } else if (bs.shipTypes[m.owner] === 'spathi') {
           mset = m.tracks ? buttSet : sMissSet;
         } else if (bs.shipTypes[m.owner] === 'urquan') {
           mset = fusionSet;
@@ -1089,10 +1140,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           mset = limpetSet;
         }
         if (mset) {
-          // Limpets cycle through animation frames; others use facing for rotation
-          const frameIdx = (bs.shipTypes[m.owner] === 'vux' && m.limpet)
-            ? (FIGHTER_LIFE - m.life) & 3  // cycle 0–3 based on age
-            : m.facing;
+          // Determine frame index based on weapon type
+          let frameIdx = m.facing;
+          if (m.weaponType === 'buzzsaw') {
+            // Buzzsaw spins: 8-frame animation based on life
+            frameIdx = (BUZZSAW_LIFE - m.life) & 7;
+          } else if (m.weaponType === 'gas_cloud') {
+            // Gas cloud animation: 8 frames, cycle based on age
+            frameIdx = Math.min(7, (64 - m.life) >> 3);
+          } else if (bs.shipTypes[m.owner] === 'vux' && m.limpet) {
+            // Limpets cycle through 4 animation frames
+            frameIdx = (FIGHTER_LIFE - m.life) & 3;
+          }
           drawSprite(ctx, mset, frameIdx, m.x, m.y, CANVAS_W, CANVAS_H, camX, camY, r);
         } else {
           placeholderDot(ctx, m.x, m.y, camX, camY, 3, '#ff8', r);

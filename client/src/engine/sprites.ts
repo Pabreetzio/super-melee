@@ -286,6 +286,30 @@ const FIGHTER_SML_HOTSPOTS: [number, number][] = [
   [0,1],[1,1],[1,1],[1,1],[1,0],[1,0],[1,1],[1,1],
 ];
 
+// ─── Kohr-Ah Mauler weapon hotspot tables ─────────────────────────────────────
+
+// buzzsaw-big.ani — 8 animation frames (spinning disk)
+const BUZZSAW_BIG_HOTSPOTS: [number, number][] = [
+  [8,8],[9,9],[7,7],[10,10],[11,11],[13,13],[14,15],[15,16],
+];
+const BUZZSAW_MED_HOTSPOTS: [number, number][] = [
+  [4,4],[4,4],[7,7],[3,3],[5,5],[6,7],[7,7],[6,8],
+];
+const BUZZSAW_SML_HOTSPOTS: [number, number][] = [
+  [3,3],[2,2],[2,2],[4,4],[4,4],[5,5],[5,5],[4,4],
+];
+
+// gas-big.ani — 8 animation frames (gas cloud)
+const GAS_BIG_HOTSPOTS: [number, number][] = [
+  [4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9],
+];
+const GAS_MED_HOTSPOTS: [number, number][] = [
+  [2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4],
+];
+const GAS_SML_HOTSPOTS: [number, number][] = [
+  [1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2],
+];
+
 // ─── Render helper ────────────────────────────────────────────────────────────
 
 /**
@@ -409,6 +433,41 @@ export async function loadVuxSprites(): Promise<VuxSprites> {
   return {
     big, med, sml,
     limpets: { big: limBig, med: limMed, sml: limSml },
+  };
+}
+
+// ─── Kohr-Ah Mauler sprites ───────────────────────────────────────────────────
+
+export interface KohrahSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  buzzsaw: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  gas:     { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadKohrahSprites(): Promise<KohrahSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('kohrah/marauder', 'big', 16, MARAUDER_BIG_HOTSPOTS),
+    loadSpriteSet('kohrah/marauder', 'med', 16, MARAUDER_MED_HOTSPOTS),
+    loadSpriteSet('kohrah/marauder', 'sml', 16, MARAUDER_SML_HOTSPOTS),
+  ]);
+  // Buzzsaw: 8 animation frames (spinning disk)
+  const [sawBig, sawMed, sawSml] = await Promise.all([
+    loadSpriteSet('kohrah/buzzsaw', 'big', 8, BUZZSAW_BIG_HOTSPOTS),
+    loadSpriteSet('kohrah/buzzsaw', 'med', 8, BUZZSAW_MED_HOTSPOTS),
+    loadSpriteSet('kohrah/buzzsaw', 'sml', 8, BUZZSAW_SML_HOTSPOTS),
+  ]);
+  // Gas clouds: 8 animation frames
+  const [gasBig, gasMed, gasSml] = await Promise.all([
+    loadSpriteSet('kohrah/gas', 'big', 8, GAS_BIG_HOTSPOTS),
+    loadSpriteSet('kohrah/gas', 'med', 8, GAS_MED_HOTSPOTS),
+    loadSpriteSet('kohrah/gas', 'sml', 8, GAS_SML_HOTSPOTS),
+  ]);
+  return {
+    big, med, sml,
+    buzzsaw: { big: sawBig, med: sawMed, sml: sawSml },
+    gas:     { big: gasBig, med: gasMed, sml: gasSml },
   };
 }
 

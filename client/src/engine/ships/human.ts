@@ -231,7 +231,24 @@ export type SpawnRequest =
     }
   | { type: 'point_defense'; x: number; y: number }
   | { type: 'fighter'; x: number; y: number; facing: number }
-  | { type: 'vux_laser'; x: number; y: number; facing: number };
+  | { type: 'vux_laser'; x: number; y: number; facing: number }
+  | {
+      type: 'buzzsaw';
+      x: number; y: number; facing: number;
+      speed: number;
+      life: number;
+      damage: number;
+      hits: number;
+      fireHeld: boolean; // tracks whether fire button is currently held
+    }
+  | {
+      type: 'gas_cloud';
+      x: number; y: number; facing: number;
+      speed: number;
+      damage: number;
+      hits: number;
+      shipVelocity: { vx: number; vy: number };
+    };
 
 // ─── Shared tracking helper (mirrors UQM TrackShip ±1-facing-per-cycle logic) ─
 
