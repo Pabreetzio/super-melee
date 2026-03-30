@@ -15,8 +15,8 @@ import type { SpawnRequest } from './human';
 
 // ─── Ship constants (from blackurq.c) ──────────────────────────────────────────
 
-export const KOHRAH_MAX_CREW            = 20;
-export const KOHRAH_MAX_ENERGY          = 20;
+export const KOHRAH_MAX_CREW            = 42;
+export const KOHRAH_MAX_ENERGY          = 42;
 export const KOHRAH_ENERGY_REGENERATION = 1;
 export const KOHRAH_ENERGY_WAIT         = 4;
 export const KOHRAH_MAX_THRUST          = 30;
@@ -28,19 +28,20 @@ export const KOHRAH_SHIP_MASS           = 10;
 // Buzzsaw (primary)
 export const BUZZSAW_ENERGY_COST = 6;
 export const BUZZSAW_WAIT        = 6;
-export const BUZZSAW_SPEED       = DISPLAY_TO_WORLD(64); // 256 world units
+export const BUZZSAW_SPEED       = 64;  // world units — raw value from UQM, NOT display pixels
 export const BUZZSAW_LIFE        = 64;       // frames while button held
 export const BUZZSAW_HITS        = 10;       // HP
 export const BUZZSAW_DAMAGE      = 4;
 export const MAX_BUZZSAWS        = 8;
-export const BUZZSAW_OFFSET      = DISPLAY_TO_WORLD(28);  // spawn offset from ship
-export const ACTIVATE_RANGE      = DISPLAY_TO_WORLD(224); // homing distance threshold
-export const BUZZSAW_TRACK_WAIT  = 4;        // frames between homing turns
+export const BUZZSAW_OFFSET      = DISPLAY_TO_WORLD(28);   // spawn offset from ship (pixoffs)
+export const ACTIVATE_RANGE      = 224;                     // display pixels — UQM checks WORLD_TO_DISPLAY(delta) vs this
+export const BUZZSAW_TRACK_WAIT  = 4;                       // frames between homing nudges (TRACK_WAIT)
+export const BUZZSAW_TRACK_SPEED = DISPLAY_TO_WORLD(2);     // very slow homing speed (UQM: DISPLAY_TO_WORLD(2) = 8 world units)
 
 // F.R.I.E.D. (special)
 export const FRIED_ENERGY_COST   = KOHRAH_MAX_ENERGY / 2; // 10
 export const FRIED_WAIT          = 9;
-export const GAS_SPEED           = DISPLAY_TO_WORLD(16);  // 64 world units
+export const GAS_SPEED           = 16;  // world units — raw value from UQM, NOT display pixels
 export const GAS_DAMAGE          = 3;
 export const GAS_HITS            = 100;
 export const NUM_GAS_CLOUDS      = 16;       // ring of 16 fireballs
@@ -148,12 +149,16 @@ export function updateKohrahShip(ship: HumanShipState, input: number): SpawnRequ
   }
 
   // ─── Primary weapon: Buzzsaw ──────────────────────────────────────────────
-  // Buzzsaws are spawned continuously while INPUT_FIRE1 is held, up to MAX_BUZZSAWS.
-  // They spin forward and automatically home to enemies.
-  // The weaponWait counter here tracks the spawn rate.
+  // One buzzsaw per key-press (edge-triggered). Holding fire keeps the existing
+  // buzzsaw alive; releasing lets it stop and home. A new one fires only on the
+  // next key-down after a release.
+  const fireNow = !!(input & INPUT_FIRE1);
+  const fireJustPressed = fireNow && !ship.prevFireHeld;
+  ship.prevFireHeld = fireNow;
+
   if (ship.weaponWait > 0) {
     ship.weaponWait--;
-  } else if ((input & INPUT_FIRE1) && ship.energy >= BUZZSAW_ENERGY_COST) {
+  } else if (fireJustPressed && ship.energy >= BUZZSAW_ENERGY_COST) {
     ship.energy -= BUZZSAW_ENERGY_COST;
     ship.weaponWait = BUZZSAW_WAIT;
     const launchAngle = (ship.facing * 4) & 63;

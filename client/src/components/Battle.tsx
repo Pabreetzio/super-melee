@@ -27,7 +27,8 @@ import {
   makeVuxShip, updateVuxShip, VUX_MAX_CREW, VUX_MAX_ENERGY, VUX_LASER_RANGE,
 } from '../engine/ships/vux';
 import {
-  makeKohrahShip, updateKohrahShip, BUZZSAW_LIFE,
+  makeKohrahShip, updateKohrahShip,
+  MAX_BUZZSAWS, ACTIVATE_RANGE, BUZZSAW_TRACK_WAIT, BUZZSAW_TRACK_SPEED,
 } from '../engine/ships/kohrah';
 import {
   loadCruiserSprites, loadSpathiSprites, loadUrquanSprites, loadPkunkSprites, loadVuxSprites, loadKohrahSprites,
@@ -41,6 +42,7 @@ import {
 import { trackFacing } from '../engine/ships/human';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
+import { getShipDef } from '../engine/ships/index';
 import HUD from './HUD';
 import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser } from '../engine/audio';
 
@@ -154,10 +156,15 @@ interface BattleFighter {
 
 // Cosmetic explosion animation (not included in checksum; purely visual)
 interface BattleExplosion {
-  type: 'boom' | 'blast';
+  type: 'boom' | 'blast' | 'splinter';
   x: number;
   y: number;
   frame: number; // current frame index; advances each sim tick
+  // splinter only: velocity from the buzzsaw at impact (continues moving)
+  vx?: number;
+  vy?: number;
+  ex?: number; // Bresenham sub-pixel accumulator
+  ey?: number;
 }
 
 // Cosmetic ion trail dot emitted while thrusting (not checksummed)
@@ -279,7 +286,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   // Planet sprite images (oolite big/med/sml); null until loaded
   const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
-  const [hudData, setHudData] = useState({ myCrewPct: 1, oppCrewPct: 1, myEnergyPct: 1, oppEnergyPct: 1 });
+  const [hudData, setHudData] = useState({ myCrew: MAX_CREW, myMaxCrew: MAX_CREW, myEnergy: MAX_ENERGY, myMaxEnergy: MAX_ENERGY, oppCrew: MAX_CREW, oppMaxCrew: MAX_CREW, oppEnergy: MAX_ENERGY, oppMaxEnergy: MAX_ENERGY });
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
   // needing to re-bind the tick/render closures on every resize.
@@ -648,16 +655,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     }
 
-    // Update HUD (use per-ship max stats)
-    const maxCrewFor  = (t: ShipId) =>
-      t === 'spathi' ? SPATHI_MAX_CREW   : t === 'urquan' ? URQUAN_MAX_CREW   : t === 'pkunk' ? PKUNK_MAX_CREW   : t === 'vux' ? VUX_MAX_CREW   : MAX_CREW;
-    const maxEnergyFor = (t: ShipId) =>
-      t === 'spathi' ? SPATHI_MAX_ENERGY : t === 'urquan' ? URQUAN_MAX_ENERGY : t === 'pkunk' ? PKUNK_MAX_ENERGY : t === 'vux' ? VUX_MAX_ENERGY : MAX_ENERGY;
+    // Update HUD — use getShipDef for per-ship max values (covers all 27 ships)
+    const myDef  = getShipDef(bs.shipTypes[mySide]);
+    const oppDef = getShipDef(bs.shipTypes[opSide]);
     setHudData({
-      myCrewPct:    bs.ships[mySide].crew    / maxCrewFor(bs.shipTypes[mySide]),
-      oppCrewPct:   bs.ships[opSide].crew    / maxCrewFor(bs.shipTypes[opSide]),
-      myEnergyPct:  bs.ships[mySide].energy  / maxEnergyFor(bs.shipTypes[mySide]),
-      oppEnergyPct: bs.ships[opSide].energy  / maxEnergyFor(bs.shipTypes[opSide]),
+      myCrew:       bs.ships[mySide].crew,
+      myMaxCrew:    myDef?.crew   ?? MAX_CREW,
+      myEnergy:     bs.ships[mySide].energy,
+      myMaxEnergy:  myDef?.energy ?? MAX_ENERGY,
+      oppCrew:      bs.ships[opSide].crew,
+      oppMaxCrew:   oppDef?.crew   ?? MAX_CREW,
+      oppEnergy:    bs.ships[opSide].energy,
+      oppMaxEnergy: oppDef?.energy ?? MAX_ENERGY,
     });
   }
 
@@ -711,14 +720,21 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           owner,
         });
       } else if (s.type === 'buzzsaw') {
+        // FIFO cap: if already at MAX_BUZZSAWS for this owner, remove the oldest.
+        const ownerSaws = bs.missiles.filter(m => m.weaponType === 'buzzsaw' && m.owner === owner);
+        if (ownerSaws.length >= MAX_BUZZSAWS) {
+          const oldest = ownerSaws[0];
+          const idx = bs.missiles.indexOf(oldest);
+          if (idx !== -1) bs.missiles.splice(idx, 1);
+        }
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, s.speed, s.facing);
         bs.missiles.push({
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: s.life, speed: s.speed, maxSpeed: s.speed, // buzzsaw doesn't accelerate
+          life: s.life, speed: s.speed, maxSpeed: s.speed,
           accel: 0, damage: s.damage,
-          tracks: s.fireHeld ? false : true, // homing when fire released
-          trackWait: 4, trackRate: 4,
+          tracks: false,   // buzzsaws NEVER home — they freeze in place on release
+          trackWait: 0, trackRate: 0,
           owner,
           weaponType: 'buzzsaw',
           fireHeld: s.fireHeld,
@@ -772,6 +788,35 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       m.life--;
       if (m.life <= 0) continue;
 
+      // ── Buzzsaw lifecycle ──────────────────────────────────────────────────────
+      // UQM phases:
+      //   buzzsaw_preprocess  → while fire held: spin_preprocess (life++)
+      //   decelerate_preprocess → each frame: halve vx/vy, then spin_preprocess (life++)
+      //   buzztrack_preprocess  → each frame: nudge if in range, then spin_preprocess (life++)
+      // spin_preprocess always counteracts the engine's life-- so buzzsaws never
+      // expire naturally. Only FIFO (9th spawn) or a hit can destroy them.
+      if (m.weaponType === 'buzzsaw') {
+        m.decelWait = (m.decelWait ?? 0) + 1; // animation counter (independent of life)
+
+        const ownerInput = m.owner === 0 ? input0 : input1;
+        if (m.fireHeld) {
+          if (ownerInput & INPUT_FIRE1) {
+            // buzzsaw_preprocess + spin_preprocess: replenish life while held
+            m.life++;
+          } else {
+            // Fire just released: halve life, switch to decel phase.
+            // spin_preprocess still runs this frame → replenish after the halve.
+            m.fireHeld = false;
+            m.life = Math.max(1, m.life >> 1);
+            m.life++;
+          }
+        } else {
+          // decelerate_preprocess or buzztrack_preprocess:
+          // spin_preprocess always replenishes life → buzzsaw persists indefinitely.
+          m.life++;
+        }
+      }
+
       // Tracking
       if (m.tracks) {
         const targetShip = bs.ships[m.owner === 0 ? 1 : 0];
@@ -784,9 +829,54 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         }
       }
 
-      // Acceleration (nuke) or fixed speed (BUTT / Spathi gun / Buzzsaw)
-      m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
-      setVelocityVector(m.velocity, m.speed, m.facing);
+      // Velocity update
+      let skipVelocitySet = false;
+
+      if (m.weaponType === 'buzzsaw' && !m.fireHeld) {
+        const stopped = m.velocity.vx === 0 && m.velocity.vy === 0;
+        if (!stopped) {
+          // decelerate_preprocess: halve velocity each frame until stopped.
+          m.velocity.vx = Math.trunc(m.velocity.vx / 2);
+          m.velocity.vy = Math.trunc(m.velocity.vy / 2);
+        } else {
+          // buzztrack_preprocess: every TRACK_WAIT frames, nudge toward enemy
+          // if within ACTIVATE_RANGE display pixels (UQM checks WORLD_TO_DISPLAY(delta)).
+          if (m.trackWait > 0) {
+            m.trackWait--;
+          } else {
+            m.trackWait = BUZZSAW_TRACK_WAIT;
+            const enemy = bs.ships[m.owner === 0 ? 1 : 0];
+            const dxW = enemy.x - m.x;
+            const dyW = enemy.y - m.y;
+            // Convert to display pixels (WORLD_TO_DISPLAY = >> 2)
+            const dxD = Math.abs(dxW) >> 2;
+            const dyD = Math.abs(dyW) >> 2;
+            if (dxD < ACTIVATE_RANGE && dyD < ACTIVATE_RANGE &&
+                dxD * dxD + dyD * dyD < ACTIVATE_RANGE * ACTIVATE_RANGE) {
+              // In range: DISPLAY_TO_WORLD(2) = 8 world-units toward enemy
+              // (very subtle — UQM SetVelocityVector with facing converted from arctan)
+              const angle   = worldAngle(m.x, m.y, enemy.x, enemy.y); // 0–63
+              const facing  = ((angle + 2) >> 2) & 15;                 // ANGLE_TO_FACING
+              setVelocityVector(m.velocity, BUZZSAW_TRACK_SPEED, facing);
+            } else {
+              // Out of range: stay still
+              m.velocity.vx = 0;
+              m.velocity.vy = 0;
+            }
+          }
+        }
+        skipVelocitySet = true;
+      } else if (m.weaponType === 'gas_cloud') {
+        // Gas clouds have velocity (spread + ship velocity) set once at spawn.
+        // Do not overwrite with setVelocityVector each frame.
+        skipVelocitySet = true;
+      }
+
+      if (!skipVelocitySet) {
+        // Normal fixed-speed or accelerating projectile.
+        m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
+        setVelocityVector(m.velocity, m.speed, m.facing);
+      }
 
       // Position advance (Bresenham sub-pixel, same as ships)
       {
@@ -813,9 +903,30 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       let hit = false;
       const targetSide = m.owner === 0 ? 1 : 0;
       const targetShip = bs.ships[targetSide];
-      if (bs.warpIn[targetSide] === 0 && circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
+
+      // Buzzsaw–planet collision (splinter, no planet damage)
+      if (!hit && m.weaponType === 'buzzsaw') {
+        const pdx = m.x - PLANET_X;
+        const pdy = m.y - PLANET_Y;
+        if (pdx * pdx + pdy * pdy < (PLANET_RADIUS_W + 4) ** 2) {
+          bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
+            vx: m.velocity.vx, vy: m.velocity.vy, ex: 0, ey: 0 });
+          playBlast(m.damage);
+          hit = true;
+        }
+      }
+
+      if (!hit && bs.warpIn[targetSide] === 0 && circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
         targetShip.crew = Math.max(0, targetShip.crew - m.damage);
-        bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        if (m.weaponType === 'buzzsaw') {
+          // weapon_collision spawns a blast flash AND buzzsaw_collision keeps
+          // the blade as a moving splinter — both effects run simultaneously.
+          bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+          bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
+            vx: m.velocity.vx, vy: m.velocity.vy, ex: 0, ey: 0 });
+        } else {
+          bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        }
         playBlast(m.damage);
         // VUX limpet: apply movement impairment (increase turn/thrust wait)
         if (m.limpet) {
@@ -902,8 +1013,25 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
     bs.explosions = bs.explosions.filter(e => {
+      if (e.type === 'splinter') {
+        // splinter_preprocess: keep moving at buzzsaw velocity, no deceleration
+        const vx = e.vx ?? 0, vy = e.vy ?? 0;
+        const fracX = Math.abs(vx) & 31;
+        const newExX = (e.ex ?? 0) + fracX;
+        e.ex = newExX & 31;
+        const carryX = newExX >= 32 ? 1 : 0;
+        e.x += VELOCITY_TO_WORLD(Math.abs(vx)) * Math.sign(vx) + (vx >= 0 ? carryX : -carryX);
+        const fracY = Math.abs(vy) & 31;
+        const newExY = (e.ey ?? 0) + fracY;
+        e.ey = newExY & 31;
+        const carryY = newExY >= 32 ? 1 : 0;
+        e.y += VELOCITY_TO_WORLD(Math.abs(vy)) * Math.sign(vy) + (vy >= 0 ? carryY : -carryY);
+        e.x = ((e.x % WORLD_W) + WORLD_W) % WORLD_W;
+        e.y = ((e.y % WORLD_H) + WORLD_H) % WORLD_H;
+      }
       e.frame++;
-      return e.frame < (e.type === 'boom' ? 9 : 8);
+      // splinter: frames 2–6 = 5 frames (UQM life_span=5 after collision)
+      return e.type === 'splinter' ? e.frame < 7 : e.type === 'boom' ? e.frame < 9 : e.frame < 8;
     });
 
     // Ship–ship collision (skip if either ship is still warping in)
@@ -1143,8 +1271,10 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           // Determine frame index based on weapon type
           let frameIdx = m.facing;
           if (m.weaponType === 'buzzsaw') {
-            // Buzzsaw spins: 8-frame animation based on life
-            frameIdx = (BUZZSAW_LIFE - m.life) & 7;
+            // UQM buzzsaw: only frames 0–1 are the spinning animation (LAST_SPIN_INDEX=1).
+            // Frames 2–7 are the splinter/collision death animation.
+            // decelWait is repurposed as an independent animation tick counter.
+            frameIdx = (m.decelWait ?? 0) & 1;
           } else if (m.weaponType === 'gas_cloud') {
             // Gas cloud animation: 8 frames, cycle based on age
             frameIdx = Math.min(7, (64 - m.life) >> 3);
@@ -1235,6 +1365,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         shipSet = pkSp ? (r >= 2 ? pkSp.sml : r === 1 ? pkSp.med : pkSp.big) : null;
       } else if (bs.shipTypes[side] === 'vux') {
         shipSet = vxSp ? (r >= 2 ? vxSp.sml : r === 1 ? vxSp.med : vxSp.big) : null;
+      } else if (bs.shipTypes[side] === 'kohrah') {
+        const khSp = kohrahSpritesRef.current;
+        shipSet = khSp ? (r >= 2 ? khSp.sml : r === 1 ? khSp.med : khSp.big) : null;
       } else {
         // Try generic sprite cache first, then fall back to cruiser sprites for human
         const generic = genericSpritesRef.current.get(bs.shipTypes[side]);
@@ -1289,7 +1422,20 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     // ── Explosions ───────────────────────────────────────────────────────
     {
       const exSp = explosionSpritesRef.current;
+      const kohrahEx = kohrahSpritesRef.current;
       for (const ex of bs.explosions) {
+        if (ex.type === 'splinter') {
+          // Buzzsaw impact: render using buzzsaw sprite frames 2–6
+          const sset = kohrahEx
+            ? (r >= 2 ? kohrahEx.buzzsaw.sml : r === 1 ? kohrahEx.buzzsaw.med : kohrahEx.buzzsaw.big)
+            : null;
+          if (sset) {
+            drawSprite(ctx, sset, ex.frame, ex.x, ex.y, CANVAS_W, CANVAS_H, camX, camY, r);
+          } else {
+            placeholderDot(ctx, ex.x, ex.y, camX, camY, 4, '#f80', r);
+          }
+          continue;
+        }
         const set = ex.type === 'boom'
           ? (exSp ? (r >= 2 ? exSp.boom.sml : r === 1 ? exSp.boom.med : exSp.boom.big) : null)
           : (exSp ? (r >= 2 ? exSp.blast.sml : r === 1 ? exSp.blast.med : exSp.blast.big) : null);
@@ -1347,17 +1493,17 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         <HUD
           left={{
             name:      firstShip(myFleet),
-            crew:      Math.round(hudData.myCrewPct    * MAX_CREW),
-            maxCrew:   MAX_CREW,
-            energy:    Math.round(hudData.myEnergyPct  * MAX_ENERGY),
-            maxEnergy: MAX_ENERGY,
+            crew:      hudData.myCrew,
+            maxCrew:   hudData.myMaxCrew,
+            energy:    hudData.myEnergy,
+            maxEnergy: hudData.myMaxEnergy,
           }}
           right={{
             name:      firstShip(oppFleet),
-            crew:      Math.round(hudData.oppCrewPct   * MAX_CREW),
-            maxCrew:   MAX_CREW,
-            energy:    Math.round(hudData.oppEnergyPct * MAX_ENERGY),
-            maxEnergy: MAX_ENERGY,
+            crew:      hudData.oppCrew,
+            maxCrew:   hudData.oppMaxCrew,
+            energy:    hudData.oppEnergy,
+            maxEnergy: hudData.oppMaxEnergy,
           }}
         />
       </div>

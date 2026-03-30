@@ -69,6 +69,7 @@ export interface HumanShipState {
 
   // Status flags
   thrusting: boolean;
+  prevFireHeld?: boolean; // used by ships with edge-triggered primary (e.g. Kohr-Ah buzzsaw)
 }
 
 export function makeHumanShip(x: number, y: number): HumanShipState {

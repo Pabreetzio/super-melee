@@ -32,7 +32,6 @@ export const SHIP_ICON: Partial<Record<ShipId, string>> = {
   thraddash:  '/ships/thraddash/torch-big-000.png',
   umgah:      '/ships/umgah/drone-big-000.png',
   urquan:     '/ships/urquan/dreadnought-big-000.png',
-  blackurq:   '/ships/urquan/dreadnought-big-000.png', // shares sprite with urquan for now
   utwig:      '/ships/utwig/jugger-big-000.png',
   vux:        '/ships/vux/intruder-big-000.png',
   yehat:      '/ships/yehat/terminator-big-000.png',

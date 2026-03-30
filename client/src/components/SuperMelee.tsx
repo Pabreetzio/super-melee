@@ -13,7 +13,7 @@ export const SHIP_COSTS: Partial<Record<ShipId, number>> = {
   orz: 22, pkunk: 12, shofixti: 8, slylandro: 14, spathi: 16,
   supox: 18, syreen: 18, thraddash: 16, umgah: 14, urquan: 28,
   utwig: 22, vux: 20, yehat: 20, zoqfotpik: 16,
-  blackurq: 28, kohrah: 10, samatra: 0,
+  kohrah: 28, samatra: 0,
 };
 
 function fleetValue(fleet: FleetSlot[]): number {

@@ -9,7 +9,7 @@ export type ShipId =
   | 'orz'        | 'pkunk'    | 'shofixti' | 'slylandro' | 'spathi'
   | 'supox'      | 'syreen'   | 'thraddash'| 'umgah'     | 'urquan'
   | 'utwig'      | 'vux'      | 'yehat'    | 'zoqfotpik'
-  | 'blackurq'   | 'kohrah'   | 'samatra';
+  | 'kohrah'     | 'samatra';
 
 export type FleetSlot = ShipId | null;
 
