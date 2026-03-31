@@ -17,7 +17,7 @@ import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import HUD from './HUD';
-import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -222,6 +222,51 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
   // needing to re-bind the tick/render closures on every resize.
   const uiScaleRef  = useRef(1);
   const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
+
+  // Debug helper — call window.__battleDebug() from the browser console
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__battleDebug = () => {
+      const bs = stateRef.current;
+      if (!bs) { console.log('No battle state'); return; }
+      const r = reductionRef.current;
+      let ax = bs.ships[0].x, bx = bs.ships[1].x;
+      let ay = bs.ships[0].y, by = bs.ships[1].y;
+      if (Math.abs(bx - ax) > WORLD_W >> 1) bx -= Math.sign(bx - ax) * WORLD_W;
+      if (Math.abs(by - ay) > WORLD_H >> 1) by -= Math.sign(by - ay) * WORLD_H;
+      const midX = ((((ax + bx) >> 1) % WORLD_W) + WORLD_W) % WORLD_W;
+      const midY = ((((ay + by) >> 1) % WORLD_H) + WORLD_H) % WORLD_H;
+      const camX = midX - (CANVAS_W << (1 + r));
+      const camY = midY - (CANVAS_H << (1 + r));
+      // tw2dx/tw2dy must exactly mirror the renderer's logic (including wdw fix)
+      const wdw = WORLD_W >> (2 + r);
+      const wdh = WORLD_H >> (2 + r);
+      const tw2dx = (wx: number) => {
+        let x = wx - camX; x = ((x % WORLD_W) + WORLD_W) % WORLD_W; if (x > WORLD_W >> 1) x -= WORLD_W;
+        let d = x >> (2 + r);
+        if (d < 0 && d + wdw <= CANVAS_W) d += wdw; else if (d > CANVAS_W && d - wdw >= 0) d -= wdw;
+        return d;
+      };
+      const tw2dy = (wy: number) => {
+        let y = wy - camY; y = ((y % WORLD_H) + WORLD_H) % WORLD_H; if (y > WORLD_H >> 1) y -= WORLD_H;
+        let d = y >> (2 + r);
+        if (d < 0 && d + wdh <= CANVAS_H) d += wdh; else if (d > CANVAS_H && d - wdh >= 0) d -= wdh;
+        return d;
+      };
+      console.log(`=== BATTLE DEBUG  frame=${bs.frame}  zoom=r${r} (${1 << r}×)  wdw=${wdw} wdh=${wdh} ===`);
+      console.log(`camera: midX=${midX} midY=${midY}  camX=${camX} camY=${camY}`);
+      for (let i = 0; i < 2; i++) {
+        const s = bs.ships[i];
+        const rawX = s.x - camX, rawY = s.y - camY;
+        const dx = tw2dx(s.x), dy = tw2dy(s.y);
+        console.log(`ship${i} (${bs.shipTypes[i]}): world=(${s.x},${s.y})  rawOffset=(${rawX},${rawY})  display=(${dx},${dy})  onScreen=${dx>=0&&dx<=640&&dy>=0&&dy<=480}  vx=${s.velocity.vx} vy=${s.velocity.vy}  crew=${s.crew}  warpIn=${bs.warpIn[i]}`);
+      }
+      const wdx = Math.min(Math.abs(bs.ships[1].x - bs.ships[0].x), WORLD_W - Math.abs(bs.ships[1].x - bs.ships[0].x));
+      const wdy = Math.min(Math.abs(bs.ships[1].y - bs.ships[0].y), WORLD_H - Math.abs(bs.ships[1].y - bs.ships[0].y));
+      console.log(`separation (toroidal): dx=${wdx} dy=${wdy}`);
+      console.log(`missiles=${bs.missiles.length}  explosions=${bs.explosions.length}  ionTrail0=${bs.ionTrails[0].length}  ionTrail1=${bs.ionTrails[1].length}`);
+    };
+    return () => { delete (window as unknown as Record<string, unknown>).__battleDebug; };
+  }, []);
 
   // Initialize battle state
   useEffect(() => {
@@ -675,6 +720,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     };
     const addLaser = (l: LaserFlash) => bs.lasers.push(l);
+    let launchSoundPlayed0 = false;
     for (const s of spawns0) {
       spawnRequest(s, 0);
       // Immediate weapon effects owned by each ship's controller
@@ -685,7 +731,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[0]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'fighter' && !launchSoundPlayed0) { playFighterLaunch(); launchSoundPlayed0 = true; }
     }
+    let launchSoundPlayed1 = false;
     for (const s of spawns1) {
       spawnRequest(s, 1);
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
@@ -694,6 +742,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[1]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 
     // Update missiles
@@ -711,13 +760,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       // (buzzsaw spin, gas cloud velocity, fighter AI, etc.)
       const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, ownerInput) ?? {};
 
-      if (effect.destroy) continue; // e.g. fighter docked with mothership
-
-      // Apply effects from the controller
+      // Apply effects from the controller (sounds and heals run even on destroy)
       if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
       if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
       if (effect.lasers)      bs.lasers.push(...effect.lasers);
-      if (effect.sounds)      for (const snd of effect.sounds) { if (snd === 'fighter_laser') playFighterLaser(); }
+      if (effect.sounds)      for (const snd of effect.sounds) {
+        if (snd === 'fighter_laser') playFighterLaser();
+        else if (snd === 'fighter_dock') playFighterDock();
+      }
+
+      if (effect.destroy) continue; // e.g. fighter docked with mothership
 
       // Generic tracking (skip if controller already handled it)
       if (!effect.skipDefaultTracking && m.tracks) {
@@ -884,9 +936,15 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           ship.y += SINE(angle, pushAmt);
         }
 
-        // Damage: 25% current HP, min 1
+        // Damage: 25% current HP, min 1 (mirrors UQM ship.c hit_points >> 2)
         const damage = Math.max(1, ship.crew >> 2);
         ship.crew = Math.max(0, ship.crew - damage);
+
+        // Sound: TARGET_DAMAGED_FOR_1_PT + (damage >> 1), capped at TARGET_DAMAGED_FOR_6_PLUS_PT
+        // Maps to boom1 / boom23 / boom45 / boom67 via playBlast frame thresholds.
+        // UQM indices: 2=1pt, 3=2-3pt, 4=4-5pt, 5=6+pt → frame 1 / 3 / 5 / 7
+        const soundFrame = damage <= 1 ? 1 : damage <= 3 ? 3 : damage <= 5 ? 5 : 7;
+        playBlast(soundFrame);
       }
     }
 
@@ -941,6 +999,32 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // w2d: world-space offset → display pixels at current zoom
     const w2d = (n: number) => n >> (2 + r);
+
+    // tw2dx / tw2dy: like w2d but wrap-aware — use these whenever converting a
+    // world coordinate that might be near a world edge (ships, trails, lasers).
+    // Short-path normalization puts the object on the nearest side; if that lands
+    // off-screen but the far side is on-screen (happens at max zoom r=3 where the
+    // entire world fits the canvas), use the far side instead.
+    const wdw = WORLD_W >> (2 + r); // world width in display pixels at this zoom
+    const wdh = WORLD_H >> (2 + r);
+    const tw2dx = (worldX: number) => {
+      let x = worldX - camX;
+      x = ((x % WORLD_W) + WORLD_W) % WORLD_W;
+      if (x > WORLD_W >> 1) x -= WORLD_W;
+      let d = x >> (2 + r);
+      if (d < 0 && d + wdw <= CANVAS_W) d += wdw;
+      else if (d > CANVAS_W && d - wdw >= 0) d -= wdw;
+      return d;
+    };
+    const tw2dy = (worldY: number) => {
+      let y = worldY - camY;
+      y = ((y % WORLD_H) + WORLD_H) % WORLD_H;
+      if (y > WORLD_H >> 1) y -= WORLD_H;
+      let d = y >> (2 + r);
+      if (d < 0 && d + wdh <= CANVAS_H) d += wdh;
+      else if (d > CANVAS_H && d - wdh >= 0) d -= wdh;
+      return d;
+    };
 
     // ── Camera: wrap-aware midpoint, then offset by half-view ────────────
     let ax = bs.ships[0].x, bx = bs.ships[1].x;
@@ -1021,7 +1105,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // ── Missiles ─────────────────────────────────────────────────────────
     {
-      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r };
+      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H };
       // Each missile is drawn by the owner ship's controller.
       // The controller receives the opaque sprite bundle it loaded earlier.
       for (const m of bs.missiles) {
@@ -1042,8 +1126,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (const lz of bs.lasers) {
-        ctx.moveTo(w2d(lz.x1 - camX), w2d(lz.y1 - camY));
-        ctx.lineTo(w2d(lz.x2 - camX), w2d(lz.y2 - camY));
+        ctx.moveTo(tw2dx(lz.x1), tw2dy(lz.y1));
+        ctx.lineTo(tw2dx(lz.x2), tw2dy(lz.y2));
       }
       ctx.stroke();
       ctx.restore();
@@ -1071,8 +1155,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       for (let side = 0; side < 2; side++) {
         for (const dot of bs.ionTrails[side]) {
           const [cr, cg, cb] = ION_COLORS[Math.min(dot.age, 11)];
-          const dotDX = w2d(dot.x - camX);
-          const dotDY = w2d(dot.y - camY);
+          const dotDX = tw2dx(dot.x);
+          const dotDY = tw2dy(dot.y);
           if (dotDX < -1 || dotDX > CANVAS_W + 1 || dotDY < -1 || dotDY > CANVAS_H + 1) continue;
           ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
           ctx.fillRect(dotDX, dotDY, 1, 1);
@@ -1082,7 +1166,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // ── Ships ────────────────────────────────────────────────────────────
     {
-      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r };
+      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H };
       for (let side = 0; side < 2; side++) {
         const ship = bs.ships[side];
 
@@ -1092,8 +1176,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           const wi  = bs.warpIn[side];
           const ang = (ship.facing * 4) & 63;
           const distW = Math.round((wi / 15) * DISPLAY_TO_WORLD(120));
-          const sdx = w2d(ship.x + COSINE(ang, distW) - camX);
-          const sdy = w2d(ship.y + SINE(ang, distW) - camY);
+          const sdx = tw2dx(ship.x + COSINE(ang, distW));
+          const sdy = tw2dy(ship.y + SINE(ang, distW));
           const colorStep = Math.min(11, Math.floor((15 - wi) * 12 / 15));
           const ionR = [255, 255, 255, 255, 255, 255, 255, 219, 183, 147, 111, 75][colorStep];
           const ionG = [171, 142, 113, 85,  57,  28,   0,   0,   0,   0,   0,  0][colorStep];
@@ -1137,8 +1221,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           // Fallback: colored expanding circle
           const frac = ex.frame / (ex.type === 'boom' ? 8 : 7);
           const radius = (ex.type === 'boom' ? 12 : 6) * frac;
-          const sx = w2d(ex.x - camX);
-          const sy = w2d(ex.y - camY);
+          const sx = tw2dx(ex.x);
+          const sy = tw2dy(ex.y);
           ctx.beginPath();
           ctx.arc(sx, sy, Math.max(1, radius), 0, Math.PI * 2);
           ctx.fillStyle = ex.type === 'boom'

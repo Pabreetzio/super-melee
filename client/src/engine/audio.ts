@@ -15,10 +15,10 @@ const BATTLE_SOUNDS = {
 } as const;
 
 // Per-ship weapon sounds (in /sounds/ships/<species>/)
-const SHIP_SOUNDS: Partial<Record<string, { primary?: string; secondary?: string; extra?: string }>> = {
+const SHIP_SOUNDS: Partial<Record<string, { primary?: string; secondary?: string; extra?: string; dock?: string }>> = {
   human:  { primary: '/sounds/ships/human/primary.wav',  secondary: '/sounds/ships/human/secondary.wav' },
   spathi: { primary: '/sounds/ships/spathi/primary.wav', secondary: '/sounds/ships/spathi/secondary.wav' },
-  urquan: { primary: '/sounds/ships/urquan/primary.wav', secondary: '/sounds/ships/urquan/secondary.wav', extra: '/sounds/ships/urquan/fighter_laser.wav' },
+  urquan: { primary: '/sounds/ships/urquan/primary.wav', secondary: '/sounds/ships/urquan/secondary.wav', extra: '/sounds/ships/urquan/fighter_laser.wav', dock: '/sounds/ships/urquan/fighter_get.wav' },
   pkunk:  { primary: '/sounds/ships/pkunk/primary.wav' },
   vux:    { primary: '/sounds/ships/vux/primary.wav' },
 };
@@ -66,6 +66,7 @@ export function preloadBattleSounds(shipTypes: string[]): void {
     if (sounds.primary)   load(sounds.primary);
     if (sounds.secondary) load(sounds.secondary);
     if (sounds.extra)     load(sounds.extra);
+    if (sounds.dock)      load(sounds.dock);
   }
 }
 
@@ -98,6 +99,18 @@ export function playSecondary(shipType: string): void {
 export function playFighterLaser(): void {
   const url = SHIP_SOUNDS.urquan?.extra;
   if (url) playUrl(url, 0.5);
+}
+
+/** Fighter launch — "Launch fighters" voice (Ur-Quan secondary.wav). */
+export function playFighterLaunch(): void {
+  const url = SHIP_SOUNDS.urquan?.secondary;
+  if (url) playUrl(url, 0.8);
+}
+
+/** Fighter docking — plays when a returning fighter docks with the mothership (fighter_get.wav). */
+export function playFighterDock(): void {
+  const url = SHIP_SOUNDS.urquan?.dock;
+  if (url) playUrl(url, 0.7);
 }
 
 /** Small blast key by battle sound name. */

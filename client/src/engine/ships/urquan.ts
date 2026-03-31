@@ -314,6 +314,7 @@ export const urquanController: ShipController = {
       if (dx * dx + dy * dy < DISPLAY_TO_WORLD(14) ** 2) { // SHIP_RADIUS = 14 px
         effect.destroy = true;
         effect.healOwn = 1;
+        effect.sounds  = ['fighter_dock'];
       }
     }
 

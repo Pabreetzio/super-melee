@@ -123,7 +123,7 @@ export interface MissileEffect {
   /** If true, skip the generic setVelocityVector call in Battle.tsx this frame. */
   skipVelocityUpdate?: boolean;
   /** Sound keys to play after applying this effect (Battle.tsx dispatches). */
-  sounds?: Array<'fighter_laser'>;
+  sounds?: Array<'fighter_laser' | 'fighter_dock'>;
 }
 
 // ─── Collision effect returned by onMissileHit() ─────────────────────────────
@@ -150,6 +150,8 @@ export interface DrawContext {
   canvasW:  number;
   canvasH:  number;
   reduction: number;   // zoom level: 0=1×, 1=2×, 2=4×, 3=8×
+  worldW:   number;    // toroidal world width in world units
+  worldH:   number;    // toroidal world height in world units
 }
 
 // ─── Ship controller (analogous to UQM's RACE_DESC) ──────────────────────────

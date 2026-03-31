@@ -319,9 +319,20 @@ export function placeholderDot(
   camX: number, camY: number,
   dotR: number, color: string,
   reduction: number = 0,
+  worldW = 20480, worldH = 15360,
 ): void {
-  const dx = (worldX - camX) >> (2 + reduction);
-  const dy = (worldY - camY) >> (2 + reduction);
+  let rx = worldX - camX;
+  let ry = worldY - camY;
+  rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
+  ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
+  let dx = rx >> (2 + reduction);
+  let dy = ry >> (2 + reduction);
+  const wdw = worldW >> (2 + reduction);
+  const wdh = worldH >> (2 + reduction);
+  if (dx < 0 && dx + wdw <= 640) dx += wdw;
+  else if (dx > 640 && dx - wdw >= 0) dx -= wdw;
+  if (dy < 0 && dy + wdh <= 480) dy += wdh;
+  else if (dy > 480 && dy - wdh >= 0) dy -= wdh;
   ctx.beginPath();
   ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
   ctx.fillStyle = color;
@@ -343,13 +354,28 @@ export function drawSprite(
   originWorldX: number,  // world X of canvas top-left (camera)
   originWorldY: number,
   reduction: number = 0, // zoom level: 0=1x, 1=2x, 2=4x, 3=8x
+  worldW = 20480, worldH = 15360,
 ): void {
   const frame = set.frames[frameIndex & (set.count - 1)];
   if (!frame) return;
 
   // World → display: divide by 4 at 1x, 8 at 2x, 16 at 4x, 32 at 8x
-  const displayX = Math.round((worldX - originWorldX) >> (2 + reduction));
-  const displayY = Math.round((worldY - originWorldY) >> (2 + reduction));
+  // Normalize offset toroidally so objects near a world edge stay visible.
+  let rx = worldX - originWorldX;
+  let ry = worldY - originWorldY;
+  rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
+  ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
+  let displayX = Math.round(rx >> (2 + reduction));
+  let displayY = Math.round(ry >> (2 + reduction));
+  // At maximum zoom the whole world fits on screen. The short-path normalization
+  // above can place an object off-screen when the long path is actually on-screen.
+  // Correct by trying the other side whenever the current result is off-canvas.
+  const wdw = worldW >> (2 + reduction);
+  const wdh = worldH >> (2 + reduction);
+  if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
+  else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
+  if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
+  else if (displayY > canvasH && displayY - wdh >= 0) displayY -= wdh;
 
   // Draw sprite at native size using its own hotspot.
   // Callers are responsible for passing the correct size sprite set for the
