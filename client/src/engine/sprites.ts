@@ -310,7 +310,23 @@ const GAS_SML_HOTSPOTS: [number, number][] = [
   [1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2],
 ];
 
-// ─── Render helper ────────────────────────────────────────────────────────────
+// ─── Render helpers ───────────────────────────────────────────────────────────
+
+/** Draw a filled circle at a world position — used when sprites aren't loaded. */
+export function placeholderDot(
+  ctx: CanvasRenderingContext2D,
+  worldX: number, worldY: number,
+  camX: number, camY: number,
+  dotR: number, color: string,
+  reduction: number = 0,
+): void {
+  const dx = (worldX - camX) >> (2 + reduction);
+  const dy = (worldY - camY) >> (2 + reduction);
+  ctx.beginPath();
+  ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
 
 /**
  * Draw a sprite frame at world position (worldX, worldY).

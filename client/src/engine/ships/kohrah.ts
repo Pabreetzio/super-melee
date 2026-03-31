@@ -8,10 +8,12 @@ import {
   WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
   setVelocityVector, setVelocityComponents, getCurrentVelocityComponents,
 } from '../velocity';
-import { COSINE, SINE } from '../sinetab';
+import { COSINE, SINE, tableAngle } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import type { HumanShipState } from './human';
-import type { SpawnRequest } from './human';
+import { loadKohrahSprites, drawSprite, placeholderDot, type KohrahSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect, MissileHitEffect } from './types';
+
+export type { ShipState as HumanShipState };
 
 // ─── Ship constants (from blackurq.c) ──────────────────────────────────────────
 
@@ -51,7 +53,7 @@ const MAX_SPEED_SQ = WORLD_TO_VELOCITY(KOHRAH_MAX_THRUST) ** 2;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function makeKohrahShip(x: number, y: number): HumanShipState {
+export function makeKohrahShip(x: number, y: number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
@@ -73,7 +75,7 @@ export function makeKohrahShip(x: number, y: number): HumanShipState {
  * Update Kohr-Ah ship state for one simulation frame.
  * Returns array of spawned weapons (buzzsaws, gas clouds) to add to the world.
  */
-export function updateKohrahShip(ship: HumanShipState, input: number): SpawnRequest[] {
+export function updateKohrahShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
 
   // ─── Turning ──────────────────────────────────────────────────────────────
@@ -173,6 +175,7 @@ export function updateKohrahShip(ship: HumanShipState, input: number): SpawnRequ
       damage: BUZZSAW_DAMAGE,
       hits: BUZZSAW_HITS,
       fireHeld: true,
+      weaponCap: MAX_BUZZSAWS,
     });
   }
 
@@ -203,8 +206,141 @@ export function updateKohrahShip(ship: HumanShipState, input: number): SpawnRequ
   return spawns;
 }
 
-// ─── Spawn request types ───────────────────────────────────────────────────────
+// ─── World-angle helper (same as Battle.tsx's local worldAngle) ───────────────
 
-// These are added to the SpawnRequest union type in human.ts
-// buzzsaw: spinning disk projectile
-// gas_cloud: fireball from F.R.I.E.D. ring
+function worldAngle(x1: number, y1: number, x2: number, y2: number): number {
+  return tableAngle(x2 - x1, y2 - y1);
+}
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const kohrahController: ShipController = {
+  maxCrew:   KOHRAH_MAX_CREW,
+  maxEnergy: KOHRAH_MAX_ENERGY,
+
+  collidesWithPlanet: true,
+
+  make: makeKohrahShip,
+  update: updateKohrahShip,
+
+  loadSprites: () => loadKohrahSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as KohrahSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as KohrahSprites | null;
+    const isBuzzsaw  = m.weaponType === 'buzzsaw';
+    const isGasCloud = m.weaponType === 'gas_cloud';
+    const group = isBuzzsaw
+      ? (sp ? sp.buzzsaw : null)
+      : isGasCloud
+        ? (sp ? sp.gas : null)
+        : null;
+    const set = group
+      ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big)
+      : null;
+    if (set) {
+      let frameIdx: number;
+      if (isBuzzsaw) {
+        // Frames 0–1: spinning; frames 2–7: splinter death. decelWait is the animation tick.
+        frameIdx = (m.decelWait ?? 0) & 1;
+      } else {
+        // Gas cloud: 8 frames, advance based on age (64 - life)
+        frameIdx = Math.min(7, (64 - m.life) >> 3);
+      }
+      drawSprite(dc.ctx, set, frameIdx, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+
+  processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, input: number): MissileEffect {
+    if (m.weaponType === 'gas_cloud') {
+      // Gas cloud: velocity set once at spawn; never overwrite it.
+      return { skipVelocityUpdate: true };
+    }
+
+    if (m.weaponType !== 'buzzsaw') return {};
+
+    // ── Buzzsaw lifecycle (ported from blackurq.c) ────────────────────────────
+    // UQM phases:
+    //   buzzsaw_preprocess  → while fire held: spin_preprocess (life++)
+    //   decelerate_preprocess → each frame: halve vx/vy, then spin_preprocess (life++)
+    //   buzztrack_preprocess  → nudge if in range, then spin_preprocess (life++)
+    // spin_preprocess always counteracts the engine's life-- so buzzsaws never
+    // expire naturally. Only FIFO (9th spawn) or a hit destroys them.
+
+    m.decelWait = (m.decelWait ?? 0) + 1; // animation counter (independent of life)
+
+    if (m.fireHeld) {
+      if (input & INPUT_FIRE1) {
+        // buzzsaw_preprocess + spin_preprocess: replenish life while held
+        m.life++;
+      } else {
+        // Fire just released: halve life, switch to decel phase.
+        m.fireHeld = false;
+        m.life = Math.max(1, m.life >> 1);
+        m.life++;
+      }
+    } else {
+      // decelerate_preprocess or buzztrack_preprocess: always replenish life.
+      m.life++;
+    }
+
+    // Buzzsaw velocity: decelerate or home — handled here, not by generic code.
+    const stopped = m.velocity.vx === 0 && m.velocity.vy === 0;
+    if (!m.fireHeld) {
+      if (!stopped) {
+        // decelerate_preprocess: halve velocity each frame until stopped.
+        m.velocity.vx = Math.trunc(m.velocity.vx / 2);
+        m.velocity.vy = Math.trunc(m.velocity.vy / 2);
+      } else {
+        // buzztrack_preprocess: every BUZZSAW_TRACK_WAIT frames, nudge toward enemy
+        // if within ACTIVATE_RANGE display pixels.
+        if (m.trackWait > 0) {
+          m.trackWait--;
+        } else {
+          m.trackWait = BUZZSAW_TRACK_WAIT;
+          const dxW = enemyShip.x - m.x;
+          const dyW = enemyShip.y - m.y;
+          const dxD = Math.abs(dxW) >> 2; // WORLD_TO_DISPLAY
+          const dyD = Math.abs(dyW) >> 2;
+          if (dxD < ACTIVATE_RANGE && dyD < ACTIVATE_RANGE &&
+              dxD * dxD + dyD * dyD < ACTIVATE_RANGE * ACTIVATE_RANGE) {
+            const angle  = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
+            const facing = ((angle + 2) >> 2) & 15;
+            setVelocityVector(m.velocity, BUZZSAW_TRACK_SPEED, facing);
+          } else {
+            m.velocity.vx = 0;
+            m.velocity.vy = 0;
+          }
+        }
+      }
+    }
+
+    return { skipDefaultTracking: true, skipVelocityUpdate: true };
+  },
+
+  onMissileHit(m: BattleMissile, target: ShipState | null): MissileHitEffect {
+    if (m.weaponType !== 'buzzsaw') return {};
+    if (target === null) {
+      // Planet collision: splinter only, no blast
+      return {
+        skipBlast: true,
+        splinter: { vx: m.velocity.vx, vy: m.velocity.vy },
+      };
+    }
+    // Ship collision: blast (default) + splinter
+    return { splinter: { vx: m.velocity.vx, vy: m.velocity.vy } };
+  },
+};

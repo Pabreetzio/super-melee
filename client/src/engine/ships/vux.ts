@@ -10,8 +10,10 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import type { HumanShipState } from './human';
-import type { SpawnRequest } from './human';
+import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileHitEffect, LaserFlash } from './types';
+
+export type { ShipState as HumanShipState };
 
 // ─── Constants (from vux.c) ───────────────────────────────────────────────────
 
@@ -44,7 +46,7 @@ const MAX_SPEED_SQ = WORLD_TO_VELOCITY(VUX_MAX_THRUST) ** 2;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function makeVuxShip(x: number, y: number): HumanShipState {
+export function makeVuxShip(x: number, y: number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
@@ -62,7 +64,7 @@ export function makeVuxShip(x: number, y: number): HumanShipState {
 
 // ─── Per-frame update ─────────────────────────────────────────────────────────
 
-export function updateVuxShip(ship: HumanShipState, input: number): SpawnRequest[] {
+export function updateVuxShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
 
   // ─── Turning ─────────────────────────────────────────────────────────────
@@ -179,3 +181,84 @@ export function updateVuxShip(ship: HumanShipState, input: number): SpawnRequest
 
   return spawns;
 }
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const vuxController: ShipController = {
+  maxCrew:   VUX_MAX_CREW,
+  maxEnergy: VUX_MAX_ENERGY,
+
+  make: makeVuxShip,
+  update: updateVuxShip,
+
+  loadSprites: () => loadVuxSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as VuxSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as VuxSprites | null;
+    // Only limpets get a custom sprite; vux_laser is handled as a LaserFlash, not a missile
+    const group = (sp && m.limpet) ? sp.limpets : null;
+    const set = group
+      ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big)
+      : null;
+    if (set) {
+      // Limpets cycle through 4 animation frames
+      const frameIdx = m.life > 0 ? (LIMPET_LIFE - m.life) & 3 : 0;
+      drawSprite(dc.ctx, set, frameIdx, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+
+  onMissileHit(m: BattleMissile, _target: ShipState | null): MissileHitEffect {
+    // Limpet hit: apply movement impairment to the target ship
+    if (m.limpet) return { impairTarget: 1 };
+    return {};
+  },
+
+  applySpawn(
+    s: SpawnRequest,
+    _ownShip: ShipState,
+    enemyShip: ShipState,
+    _ownSide: 0 | 1,
+    _missiles: BattleMissile[],
+    addLaser: (l: LaserFlash) => void,
+  ): void {
+    if (s.type !== 'vux_laser') return;
+
+    // Faithful port of applyVuxLaser from Battle.tsx.
+    // Fires in the ship's facing direction; hits the first target in range.
+    const angle = (s.facing * 4) & 63;
+    const ex = COSINE(angle, VUX_LASER_RANGE);
+    const ey = SINE(angle, VUX_LASER_RANGE);
+
+    const dx = enemyShip.x - s.x;
+    const dy = enemyShip.y - s.y;
+    const lenSq = ex * ex + ey * ey;
+    if (lenSq === 0) return;
+
+    // Project enemy ship centre onto the laser ray; clamp t to [0, 1]
+    const t = Math.max(0, Math.min(1, (dx * ex + dy * ey) / lenSq));
+    const closestX = s.x + t * ex;
+    const closestY = s.y + t * ey;
+    const distSq = (enemyShip.x - closestX) ** 2 + (enemyShip.y - closestY) ** 2;
+    const shipRadW = DISPLAY_TO_WORLD(14); // SHIP_RADIUS = 14 display px
+
+    if (distSq <= shipRadW * shipRadW) {
+      enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+    }
+    // Always show flash, hit or miss
+    addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey });
+  },
+};

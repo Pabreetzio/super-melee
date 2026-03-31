@@ -11,8 +11,8 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import type { HumanShipState } from './human';
-import type { SpawnRequest } from './human';
+import { loadPkunkSprites, drawSprite, placeholderDot, type PkunkSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
 
 // ─── Constants (from pkunk.c) ─────────────────────────────────────────────────
 
@@ -39,15 +39,10 @@ export const PKUNK_SPECIAL_WAIT        = 0;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(PKUNK_MAX_THRUST) ** 2;
 
-// ─── Extended state ───────────────────────────────────────────────────────────
+// canResurrect lives on ShipState (optional field) — no extension type needed.
+export type PkunkShipState = ShipState; // backward-compat alias
 
-// Pkunk needs a `canResurrect` flag beyond the base HumanShipState fields.
-// We store it as a side-channel here; Battle.tsx reads it on crew==0.
-export interface PkunkShipState extends HumanShipState {
-  canResurrect: boolean;
-}
-
-export function makePkunkShip(x: number, y: number, rng: () => number): PkunkShipState {
+export function makePkunkShip(x: number, y: number, rng: () => number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
@@ -67,7 +62,7 @@ export function makePkunkShip(x: number, y: number, rng: () => number): PkunkShi
 // ─── Per-frame update ─────────────────────────────────────────────────────────
 
 export function updatePkunkShip(
-  ship: HumanShipState,
+  ship: ShipState,
   input: number,
 ): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
@@ -179,3 +174,57 @@ export function updatePkunkShip(
 
   return spawns;
 }
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const pkunkController: ShipController = {
+  maxCrew:   PKUNK_MAX_CREW,
+  maxEnergy: PKUNK_MAX_ENERGY,
+
+  make(x: number, y: number, rng?: () => number): ShipState {
+    return makePkunkShip(x, y, rng ?? (() => Math.random()));
+  },
+
+  update: updatePkunkShip,
+
+  loadSprites: () => loadPkunkSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as PkunkSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as PkunkSprites | null;
+    const group = sp ? sp.bug : null;
+    const set = group
+      ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big)
+      : null;
+    if (set) {
+      // Bug sprite has only 1 frame — frame 0 for all facings
+      drawSprite(dc.ctx, set, 0, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+
+  onDeath(ship: ShipState, rand: (n: number) => number): boolean {
+    if (!ship.canResurrect) return false;
+    // Pkunk resurrection: one free respawn per life (UQM new_pkunk behavior)
+    ship.canResurrect = false;
+    ship.crew    = PKUNK_MAX_CREW;
+    ship.energy  = PKUNK_MAX_ENERGY;
+    ship.x       = rand(20480); // WORLD_W
+    ship.y       = rand(15360); // WORLD_H
+    ship.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+    ship.facing  = rand(16);
+    return true;
+  },
+};

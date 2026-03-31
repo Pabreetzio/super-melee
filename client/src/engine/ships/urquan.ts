@@ -8,10 +8,12 @@ import {
   setVelocityVector,
   setVelocityComponents, getCurrentVelocityComponents,
 } from '../velocity';
-import { COSINE, SINE } from '../sinetab';
+import { COSINE, SINE, tableAngle } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import type { HumanShipState } from './human';
-import type { SpawnRequest } from './human';
+import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect } from './types';
+
+export type { ShipState as HumanShipState };
 
 // ─── Constants (from urquan.c) ────────────────────────────────────────────────
 
@@ -47,7 +49,7 @@ const MAX_SPEED_SQ = WORLD_TO_VELOCITY(URQUAN_MAX_THRUST) ** 2;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function makeUrquanShip(x: number, y: number): HumanShipState {
+export function makeUrquanShip(x: number, y: number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
@@ -65,7 +67,7 @@ export function makeUrquanShip(x: number, y: number): HumanShipState {
 
 // ─── Per-frame update ─────────────────────────────────────────────────────────
 
-export function updateUrquanShip(ship: HumanShipState, input: number): SpawnRequest[] {
+export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
 
   // ─── Turning ─────────────────────────────────────────────────────────────
@@ -186,14 +188,135 @@ export function updateUrquanShip(ship: HumanShipState, input: number): SpawnRequ
       x: ship.x + dx - dy,
       y: ship.y + dy + dx,
       facing: f1Facing,
+      speed: FIGHTER_SPEED,
+      life: FIGHTER_LIFE,
     });
     spawns.push({
       type: 'fighter',
       x: ship.x + dx + dy,
       y: ship.y + dy - dx,
       facing: f2Facing,
+      speed: FIGHTER_SPEED,
+      life: FIGHTER_LIFE,
     });
   }
 
   return spawns;
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function worldAngle(x1: number, y1: number, x2: number, y2: number): number {
+  return tableAngle(x2 - x1, y2 - y1);
+}
+
+function trackFacing(facing: number, targetAngle: number): number {
+  const targetFacing = ((targetAngle + 2) >> 2) & 15;
+  const diff = (targetFacing - facing + 16) % 16;
+  if (diff === 0) return facing;
+  if (diff <= 8) return (facing + 1) % 16;
+  return (facing - 1 + 16) % 16;
+}
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const urquanController: ShipController = {
+  maxCrew:   URQUAN_MAX_CREW,
+  maxEnergy: URQUAN_MAX_ENERGY,
+
+  make: makeUrquanShip,
+  update: updateUrquanShip,
+
+  loadSprites: () => loadUrquanSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as UrquanSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as UrquanSprites | null;
+    if (m.weaponType === 'fighter') {
+      // UrquanSprites has a .fighter sub-bundle
+      const group = sp?.fighter ?? null;
+      const set = group
+        ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
+        : null;
+      if (set) {
+        drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+      } else {
+        placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#8ff', dc.reduction);
+      }
+      return;
+    }
+    // Fusion blast
+    const group = sp ? sp.fusion : null;
+    const set = group
+      ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+
+  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
+    if (m.weaponType !== 'fighter') return {};
+
+    // ── Fighter AI (ported from Battle.tsx fighter update block) ─────────────
+    // Phase: if life is low enough to return, track mothership; else track enemy
+    const returning = m.life < ONE_WAY_FLIGHT && ownShip.crew > 0;
+    const navTarget = returning ? ownShip : enemyShip;
+
+    // Turn toward nav target and set velocity
+    const targetAngle = worldAngle(m.x, m.y, navTarget.x, navTarget.y);
+    m.facing = trackFacing(m.facing, targetAngle);
+    setVelocityVector(m.velocity, FIGHTER_SPEED, m.facing);
+
+    const effect: MissileEffect = {
+      skipDefaultTracking: true,
+      skipVelocityUpdate:  true,  // fighter manages its own velocity above
+    };
+
+    // Weapon cooldown tick
+    if ((m.weaponWait ?? 0) > 0) {
+      m.weaponWait = (m.weaponWait ?? 0) - 1;
+    }
+
+    // Fighter laser: fire when enemy within 3/4 of laser range
+    if (!returning && (m.weaponWait ?? 0) === 0) {
+      const dx = enemyShip.x - m.x;
+      const dy = enemyShip.y - m.y;
+      const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
+      if (dx * dx + dy * dy < laserRangeSq) {
+        const laserAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
+        const lx = COSINE(laserAngle, FIGHTER_LASER_RANGE);
+        const ly = SINE(laserAngle, FIGHTER_LASER_RANGE);
+        effect.lasers      = [{ x1: m.x, y1: m.y, x2: m.x + lx, y2: m.y + ly }];
+        effect.damageEnemy = 1;
+        effect.sounds      = ['fighter_laser'];
+        m.weaponWait       = FIGHTER_WEAPON_WAIT;
+      }
+    }
+
+    // Returning fighter: dock if it reaches mothership (restores 1 crew)
+    if (returning) {
+      const dx = ownShip.x - m.x;
+      const dy = ownShip.y - m.y;
+      if (dx * dx + dy * dy < DISPLAY_TO_WORLD(14) ** 2) { // SHIP_RADIUS = 14 px
+        effect.destroy = true;
+        effect.healOwn = 1;
+      }
+    }
+
+    return effect;
+  },
+};

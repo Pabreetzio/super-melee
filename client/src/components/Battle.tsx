@@ -1,48 +1,21 @@
 // Battle screen — canvas game loop with UQM physics and sprite rendering.
-// Human (Earthling Cruiser) ship is fully implemented.
-// Other ships fall back to a colored placeholder.
+// Ships dispatch through SHIP_REGISTRY (engine/ships/registry.ts) — no
+// per-ship if-chains here.  To add a new ship, implement its controller
+// and register it; Battle.tsx needs no changes.
 
 import { useEffect, useRef, useState } from 'react';
 import type { FullRoomState, FleetSlot } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
 import { COSINE, SINE, tableAngle } from '../engine/sinetab';
-import { DISPLAY_TO_WORLD } from '../engine/velocity';
-import {
-  makeHumanShip, updateHumanShip,
-  MAX_CREW, MAX_ENERGY, SHIP_RADIUS, LASER_RANGE,
-  SPECIAL_ENERGY_COST, SPECIAL_WAIT,
-  type HumanShipState, type SpawnRequest,
-} from '../engine/ships/human';
-import { makeSpathiShip, updateSpathiShip, SPATHI_MAX_CREW, SPATHI_MAX_ENERGY } from '../engine/ships/spathi';
-import {
-  makeUrquanShip, updateUrquanShip, URQUAN_MAX_CREW, URQUAN_MAX_ENERGY,
-  FIGHTER_LIFE, ONE_WAY_FLIGHT, FIGHTER_SPEED, FIGHTER_LASER_RANGE, FIGHTER_WEAPON_WAIT,
-} from '../engine/ships/urquan';
-import {
-  makePkunkShip, updatePkunkShip, PKUNK_MAX_CREW, PKUNK_MAX_ENERGY,
-  type PkunkShipState,
-} from '../engine/ships/pkunk';
-import {
-  makeVuxShip, updateVuxShip, VUX_MAX_CREW, VUX_MAX_ENERGY, VUX_LASER_RANGE,
-} from '../engine/ships/vux';
-import {
-  makeKohrahShip, updateKohrahShip,
-  MAX_BUZZSAWS, ACTIVATE_RANGE, BUZZSAW_TRACK_WAIT, BUZZSAW_TRACK_SPEED,
-} from '../engine/ships/kohrah';
-import {
-  loadCruiserSprites, loadSpathiSprites, loadUrquanSprites, loadPkunkSprites, loadVuxSprites, loadKohrahSprites,
-  loadGenericShipSprites, loadExplosionSprites, drawSprite,
-  type CruiserSprites, type SpathiSprites, type UrquanSprites, type PkunkSprites, type VuxSprites, type KohrahSprites,
-  type ShipSpriteSet, type ExplosionSprites,
-} from '../engine/sprites';
-import {
-  setVelocityVector, setVelocityComponents, VELOCITY_TO_WORLD, type VelocityDesc,
-} from '../engine/velocity';
-import { trackFacing } from '../engine/ships/human';
+import { DISPLAY_TO_WORLD, setVelocityVector, setVelocityComponents, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
+import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
+import { SHIP_REGISTRY } from '../engine/ships/registry';
+// Per-ship constants still needed for world-physics helpers that live here
+import { SHIP_RADIUS, trackFacing } from '../engine/ships/human';
+import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
-import { getShipDef } from '../engine/ships/index';
 import HUD from './HUD';
 import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser } from '../engine/audio';
 
@@ -116,43 +89,8 @@ const GAME_KEYS = new Set([
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// General missile — covers nukes, BUTT, limpets, and all future ship weapons.
-// All fields come from the ship's SpawnRequest + initial velocity state.
-interface BattleMissile {
-  x: number; y: number;
-  facing: number;      // 0–15
-  velocity: VelocityDesc;
-  life: number;
-  speed: number;       // current speed (world units)
-  maxSpeed: number;
-  accel: number;       // speed increase per frame
-  damage: number;
-  tracks: boolean;
-  trackWait: number;   // frames until next tracking step
-  trackRate: number;   // reset value for trackWait
-  owner: 0 | 1;
-  limpet?: boolean;    // VUX limpet: applies movement impairment on hit
-  // Kohr-Ah Buzzsaw-specific fields
-  weaponType?: 'buzzsaw' | 'gas_cloud';
-  fireHeld?: boolean;  // buzzsaw: whether fire button is currently held
-  decelWait?: number;  // buzzsaw: frames spent decelerating before homing
-}
-
-// One-frame laser line (point-defense flash or fighter laser), world coords
-interface LaserFlash {
-  x1: number; y1: number;
-  x2: number; y2: number;
-}
-
-// Ur-Quan autonomous fighter craft
-interface BattleFighter {
-  x: number; y: number;
-  facing: number;
-  velocity: VelocityDesc;
-  life: number;    // counts down; 0 = dead
-  weaponWait: number;
-  owner: 0 | 1;
-}
+// BattleMissile and LaserFlash are defined in engine/ships/types.ts and
+// imported above — no local redefinition needed.
 
 // Cosmetic explosion animation (not included in checksum; purely visual)
 interface BattleExplosion {
@@ -185,10 +123,9 @@ export interface WinnerShipState {
 }
 
 interface BattleState {
-  ships:     [HumanShipState, HumanShipState];
+  ships:     [ShipState, ShipState];
   shipTypes: [ShipId, ShipId];
   missiles:  BattleMissile[];
-  fighters:  BattleFighter[];
   lasers:    LaserFlash[];      // cleared each sim frame; rendered as 1-frame flashes
   explosions: BattleExplosion[]; // cosmetic; not checksum'd
   ionTrails:  [IonDot[], IonDot[]]; // cosmetic thruster exhaust dots; not checksum'd
@@ -209,27 +146,25 @@ interface Props {
   isAI?:       boolean;
   isLocal2P?:  boolean;
   winnerState?: WinnerShipState | null;
+  // Active fleet slot for each side (offline modes). null = use first non-null fallback.
+  activeSlot0?: number | null;
+  activeSlot1?: number | null;
   onBattleEnd: (winner: 0 | 1 | null, winnerState?: WinnerShipState) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, winnerState = null, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
   const rafRef       = useRef<number | null>(null);
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
-  const spritesRef       = useRef<CruiserSprites | null>(null);
-  const spathiSpritesRef = useRef<SpathiSprites | null>(null);
-  const urquanSpritesRef = useRef<UrquanSprites | null>(null);
-  const pkunkSpritesRef  = useRef<PkunkSprites  | null>(null);
-  const vuxSpritesRef    = useRef<VuxSprites    | null>(null);
-  const kohrahSpritesRef = useRef<KohrahSprites | null>(null);
-  const explosionSpritesRef   = useRef<ExplosionSprites | null>(null);
-  // Cache for generic ship sprites (ships without specific weapon sprite loaders)
-  const genericSpritesRef = useRef<Map<string, ShipSpriteSet>>(new Map());
+  // Per-ship sprites keyed by ShipId.  Each controller's loadSprites() returns
+  // its own opaque sprite bundle; drawShip/drawMissile cast internally.
+  const shipSpritesRef      = useRef<Map<string, unknown>>(new Map());
+  const explosionSpritesRef = useRef<ExplosionSprites | null>(null);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
   // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
   const starsRef = useRef<{ x: number; y: number }[]>([]);
@@ -252,7 +187,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       specialWait: number; energyWait: number; thrusting: boolean;
     }>;
     missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
-    fighters: Array<{ x: number; y: number; facing: number; life: number; weaponWait: number; owner: number }>;
     warpIn:   [number, number];
   }
   const snapHistoryRef = useRef<FrameSnap[]>([]);
@@ -276,17 +210,13 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         x: m.x, y: m.y, facing: m.facing, life: m.life,
         speed: m.speed, owner: m.owner, tracks: m.tracks,
       })),
-      fighters: bs.fighters.map(f => ({
-        x: f.x, y: f.y, facing: f.facing, life: f.life,
-        weaponWait: f.weaponWait, owner: f.owner,
-      })),
       warpIn: [...bs.warpIn] as [number, number],
     };
   }
 
   // Planet sprite images (oolite big/med/sml); null until loaded
   const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
-  const [hudData, setHudData] = useState({ myCrew: MAX_CREW, myMaxCrew: MAX_CREW, myEnergy: MAX_ENERGY, myMaxEnergy: MAX_ENERGY, oppCrew: MAX_CREW, oppMaxCrew: MAX_CREW, oppEnergy: MAX_ENERGY, oppMaxEnergy: MAX_ENERGY });
+  const [hudData, setHudData] = useState({ myCrew: 18, myMaxCrew: 18, myEnergy: 18, myMaxEnergy: 18, oppCrew: 18, oppMaxCrew: 18, oppEnergy: 18, oppMaxEnergy: 18 });
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
   // needing to re-bind the tick/render closures on every resize.
@@ -301,8 +231,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     // for the lockstep simulation to remain in sync.
     const fleet0 = room.host.fleet;
     const fleet1 = room.opponent?.fleet ?? [];
-    const type0 = (fleet0.find(Boolean) ?? 'human') as ShipId;
-    const type1 = (fleet1.find(Boolean) ?? 'human') as ShipId;
+    const type0 = ((activeSlot0 != null ? fleet0[activeSlot0] : null) ?? fleet0.find(Boolean) ?? 'human') as ShipId;
+    const type1 = ((activeSlot1 != null ? fleet1[activeSlot1] : null) ?? fleet1.find(Boolean) ?? 'human') as ShipId;
 
     const rng = new RNG(_seed || 1);
     rngRef.current = rng;
@@ -315,14 +245,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       starsRef.current = stars;
     }
 
-    const makeShip = (type: ShipId, x: number, y: number) => {
-      if (type === 'spathi') return makeSpathiShip(x, y);
-      if (type === 'urquan') return makeUrquanShip(x, y);
-      if (type === 'pkunk')  return makePkunkShip(x, y, () => rng.rand(1000) / 1000);
-      if (type === 'vux')    return makeVuxShip(x, y);
-      if (type === 'kohrah') return makeKohrahShip(x, y);
-      return makeHumanShip(x, y);
-    };
+    const makeShip = (type: ShipId, x: number, y: number) =>
+      SHIP_REGISTRY[type].make(x, y, () => rng.rand(1000) / 1000);
 
     const s0 = makeShip(type0, PLANET_X - DISPLAY_TO_WORLD(300), PLANET_Y);
     const s1 = makeShip(type1, PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
@@ -362,7 +286,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       ships: [s0, s1],
       shipTypes: [type0, type1],
       missiles: [],
-      fighters: [],
       lasers: [],
       explosions: [],
       ionTrails: [[], []],
@@ -376,24 +299,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     // Preload sounds (non-blocking; silently ignored if files are missing)
     preloadBattleSounds([type0, type1]);
 
-    // Load sprites (non-blocking; canvas falls back to placeholder if unavailable)
-    loadCruiserSprites().then(sp => { spritesRef.current = sp; }).catch(() => {});
-    loadSpathiSprites().then(sp => { spathiSpritesRef.current = sp; }).catch(() => {});
-    loadUrquanSprites().then(sp => { urquanSpritesRef.current = sp; }).catch(() => {});
-    loadPkunkSprites().then(sp => { pkunkSpritesRef.current = sp; }).catch(() => {});
-    loadVuxSprites().then(sp => { vuxSpritesRef.current = sp; }).catch(() => {});
-    loadKohrahSprites().then(sp => { kohrahSpritesRef.current = sp; }).catch(() => {});
-    loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
-
-    // Load generic sprites for any ship types without specific weapon loaders
-    const handledTypes = new Set(['human', 'spathi', 'urquan', 'pkunk', 'vux', 'kohrah']);
+    // Load sprites via each ship's own controller (non-blocking; falls back to
+    // placeholder if files are missing).  Only load what the active ships need.
+    const loadedTypes = new Set<string>();
     for (const t of [type0, type1]) {
-      if (!handledTypes.has(t)) {
-        loadGenericShipSprites(t).then(sp => {
-          if (sp) genericSpritesRef.current.set(t, sp);
-        }).catch(() => {});
+      if (!loadedTypes.has(t)) {
+        loadedTypes.add(t);
+        SHIP_REGISTRY[t].loadSprites()
+          .then(sp => { shipSpritesRef.current.set(t, sp); })
+          .catch(() => {});
       }
     }
+    loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
 
     // Load oolite planet sprites (non-blocking)
     {
@@ -464,7 +381,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           console.log('SHIP 0:', JSON.stringify(snap.ships[0]));
           console.log('SHIP 1:', JSON.stringify(snap.ships[1]));
           console.log('MISSILES:', snap.missiles.length, JSON.stringify(snap.missiles));
-          console.log('FIGHTERS:', snap.fighters.length, JSON.stringify(snap.fighters));
           console.log('warpIn:', snap.warpIn, ' inputs(i0,i1):', snap.i0, snap.i1);
         } else {
           console.warn('Mismatch frame not in ring buffer — RTT too high?');
@@ -598,22 +514,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
 
-    // Pkunk resurrection: if a Pkunk's crew hits 0 and canResurrect is set,
-    // respawn it at a random position with full stats (UQM new_pkunk behavior).
+    // Give each ship's controller a chance to cancel/handle death (e.g. Pkunk resurrection).
     for (let side = 0; side < 2; side++) {
       const ship = bs.ships[side];
-      if (ship.crew <= 0 && bs.shipTypes[side] === 'pkunk') {
-        const pkunk = ship as PkunkShipState;
-        if (pkunk.canResurrect) {
-          pkunk.canResurrect = false; // one resurrection per life
-          pkunk.crew = PKUNK_MAX_CREW;
-          pkunk.energy = PKUNK_MAX_ENERGY;
-          // Random respawn position in world
+      if (ship.crew <= 0) {
+        const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+        if (ctrl.onDeath) {
           const rng = rngRef.current!;
-          pkunk.x = rng.rand(WORLD_W);
-          pkunk.y = rng.rand(WORLD_H);
-          pkunk.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
-          pkunk.facing = rng.rand(16);
+          ctrl.onDeath(ship, (n) => rng.rand(n));
         }
       }
     }
@@ -655,18 +563,18 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     }
 
-    // Update HUD — use getShipDef for per-ship max values (covers all 27 ships)
-    const myDef  = getShipDef(bs.shipTypes[mySide]);
-    const oppDef = getShipDef(bs.shipTypes[opSide]);
+    // Update HUD via registry max values
+    const myCtrl  = SHIP_REGISTRY[bs.shipTypes[mySide]];
+    const oppCtrl = SHIP_REGISTRY[bs.shipTypes[opSide]];
     setHudData({
       myCrew:       bs.ships[mySide].crew,
-      myMaxCrew:    myDef?.crew   ?? MAX_CREW,
+      myMaxCrew:    myCtrl.maxCrew,
       myEnergy:     bs.ships[mySide].energy,
-      myMaxEnergy:  myDef?.energy ?? MAX_ENERGY,
+      myMaxEnergy:  myCtrl.maxEnergy,
       oppCrew:      bs.ships[opSide].crew,
-      oppMaxCrew:   oppDef?.crew   ?? MAX_CREW,
+      oppMaxCrew:   oppCtrl.maxCrew,
       oppEnergy:    bs.ships[opSide].energy,
-      oppMaxEnergy: oppDef?.energy ?? MAX_ENERGY,
+      oppMaxEnergy: oppCtrl.maxEnergy,
     });
   }
 
@@ -681,16 +589,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     if (bs.warpIn[0] > 0) bs.warpIn[0]--;
     if (bs.warpIn[1] > 0) bs.warpIn[1]--;
 
-    // Update ships — dispatch to correct ship update function.
+    // Update ships — dispatch through registry.
     // Ships still warping in cannot act (no weapons, no steering).
-    const updateShip = (ship: HumanShipState, input: number, type: ShipId, warping: boolean): SpawnRequest[] => {
-      if (warping) return []; // frozen during warp-in
-      if (type === 'spathi') return updateSpathiShip(ship, input);
-      if (type === 'urquan') return updateUrquanShip(ship, input);
-      if (type === 'pkunk')  return updatePkunkShip(ship, input);
-      if (type === 'vux')    return updateVuxShip(ship, input);
-      if (type === 'kohrah') return updateKohrahShip(ship, input);
-      return updateHumanShip(ship, input);
+    const updateShip = (ship: ShipState, input: number, type: ShipId, warping: boolean): SpawnRequest[] => {
+      if (warping) return [];
+      return SHIP_REGISTRY[type].update(ship, input);
     };
     const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0);
     const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0);
@@ -720,12 +623,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           owner,
         });
       } else if (s.type === 'buzzsaw') {
-        // FIFO cap: if already at MAX_BUZZSAWS for this owner, remove the oldest.
-        const ownerSaws = bs.missiles.filter(m => m.weaponType === 'buzzsaw' && m.owner === owner);
-        if (ownerSaws.length >= MAX_BUZZSAWS) {
-          const oldest = ownerSaws[0];
-          const idx = bs.missiles.indexOf(oldest);
-          if (idx !== -1) bs.missiles.splice(idx, 1);
+        // FIFO cap: controller specifies the limit via weaponCap.
+        if (s.weaponCap !== undefined) {
+          const ownerSaws = bs.missiles.filter(m => m.weaponType === 'buzzsaw' && m.owner === owner);
+          if (ownerSaws.length >= s.weaponCap) {
+            const oldest = ownerSaws[0];
+            const idx = bs.missiles.indexOf(oldest);
+            if (idx !== -1) bs.missiles.splice(idx, 1);
+          }
         }
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, s.speed, s.facing);
@@ -755,29 +660,38 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
           weaponType: 'gas_cloud',
         });
       } else if (s.type === 'fighter') {
+        // Fighters live in bs.missiles; all AI runs in urquanController.processMissile.
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
-        setVelocityVector(v, FIGHTER_SPEED, s.facing);
-        bs.fighters.push({
+        setVelocityVector(v, s.speed, s.facing);
+        bs.missiles.push({
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: FIGHTER_LIFE, weaponWait: 0, owner,
+          life: s.life, speed: s.speed, maxSpeed: s.speed,
+          accel: 0, damage: 0,
+          tracks: false, trackWait: 0, trackRate: 0,
+          owner,
+          weaponType: 'fighter',
+          weaponWait: 0,
         });
-      } else if (s.type === 'vux_laser') {
-        applyVuxLaser(bs, owner, s.x, s.y, s.facing);
       }
     };
+    const addLaser = (l: LaserFlash) => bs.lasers.push(l);
     for (const s of spawns0) {
       spawnRequest(s, 0);
-      if (s.type === 'point_defense') { applyPointDefense(bs, 0); playSecondary(bs.shipTypes[0]); }
-      else if (s.type === 'missile')  playPrimary(bs.shipTypes[0]);
-      else if (s.type === 'buzzsaw')  playPrimary(bs.shipTypes[0]);
+      // Immediate weapon effects owned by each ship's controller
+      SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(s, bs.ships[0], bs.ships[1], 0, bs.missiles, addLaser);
+      // Sound dispatch (keyed on spawn type, independent of ship identity)
+      if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
+      else if (s.type === 'missile')   playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[0]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
     }
     for (const s of spawns1) {
       spawnRequest(s, 1);
-      if (s.type === 'point_defense') { applyPointDefense(bs, 1); playSecondary(bs.shipTypes[1]); }
-      else if (s.type === 'missile')  playPrimary(bs.shipTypes[1]);
-      else if (s.type === 'buzzsaw')  playPrimary(bs.shipTypes[1]);
+      SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
+      if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
+      else if (s.type === 'missile')   playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[1]);
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
     }
@@ -788,39 +702,26 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       m.life--;
       if (m.life <= 0) continue;
 
-      // ── Buzzsaw lifecycle ──────────────────────────────────────────────────────
-      // UQM phases:
-      //   buzzsaw_preprocess  → while fire held: spin_preprocess (life++)
-      //   decelerate_preprocess → each frame: halve vx/vy, then spin_preprocess (life++)
-      //   buzztrack_preprocess  → each frame: nudge if in range, then spin_preprocess (life++)
-      // spin_preprocess always counteracts the engine's life-- so buzzsaws never
-      // expire naturally. Only FIFO (9th spawn) or a hit can destroy them.
-      if (m.weaponType === 'buzzsaw') {
-        m.decelWait = (m.decelWait ?? 0) + 1; // animation counter (independent of life)
+      const ownerCtrl  = SHIP_REGISTRY[bs.shipTypes[m.owner]];
+      const ownShip    = bs.ships[m.owner];
+      const enemyShip  = bs.ships[m.owner === 0 ? 1 : 0];
+      const ownerInput = m.owner === 0 ? input0 : input1;
 
-        const ownerInput = m.owner === 0 ? input0 : input1;
-        if (m.fireHeld) {
-          if (ownerInput & INPUT_FIRE1) {
-            // buzzsaw_preprocess + spin_preprocess: replenish life while held
-            m.life++;
-          } else {
-            // Fire just released: halve life, switch to decel phase.
-            // spin_preprocess still runs this frame → replenish after the halve.
-            m.fireHeld = false;
-            m.life = Math.max(1, m.life >> 1);
-            m.life++;
-          }
-        } else {
-          // decelerate_preprocess or buzztrack_preprocess:
-          // spin_preprocess always replenishes life → buzzsaw persists indefinitely.
-          m.life++;
-        }
-      }
+      // Per-missile lifecycle hook: controllers handle all weapon-specific behaviour
+      // (buzzsaw spin, gas cloud velocity, fighter AI, etc.)
+      const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, ownerInput) ?? {};
 
-      // Tracking
-      if (m.tracks) {
-        const targetShip = bs.ships[m.owner === 0 ? 1 : 0];
-        const targetAngle = worldAngle(m.x, m.y, targetShip.x, targetShip.y);
+      if (effect.destroy) continue; // e.g. fighter docked with mothership
+
+      // Apply effects from the controller
+      if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
+      if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
+      if (effect.lasers)      bs.lasers.push(...effect.lasers);
+      if (effect.sounds)      for (const snd of effect.sounds) { if (snd === 'fighter_laser') playFighterLaser(); }
+
+      // Generic tracking (skip if controller already handled it)
+      if (!effect.skipDefaultTracking && m.tracks) {
+        const targetAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
         if (m.trackWait > 0) {
           m.trackWait--;
         } else {
@@ -829,51 +730,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         }
       }
 
-      // Velocity update
-      let skipVelocitySet = false;
-
-      if (m.weaponType === 'buzzsaw' && !m.fireHeld) {
-        const stopped = m.velocity.vx === 0 && m.velocity.vy === 0;
-        if (!stopped) {
-          // decelerate_preprocess: halve velocity each frame until stopped.
-          m.velocity.vx = Math.trunc(m.velocity.vx / 2);
-          m.velocity.vy = Math.trunc(m.velocity.vy / 2);
-        } else {
-          // buzztrack_preprocess: every TRACK_WAIT frames, nudge toward enemy
-          // if within ACTIVATE_RANGE display pixels (UQM checks WORLD_TO_DISPLAY(delta)).
-          if (m.trackWait > 0) {
-            m.trackWait--;
-          } else {
-            m.trackWait = BUZZSAW_TRACK_WAIT;
-            const enemy = bs.ships[m.owner === 0 ? 1 : 0];
-            const dxW = enemy.x - m.x;
-            const dyW = enemy.y - m.y;
-            // Convert to display pixels (WORLD_TO_DISPLAY = >> 2)
-            const dxD = Math.abs(dxW) >> 2;
-            const dyD = Math.abs(dyW) >> 2;
-            if (dxD < ACTIVATE_RANGE && dyD < ACTIVATE_RANGE &&
-                dxD * dxD + dyD * dyD < ACTIVATE_RANGE * ACTIVATE_RANGE) {
-              // In range: DISPLAY_TO_WORLD(2) = 8 world-units toward enemy
-              // (very subtle — UQM SetVelocityVector with facing converted from arctan)
-              const angle   = worldAngle(m.x, m.y, enemy.x, enemy.y); // 0–63
-              const facing  = ((angle + 2) >> 2) & 15;                 // ANGLE_TO_FACING
-              setVelocityVector(m.velocity, BUZZSAW_TRACK_SPEED, facing);
-            } else {
-              // Out of range: stay still
-              m.velocity.vx = 0;
-              m.velocity.vy = 0;
-            }
-          }
-        }
-        skipVelocitySet = true;
-      } else if (m.weaponType === 'gas_cloud') {
-        // Gas clouds have velocity (spread + ship velocity) set once at spawn.
-        // Do not overwrite with setVelocityVector each frame.
-        skipVelocitySet = true;
-      }
-
-      if (!skipVelocitySet) {
-        // Normal fixed-speed or accelerating projectile.
+      // Generic velocity update (skip if controller manages velocity directly)
+      if (!effect.skipVelocityUpdate) {
         m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
         setVelocityVector(m.velocity, m.speed, m.facing);
       }
@@ -904,112 +762,40 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       const targetSide = m.owner === 0 ? 1 : 0;
       const targetShip = bs.ships[targetSide];
 
-      // Buzzsaw–planet collision (splinter, no planet damage)
-      if (!hit && m.weaponType === 'buzzsaw') {
+      // Planet collision — only checked for missiles whose controller opts in.
+      if (!hit && ownerCtrl.collidesWithPlanet) {
         const pdx = m.x - PLANET_X;
         const pdy = m.y - PLANET_Y;
         if (pdx * pdx + pdy * pdy < (PLANET_RADIUS_W + 4) ** 2) {
-          bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-            vx: m.velocity.vx, vy: m.velocity.vy, ex: 0, ey: 0 });
+          const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
+          if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+          if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
+            vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
           playBlast(m.damage);
           hit = true;
         }
       }
 
-      if (!hit && bs.warpIn[targetSide] === 0 && circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
+      // Fighters don't have a damage value and collide with neither planet nor enemy ship
+      // in the traditional sense (they dock, not explode). Skip ship collision for them.
+      if (!hit && m.weaponType !== 'fighter' &&
+          bs.warpIn[targetSide] === 0 &&
+          circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
         targetShip.crew = Math.max(0, targetShip.crew - m.damage);
-        if (m.weaponType === 'buzzsaw') {
-          // weapon_collision spawns a blast flash AND buzzsaw_collision keeps
-          // the blade as a moving splinter — both effects run simultaneously.
-          bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
-          bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-            vx: m.velocity.vx, vy: m.velocity.vy, ex: 0, ey: 0 });
-        } else {
-          bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
+        if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
+        if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
+          vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
+        if (hitFx.impairTarget) {
+          targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
+          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
         }
         playBlast(m.damage);
-        // VUX limpet: apply movement impairment (increase turn/thrust wait)
-        if (m.limpet) {
-          targetShip.turnWait  = Math.min(15, targetShip.turnWait  + 1);
-          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + 1);
-        }
         hit = true;
       }
       if (!hit) aliveMissiles.push(m);
     }
     bs.missiles = aliveMissiles;
-
-    // Update fighters (Ur-Quan autonomous craft)
-    {
-      const aliveFighters: BattleFighter[] = [];
-      for (const f of bs.fighters) {
-        f.life--;
-        if (f.life <= 0) continue;
-
-        const motherShip = bs.ships[f.owner];
-        const enemyShip  = bs.ships[f.owner === 0 ? 1 : 0];
-
-        // Phase: if enough life left to return, track enemy; else track mothership
-        const returning = f.life < ONE_WAY_FLIGHT && motherShip.crew > 0;
-        const navTarget = returning ? motherShip : enemyShip;
-
-        // Turn toward target
-        const targetAngle = worldAngle(f.x, f.y, navTarget.x, navTarget.y);
-        f.facing = trackFacing(f.facing, targetAngle);
-
-        // Set velocity
-        setVelocityVector(f.velocity, FIGHTER_SPEED, f.facing);
-
-        // Advance position
-        {
-          const fracX = Math.abs(f.velocity.vx) & 31;
-          f.velocity.ex += fracX;
-          const carryX = f.velocity.ex >= 32 ? 1 : 0;
-          f.velocity.ex &= 31;
-          f.x += VELOCITY_TO_WORLD(Math.abs(f.velocity.vx)) * Math.sign(f.velocity.vx)
-                + (f.velocity.vx >= 0 ? carryX : -carryX);
-
-          const fracY = Math.abs(f.velocity.vy) & 31;
-          f.velocity.ey += fracY;
-          const carryY = f.velocity.ey >= 32 ? 1 : 0;
-          f.velocity.ey &= 31;
-          f.y += VELOCITY_TO_WORLD(Math.abs(f.velocity.vy)) * Math.sign(f.velocity.vy)
-                + (f.velocity.vy >= 0 ? carryY : -carryY);
-        }
-        f.x = ((f.x % WORLD_W) + WORLD_W) % WORLD_W;
-        f.y = ((f.y % WORLD_H) + WORLD_H) % WORLD_H;
-
-        // Fighter laser: fire when enemy within 3/4 of laser range
-        const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
-        if (!returning && f.weaponWait === 0) {
-          const dx = enemyShip.x - f.x;
-          const dy = enemyShip.y - f.y;
-          if (dx * dx + dy * dy < laserRangeSq) {
-            const laserAngle = worldAngle(f.x, f.y, enemyShip.x, enemyShip.y);
-            const ex = COSINE(laserAngle, FIGHTER_LASER_RANGE);
-            const ey = SINE(laserAngle, FIGHTER_LASER_RANGE);
-            bs.lasers.push({ x1: f.x, y1: f.y, x2: f.x + ex, y2: f.y + ey });
-            enemyShip.crew = Math.max(0, enemyShip.crew - 1);
-            f.weaponWait = FIGHTER_WEAPON_WAIT;
-            playFighterLaser();
-          }
-        }
-        if (f.weaponWait > 0) f.weaponWait--;
-
-        // Returning fighter: die if it reaches mothership (restores 1 crew)
-        if (returning) {
-          const dx = motherShip.x - f.x;
-          const dy = motherShip.y - f.y;
-          if (dx * dx + dy * dy < DISPLAY_TO_WORLD(SHIP_RADIUS) ** 2) {
-            motherShip.crew = Math.min(motherShip.crew + 1, URQUAN_MAX_CREW);
-            continue; // removed (don't push to aliveFighters)
-          }
-        }
-
-        aliveFighters.push(f);
-      }
-      bs.fighters = aliveFighters;
-    }
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
     bs.explosions = bs.explosions.filter(e => {
@@ -1140,7 +926,6 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     const bs     = stateRef.current;
     if (!canvas || !bs) return;
     const ctx = canvas.getContext('2d')!;
-    const sp  = spritesRef.current;
 
     // Scale all canvas operations to physical pixels.
     // All game coordinates remain in the logical 640×480 space.
@@ -1236,68 +1021,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     // ── Missiles ─────────────────────────────────────────────────────────
     {
-      const spSp = spathiSpritesRef.current;
-      const uqSp = urquanSpritesRef.current;
-      const pkSp = pkunkSpritesRef.current;
-      const nukeSet    = sp   ? (r >= 2 ? sp.nuke.sml      : r === 1 ? sp.nuke.med      : sp.nuke.big)      : null;
-      const buttSet    = spSp ? (r >= 2 ? spSp.butt.sml    : r === 1 ? spSp.butt.med    : spSp.butt.big)    : null;
-      const sMissSet   = spSp ? (r >= 2 ? spSp.missile.sml : r === 1 ? spSp.missile.med : spSp.missile.big) : null;
-      const fusionSet  = uqSp ? (r >= 2 ? uqSp.fusion.sml  : r === 1 ? uqSp.fusion.med  : uqSp.fusion.big)  : null;
-      const bugSet     = pkSp ? (r >= 2 ? pkSp.bug.sml     : r === 1 ? pkSp.bug.med     : pkSp.bug.big)     : null;
-      const vxSp      = vuxSpritesRef.current;
-      const limpetSet  = vxSp ? (r >= 2 ? vxSp.limpets.sml : r === 1 ? vxSp.limpets.med : vxSp.limpets.big) : null;
-      const kohrahSp   = kohrahSpritesRef.current;
-      const buzzawSet  = kohrahSp ? (r >= 2 ? kohrahSp.buzzsaw.sml : r === 1 ? kohrahSp.buzzsaw.med : kohrahSp.buzzsaw.big) : null;
-      const gasMissSet = kohrahSp ? (r >= 2 ? kohrahSp.gas.sml : r === 1 ? kohrahSp.gas.med : kohrahSp.gas.big) : null;
-
+      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r };
+      // Each missile is drawn by the owner ship's controller.
+      // The controller receives the opaque sprite bundle it loaded earlier.
       for (const m of bs.missiles) {
-        let mset = nukeSet;
-        if (m.weaponType === 'buzzsaw') {
-          mset = buzzawSet;
-        } else if (m.weaponType === 'gas_cloud') {
-          // Gas clouds cycle through their 8 animation frames based on age
-          mset = gasMissSet;
-        } else if (bs.shipTypes[m.owner] === 'spathi') {
-          mset = m.tracks ? buttSet : sMissSet;
-        } else if (bs.shipTypes[m.owner] === 'urquan') {
-          mset = fusionSet;
-        } else if (bs.shipTypes[m.owner] === 'pkunk') {
-          mset = bugSet;
-        } else if (bs.shipTypes[m.owner] === 'vux') {
-          // Limpet missiles cycle through their 4 animation frames
-          mset = limpetSet;
-        }
-        if (mset) {
-          // Determine frame index based on weapon type
-          let frameIdx = m.facing;
-          if (m.weaponType === 'buzzsaw') {
-            // UQM buzzsaw: only frames 0–1 are the spinning animation (LAST_SPIN_INDEX=1).
-            // Frames 2–7 are the splinter/collision death animation.
-            // decelWait is repurposed as an independent animation tick counter.
-            frameIdx = (m.decelWait ?? 0) & 1;
-          } else if (m.weaponType === 'gas_cloud') {
-            // Gas cloud animation: 8 frames, cycle based on age
-            frameIdx = Math.min(7, (64 - m.life) >> 3);
-          } else if (bs.shipTypes[m.owner] === 'vux' && m.limpet) {
-            // Limpets cycle through 4 animation frames
-            frameIdx = (FIGHTER_LIFE - m.life) & 3;
-          }
-          drawSprite(ctx, mset, frameIdx, m.x, m.y, CANVAS_W, CANVAS_H, camX, camY, r);
+        const ownerCtrl    = SHIP_REGISTRY[bs.shipTypes[m.owner]];
+        const ownerSprites = shipSpritesRef.current.get(bs.shipTypes[m.owner]) ?? null;
+        if (ownerCtrl.drawMissile) {
+          ownerCtrl.drawMissile(dc, m, ownerSprites);
         } else {
           placeholderDot(ctx, m.x, m.y, camX, camY, 3, '#ff8', r);
-        }
-      }
-    }
-
-    // ── Fighters ─────────────────────────────────────────────────────────
-    {
-      const uqSp = urquanSpritesRef.current;
-      const fighterSet = uqSp ? (r >= 2 ? uqSp.fighter.sml : r === 1 ? uqSp.fighter.med : uqSp.fighter.big) : null;
-      for (const f of bs.fighters) {
-        if (fighterSet) {
-          drawSprite(ctx, fighterSet, f.facing, f.x, f.y, CANVAS_W, CANVAS_H, camX, camY, r);
-        } else {
-          placeholderDot(ctx, f.x, f.y, camX, camY, 3, '#8ff', r);
         }
       }
     }
@@ -1348,86 +1081,45 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Ships ────────────────────────────────────────────────────────────
-    // Select sprite set based on ship type and zoom level.
-    for (let side = 0; side < 2; side++) {
-      const ship  = bs.ships[side];
-      const color = side === 0 ? '#4af' : '#f84';
-      const spSp = spathiSpritesRef.current;
-      const uqSp = urquanSpritesRef.current;
-      const pkSp = pkunkSpritesRef.current;
-      const vxSp = vuxSpritesRef.current;
-      let shipSet = null;
-      if (bs.shipTypes[side] === 'spathi') {
-        shipSet = spSp ? (r >= 2 ? spSp.sml : r === 1 ? spSp.med : spSp.big) : null;
-      } else if (bs.shipTypes[side] === 'urquan') {
-        shipSet = uqSp ? (r >= 2 ? uqSp.sml : r === 1 ? uqSp.med : uqSp.big) : null;
-      } else if (bs.shipTypes[side] === 'pkunk') {
-        shipSet = pkSp ? (r >= 2 ? pkSp.sml : r === 1 ? pkSp.med : pkSp.big) : null;
-      } else if (bs.shipTypes[side] === 'vux') {
-        shipSet = vxSp ? (r >= 2 ? vxSp.sml : r === 1 ? vxSp.med : vxSp.big) : null;
-      } else if (bs.shipTypes[side] === 'kohrah') {
-        const khSp = kohrahSpritesRef.current;
-        shipSet = khSp ? (r >= 2 ? khSp.sml : r === 1 ? khSp.med : khSp.big) : null;
-      } else {
-        // Try generic sprite cache first, then fall back to cruiser sprites for human
-        const generic = genericSpritesRef.current.get(bs.shipTypes[side]);
-        if (generic) {
-          shipSet = r >= 2 ? generic.sml : r === 1 ? generic.med : generic.big;
-        } else {
-          shipSet = sp ? (r >= 2 ? sp.sml : r === 1 ? sp.med : sp.big) : null;
+    {
+      const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r };
+      for (let side = 0; side < 2; side++) {
+        const ship = bs.ships[side];
+
+        // Warp-in: ship is invisible during countdown (HYPERJUMP_LIFE=15 frames).
+        // Render orange→red shadow dot approaching from the facing direction.
+        if (bs.warpIn[side] > 0) {
+          const wi  = bs.warpIn[side];
+          const ang = (ship.facing * 4) & 63;
+          const distW = Math.round((wi / 15) * DISPLAY_TO_WORLD(120));
+          const sdx = w2d(ship.x + COSINE(ang, distW) - camX);
+          const sdy = w2d(ship.y + SINE(ang, distW) - camY);
+          const colorStep = Math.min(11, Math.floor((15 - wi) * 12 / 15));
+          const ionR = [255, 255, 255, 255, 255, 255, 255, 219, 183, 147, 111, 75][colorStep];
+          const ionG = [171, 142, 113, 85,  57,  28,   0,   0,   0,   0,   0,  0][colorStep];
+          ctx.fillStyle = `rgb(${ionR},${ionG},0)`;
+          ctx.fillRect(sdx - 1, sdy - 1, 3, 3);
+          continue;
         }
-      }
 
-      // Warp-in: ship is invisible during countdown (HYPERJUMP_LIFE=15 frames).
-      // Render orange→red ion-trail-colored dots approaching from the facing
-      // direction, simulating UQM's ship_transition shadow elements.
-      if (bs.warpIn[side] > 0) {
-        const wi = bs.warpIn[side];
-        // Shadow dot approaches ship from the facing direction
-        const ang = (ship.facing * 4) & 63; // facing angle
-        const distW = Math.round((wi / 15) * DISPLAY_TO_WORLD(120)); // world units
-        const shadowX = ship.x + COSINE(ang, distW);
-        const shadowY = ship.y + SINE(ang, distW);
-        const sdx = w2d(shadowX - camX);
-        const sdy = w2d(shadowY - camY);
-        // Color cycles: starts bright orange (far), gets redder as it approaches
-        const colorStep = Math.min(11, Math.floor((15 - wi) * 12 / 15));
-        const ionR = [255, 255, 255, 255, 255, 255, 255, 219, 183, 147, 111, 75][colorStep];
-        const ionG = [171, 142, 113, 85, 57, 28, 0, 0, 0, 0, 0, 0][colorStep];
-        ctx.fillStyle = `rgb(${ionR},${ionG},0)`;
-        ctx.fillRect(sdx - 1, sdy - 1, 3, 3);
-        continue; // skip normal ship rendering while warping in
-      }
-
-      if (shipSet) {
-        drawSprite(ctx, shipSet, ship.facing, ship.x, ship.y, CANVAS_W, CANVAS_H, camX, camY, r);
-      } else {
-        placeholderDot(ctx, ship.x, ship.y, camX, camY, 8, color, r);
-        // Facing indicator
-        const angle = (ship.facing * 4) & 63;
-        const sdx = w2d(ship.x - camX);
-        const sdy = w2d(ship.y - camY);
-        ctx.beginPath();
-        ctx.moveTo(sdx, sdy);
-        ctx.lineTo(
-          sdx + Math.cos((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
-          sdy + Math.sin((angle / 64) * 2 * Math.PI - Math.PI / 2) * 14,
-        );
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        const ctrl    = SHIP_REGISTRY[bs.shipTypes[side]];
+        const sprites = shipSpritesRef.current.get(bs.shipTypes[side]) ?? null;
+        ctrl.drawShip(dc, ship, sprites);
       }
     }
 
     // ── Explosions ───────────────────────────────────────────────────────
     {
       const exSp = explosionSpritesRef.current;
-      const kohrahEx = kohrahSpritesRef.current;
       for (const ex of bs.explosions) {
         if (ex.type === 'splinter') {
-          // Buzzsaw impact: render using buzzsaw sprite frames 2–6
-          const sset = kohrahEx
-            ? (r >= 2 ? kohrahEx.buzzsaw.sml : r === 1 ? kohrahEx.buzzsaw.med : kohrahEx.buzzsaw.big)
+          // Buzzsaw impact: render using buzzsaw sprite frames 2–6.
+          // Splinters always come from Kohr-Ah, so pull from their sprite bundle.
+          const khSp = shipSpritesRef.current.get('kohrah') as
+            { buzzsaw?: { big: object; med: object; sml: object } } | null;
+          const group = khSp?.buzzsaw ?? null;
+          const sset = group
+            ? (r >= 2 ? group.sml : r === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
             : null;
           if (sset) {
             drawSprite(ctx, sset, ex.frame, ex.x, ex.y, CANVAS_W, CANVAS_H, camX, camY, r);
@@ -1478,6 +1170,8 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   const myFleet  = (yourSide === 0 ? room.host.fleet : room.opponent?.fleet) ?? [];
   const oppFleet = (yourSide === 0 ? room.opponent?.fleet : room.host.fleet) ?? [];
+  const myActiveSlot  = yourSide === 0 ? activeSlot0 : activeSlot1;
+  const oppActiveSlot = yourSide === 0 ? activeSlot1 : activeSlot0;
 
   // Canvas pixel dims are set via the resize effect. The container div is
   // sized to match so the HUD (absolutely positioned inside it) covers the
@@ -1492,14 +1186,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
         <canvas ref={canvasRef} style={{ display: 'block' }} />
         <HUD
           left={{
-            name:      firstShip(myFleet),
+            name:      activeShip(myFleet, myActiveSlot),
             crew:      hudData.myCrew,
             maxCrew:   hudData.myMaxCrew,
             energy:    hudData.myEnergy,
             maxEnergy: hudData.myMaxEnergy,
           }}
           right={{
-            name:      firstShip(oppFleet),
+            name:      activeShip(oppFleet, oppActiveSlot),
             crew:      hudData.oppCrew,
             maxCrew:   hudData.oppMaxCrew,
             energy:    hudData.oppEnergy,
@@ -1513,31 +1207,19 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
 // ─── Helper functions ─────────────────────────────────────────────────────────
 
-function firstShip(fleet: FleetSlot[]): string {
+function activeShip(fleet: FleetSlot[], activeSlot: number | null): string {
+  if (activeSlot != null && fleet[activeSlot]) return fleet[activeSlot] as string;
   return fleet.find(Boolean) ?? 'Unknown';
 }
 
-function placeholderDot(
-  ctx: CanvasRenderingContext2D,
-  worldX: number, worldY: number,
-  camX: number, camY: number,
-  dotR: number, color: string,
-  reduction: number = 0,
-) {
-  const dx = (worldX - camX) >> (2 + reduction);
-  const dy = (worldY - camY) >> (2 + reduction);
-  ctx.beginPath();
-  ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-}
+// placeholderDot is imported from engine/sprites
 
 /**
  * Pick the smallest zoom-out level (0–MAX_REDUCTION) that keeps both ships
  * on screen. Zoom out immediately; zoom in only after separation drops below
  * threshold by HYSTERESIS_W world units to prevent jitter at the boundary.
  */
-function calcReduction(ships: [HumanShipState, HumanShipState], current: number): number {
+function calcReduction(ships: [ShipState, ShipState], current: number): number {
   // Wrap-aware separation
   let dx = Math.abs(ships[1].x - ships[0].x);
   let dy = Math.abs(ships[1].y - ships[0].y);
@@ -1564,7 +1246,7 @@ function calcReduction(ships: [HumanShipState, HumanShipState], current: number)
  * that are already separating pass through without re-firing.
  * Both ships have SHIP_MASS, so the impulse is split equally.
  */
-function resolveShipCollision(a: HumanShipState, b: HumanShipState): void {
+function resolveShipCollision(a: ShipState, b: ShipState): void {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const distSq = dx * dx + dy * dy;
@@ -1609,7 +1291,7 @@ function worldAngle(fromX: number, fromY: number, toX: number, toY: number): num
  * 3. Fire nuke when well-aligned
  * 4. Fire point defense when enemy nuke is close
  */
-function computeAIInput(ai: HumanShipState, target: HumanShipState, nukes: BattleMissile[], aiSide: 0 | 1): number {
+function computeAIInput(ai: ShipState, target: ShipState, nukes: BattleMissile[], aiSide: 0 | 1): number {
   let input = 0;
 
   // Angle to target (0–63 UQM system)
@@ -1640,7 +1322,7 @@ function computeAIInput(ai: HumanShipState, target: HumanShipState, nukes: Battl
   return input;
 }
 
-function applyGravity(ship: HumanShipState) {
+function applyGravity(ship: ShipState) {
   const dx = PLANET_X - ship.x;
   const dy = PLANET_Y - ship.y;
   const distSq = dx * dx + dy * dy;
@@ -1656,89 +1338,6 @@ function applyGravity(ship: HumanShipState) {
   ship.velocity.vy += SINE(angle, grav);
 }
 
-function applyPointDefense(bs: BattleState, side: number) {
-  // Faithful port of UQM spawn_point_defense (human.c).
-  //
-  // Fires at every collidable, non-cloaked object within LASER_RANGE display px:
-  //   • enemy missiles (destroyed on hit)
-  //   • enemy ship (1 crew damage on hit)
-  //
-  // Energy and cooldown use a PaidFor flag — deducted only on the FIRST hit.
-  // If nothing is in range: no energy spent, no cooldown set (free to spam).
-  // One energy payment per activation covers all targets hit that frame.
-  const ship = bs.ships[side];
-  const enemyShip = bs.ships[side === 0 ? 1 : 0];
-  const rangeWSq = DISPLAY_TO_WORLD(LASER_RANGE) ** 2;
-  let paidFor = false;
-
-  function payOnce() {
-    if (paidFor) return;
-    ship.energy -= SPECIAL_ENERGY_COST;
-    ship.specialWait = SPECIAL_WAIT;
-    paidFor = true;
-  }
-
-  // Enemy missiles
-  bs.missiles = bs.missiles.filter(m => {
-    if (m.owner === side) return true; // never fire at own missiles
-    const dx = m.x - ship.x;
-    const dy = m.y - ship.y;
-    if (dx * dx + dy * dy <= rangeWSq) {
-      payOnce();
-      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: m.x, y2: m.y });
-      return false; // missile destroyed
-    }
-    return true;
-  });
-
-  // Enemy ship (CollidingElement check in UQM — ships always have COLLISION set)
-  {
-    const dx = enemyShip.x - ship.x;
-    const dy = enemyShip.y - ship.y;
-    if (dx * dx + dy * dy <= rangeWSq) {
-      payOnce();
-      bs.lasers.push({ x1: ship.x, y1: ship.y, x2: enemyShip.x, y2: enemyShip.y });
-      enemyShip.crew = Math.max(0, enemyShip.crew - 1); // laser mass_points = 1
-    }
-  }
-}
-
-/**
- * VUX forward laser: fires in the ship's facing direction and hits the first
- * target in range. Line-segment collision with enemy ship uses point-to-line
- * distance check. Deals 1 crew damage.
- */
-function applyVuxLaser(bs: BattleState, owner: 0 | 1, ox: number, oy: number, facing: number) {
-  const enemySide = owner === 0 ? 1 : 0;
-  const enemyShip = bs.ships[enemySide];
-
-  const angle = (facing * 4) & 63;
-  const ex = COSINE(angle, VUX_LASER_RANGE);
-  const ey = SINE(angle, VUX_LASER_RANGE);
-
-  // Check if enemy ship circle intersects the laser line segment
-  const dx = enemyShip.x - ox;
-  const dy = enemyShip.y - oy;
-  const lenSq = ex * ex + ey * ey;
-
-  if (lenSq === 0) return;
-
-  // Project ship onto line segment, clamp t to [0,1]
-  const t = Math.max(0, Math.min(1, (dx * ex + dy * ey) / lenSq));
-  const closestX = ox + t * ex;
-  const closestY = oy + t * ey;
-  const distSq = (enemyShip.x - closestX) ** 2 + (enemyShip.y - closestY) ** 2;
-  const shipRadW = DISPLAY_TO_WORLD(SHIP_RADIUS);
-
-  if (distSq <= shipRadW * shipRadW) {
-    // Hit
-    bs.lasers.push({ x1: ox, y1: oy, x2: ox + ex, y2: oy + ey });
-    enemyShip.crew = Math.max(0, enemyShip.crew - 1);
-  } else {
-    // Miss: still show laser flash (cosmetic)
-    bs.lasers.push({ x1: ox, y1: oy, x2: ox + ex, y2: oy + ey });
-  }
-}
 
 // FNV-1a style mixing — detects all single-field divergences regardless of bit
 // position, including vx/vy values that differ by multiples of 256.
@@ -1766,13 +1365,6 @@ function computeChecksum(bs: BattleState): number {
     h = hashStep(h, m.life);
     h = hashStep(h, m.speed);
     h = hashStep(h, m.owner);
-  }
-  h = hashStep(h, bs.fighters.length);
-  for (const f of bs.fighters) {
-    h = hashStep(h, f.x);
-    h = hashStep(h, f.y);
-    h = hashStep(h, f.facing);
-    h = hashStep(h, f.life);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

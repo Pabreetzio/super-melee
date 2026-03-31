@@ -9,6 +9,8 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
+import { loadCruiserSprites, drawSprite, placeholderDot, type CruiserSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, LaserFlash } from './types';
 
 // ─── Ship constants (from human.c) ───────────────────────────────────────────
 
@@ -43,41 +45,21 @@ export const LASER_RANGE         = 100; // display pixels
 // In velocity-unit² — threshold for capping acceleration at max speed
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(MAX_THRUST) ** 2; // 768² = 589824
 
-// ─── Ship state ───────────────────────────────────────────────────────────────
+// ─── Backward-compat alias ────────────────────────────────────────────────────
+// External code that imported HumanShipState or SpawnRequest from this module
+// continues to work; new code should import from './types' directly.
 
-export interface HumanShipState {
-  // Position (world units)
-  x: number;
-  y: number;
+export type { ShipState as HumanShipState };
+export type { SpawnRequest };
 
-  // Velocity
-  velocity: VelocityDesc;
+// ─── Factory ──────────────────────────────────────────────────────────────────
 
-  // Orientation
-  facing: number; // 0–15 (16 sprite frames / facings)
-
-  // Combat stats
-  crew: number;
-  energy: number;
-
-  // Countdown timers (frames remaining until action available; 0 = available)
-  thrustWait:   number;
-  turnWait:     number;
-  weaponWait:   number;
-  specialWait:  number;
-  energyWait:   number;
-
-  // Status flags
-  thrusting: boolean;
-  prevFireHeld?: boolean; // used by ships with edge-triggered primary (e.g. Kohr-Ah buzzsaw)
-}
-
-export function makeHumanShip(x: number, y: number): HumanShipState {
+export function makeHumanShip(x: number, y: number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
     facing: 0,
-    crew: MAX_CREW,
+    crew:   MAX_CREW,
     energy: MAX_ENERGY,
     thrustWait:  0,
     turnWait:    0,
@@ -90,12 +72,7 @@ export function makeHumanShip(x: number, y: number): HumanShipState {
 
 // ─── Per-frame update ─────────────────────────────────────────────────────────
 
-/**
- * Update ship state for one simulation frame.
- * input: bitmask of INPUT_* constants.
- * Returns array of spawned objects (missiles, lasers) to add to the world.
- */
-export function updateHumanShip(ship: HumanShipState, input: number): SpawnRequest[] {
+export function updateHumanShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
 
   // ─── Turning ─────────────────────────────────────────────────────────────
@@ -127,36 +104,25 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
     const desiredSpeedSq = newDx * newDx + newDy * newDy;
 
     if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      // Normal acceleration
       setVelocityComponents(ship.velocity, newDx, newDy);
     } else {
       const currentSpeedSq = velocitySquared(ship.velocity);
       if (desiredSpeedSq < currentSpeedSq) {
-        // Gravity deceleration — allow through
         setVelocityComponents(ship.velocity, newDx, newDy);
       } else if (ship.velocity.travelAngle === angle) {
-        // Same direction — clamp to max
         setVelocityVector(ship.velocity, MAX_THRUST, ship.facing);
       } else {
-        // Thrusting at angle while at max speed — blend (simplified)
-        // Full UQM implementation: subtract half of old travel vector, add new.
-        // Simplified: apply and then renormalize to max speed.
         setVelocityComponents(ship.velocity, newDx, newDy);
         const spd = Math.sqrt(velocitySquared(ship.velocity));
         if (spd > 0) {
           const scale = WORLD_TO_VELOCITY(MAX_THRUST) / spd;
-          setVelocityComponents(
-            ship.velocity,
-            ship.velocity.vx * scale,
-            ship.velocity.vy * scale,
-          );
+          setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
         }
       }
     }
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────
-  // Apply velocity (Bresenham sub-pixel)
   const fracX = Math.abs(ship.velocity.vx) & 31;
   ship.velocity.ex += fracX;
   const carryX = ship.velocity.ex >= 32 ? 1 : 0;
@@ -184,7 +150,7 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
     ship.energy -= WEAPON_ENERGY_COST;
     ship.weaponWait = WEAPON_WAIT;
     const launchAngle = (ship.facing * 4) & 63;
-    const offsetW = DISPLAY_TO_WORLD(HUMAN_OFFSET); // 42 display px → 168 world units
+    const offsetW = DISPLAY_TO_WORLD(HUMAN_OFFSET);
     spawns.push({
       type: 'missile',
       facing: ship.facing,
@@ -201,10 +167,6 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
   }
 
   // ─── Secondary weapon: point-defense laser ────────────────────────────────
-  // Energy and cooldown are NOT deducted here. UQM spawn_point_defense only
-  // pays when the laser actually hits something (PaidFor flag). applyPointDefense
-  // in Battle.tsx handles deduction. We just gate on energy availability so
-  // we don't spawn the check when the battery is empty.
   if (ship.specialWait > 0) {
     ship.specialWait--;
   } else if ((input & INPUT_FIRE2) && ship.energy >= SPECIAL_ENERGY_COST) {
@@ -214,70 +176,23 @@ export function updateHumanShip(ship: HumanShipState, input: number): SpawnReque
   return spawns;
 }
 
-// ─── Spawn request types ──────────────────────────────────────────────────────
+// ─── Shared tracking helper ───────────────────────────────────────────────────
 
-export type SpawnRequest =
-  | {
-      type: 'missile';
-      x: number; y: number; facing: number;
-      speed: number;    // initial speed (world units)
-      maxSpeed: number; // maximum speed cap
-      accel: number;    // speed increase per frame (0 = fixed)
-      life: number;
-      damage: number;
-      tracks: boolean;
-      trackRate: number; // frames between track steps
-      inheritVelocity?: boolean; // add owner ship velocity (e.g. Pkunk bug-gun)
-      limpet?: boolean;         // VUX limpet: applies movement impairment on hit
-    }
-  | { type: 'point_defense'; x: number; y: number }
-  | { type: 'fighter'; x: number; y: number; facing: number }
-  | { type: 'vux_laser'; x: number; y: number; facing: number }
-  | {
-      type: 'buzzsaw';
-      x: number; y: number; facing: number;
-      speed: number;
-      life: number;
-      damage: number;
-      hits: number;
-      fireHeld: boolean; // tracks whether fire button is currently held
-    }
-  | {
-      type: 'gas_cloud';
-      x: number; y: number; facing: number;
-      speed: number;
-      damage: number;
-      hits: number;
-      shipVelocity: { vx: number; vy: number };
-    };
-
-// ─── Shared tracking helper (mirrors UQM TrackShip ±1-facing-per-cycle logic) ─
-
-/**
- * Turn facing one step toward targetAngle.
- * facing:      0–15  (ship/missile facing, 16 steps per full circle)
- * targetAngle: 0–63  (UQM world angle returned by worldAngle / TrackShip)
- *
- * Faithful to UQM weapon.c TrackShip: each call rotates by exactly ±1 facing
- * unit (= 4 angle units). Exported so every seeking-missile ship can reuse it.
- */
 export function trackFacing(facing: number, targetAngle: number): number {
-  const targetFacing = ((targetAngle + 2) >> 2) & 15; // angle → nearest facing
+  const targetFacing = ((targetAngle + 2) >> 2) & 15;
   const diff = (targetFacing - facing + 16) % 16;
   if (diff === 0) return facing;
-  // diff 1–8 → clockwise is shorter (or equal at 8 — always go CW)
   if (diff <= 8) return (facing + 1) % 16;
   return (facing - 1 + 16) % 16;
 }
 
-// ─── Nuke preprocess (called each frame for a live missile) ──────────────────
+// ─── Nuke preprocess ─────────────────────────────────────────────────────────
 
 export interface NukeState {
-  x: number;
-  y: number;
-  facing: number;  // 0–15
+  x: number; y: number;
+  facing: number;
   trackWait: number;
-  life: number;    // frames remaining
+  life: number;
   velocity: VelocityDesc;
 }
 
@@ -289,9 +204,8 @@ export function makeNuke(x: number, y: number, facing: number): NukeState {
 
 export function updateNuke(nuke: NukeState, targetAngle: number | null): boolean {
   nuke.life--;
-  if (nuke.life <= 0) return false; // expired
+  if (nuke.life <= 0) return false;
 
-  // Tracking
   if (nuke.trackWait > 0) {
     nuke.trackWait--;
   } else if (targetAngle !== null) {
@@ -299,12 +213,10 @@ export function updateNuke(nuke: NukeState, targetAngle: number | null): boolean
     nuke.trackWait = TRACK_WAIT;
   }
 
-  // Accelerate toward max speed
   const elapsed = MISSILE_LIFE - nuke.life;
   const speed = Math.min(MISSILE_SPEED + elapsed * THRUST_SCALE, MAX_MISSILE_SPEED);
   setVelocityVector(nuke.velocity, speed, nuke.facing);
 
-  // Advance position
   const fracX = Math.abs(nuke.velocity.vx) & 31;
   nuke.velocity.ex += fracX;
   const carryX = nuke.velocity.ex >= 32 ? 1 : 0;
@@ -317,5 +229,94 @@ export function updateNuke(nuke: NukeState, targetAngle: number | null): boolean
   nuke.velocity.ey &= 31;
   nuke.y += VELOCITY_TO_WORLD(Math.abs(nuke.velocity.vy)) * Math.sign(nuke.velocity.vy) + (nuke.velocity.vy >= 0 ? carryY : -carryY);
 
-  return true; // still alive
+  return true;
 }
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const humanController: ShipController = {
+  maxCrew:   MAX_CREW,
+  maxEnergy: MAX_ENERGY,
+
+  make: makeHumanShip,
+  update: updateHumanShip,
+
+  loadSprites: () => loadCruiserSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as CruiserSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as CruiserSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.nuke.sml : dc.reduction === 1 ? sp.nuke.med : sp.nuke.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+
+  applySpawn(
+    s: SpawnRequest,
+    ownShip: ShipState,
+    enemyShip: ShipState,
+    ownSide: 0 | 1,
+    missiles: BattleMissile[],
+    addLaser: (l: LaserFlash) => void,
+  ): void {
+    if (s.type !== 'point_defense') return;
+
+    // Faithful port of UQM spawn_point_defense (human.c).
+    //
+    // Fires at every collidable object within LASER_RANGE display px:
+    //   • enemy missiles (destroyed on hit)
+    //   • enemy ship (1 crew damage on hit)
+    //
+    // Energy and cooldown use a PaidFor flag — deducted only on the FIRST hit.
+    // If nothing is in range: no energy spent, no cooldown set (free to spam).
+    const rangeWSq = DISPLAY_TO_WORLD(LASER_RANGE) ** 2;
+    let paidFor = false;
+
+    function payOnce() {
+      if (paidFor) return;
+      ownShip.energy -= SPECIAL_ENERGY_COST;
+      ownShip.specialWait = SPECIAL_WAIT;
+      paidFor = true;
+    }
+
+    // Enemy missiles
+    for (let i = missiles.length - 1; i >= 0; i--) {
+      const m = missiles[i];
+      if (m.owner === ownSide) continue; // never fire at own missiles
+      const dx = m.x - ownShip.x;
+      const dy = m.y - ownShip.y;
+      if (dx * dx + dy * dy <= rangeWSq) {
+        payOnce();
+        addLaser({ x1: ownShip.x, y1: ownShip.y, x2: m.x, y2: m.y });
+        missiles.splice(i, 1);
+      }
+    }
+
+    // Enemy ship
+    {
+      const dx = enemyShip.x - ownShip.x;
+      const dy = enemyShip.y - ownShip.y;
+      if (dx * dx + dy * dy <= rangeWSq) {
+        payOnce();
+        addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y });
+        enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+      }
+    }
+  },
+};

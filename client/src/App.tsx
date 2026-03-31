@@ -33,6 +33,9 @@ interface AppState {
   shipSelectBoth:   boolean;
   shipSelectP0Slot: number | null; // P1's pending pick slot while waiting for P2
   shipSelectP1Slot: number | null; // P2's pending pick slot while waiting for P1
+  // Active battle slot for each side (offline modes); null = use fleet.find(Boolean) fallback
+  activeSlot0: number | null;
+  activeSlot1: number | null;
   // Winner's ship state preserved between rounds (offline modes only)
   winnerState:   WinnerShipState | null;
   // Original fleets captured at first engage; used to restore on rematch
@@ -81,6 +84,8 @@ function init(): AppState {
     shipSelectBoth:   false,
     shipSelectP0Slot: null,
     shipSelectP1Slot: null,
+    activeSlot0: null,
+    activeSlot1: null,
     winnerState:   null,
     originalFleets: null,
     battleOrigin:  'supermelee',
@@ -171,9 +176,11 @@ function reducer(state: AppState, action: Action): AppState {
       const hostFleet = [...state.room.host.fleet] as FleetSlot[];
       const oppFleet  = [...(state.room.opponent?.fleet ?? [])] as FleetSlot[];
 
-      // Consume the losing (or both-on-draw) active ships
-      const hostIdx = hostFleet.findIndex(s => s !== null);
-      const oppIdx  = oppFleet.findIndex(s => s !== null);
+      // Consume the losing (or both-on-draw) active ships.
+      // Use tracked activeSlot when available; fall back to first non-null for
+      // robustness (online mode / SOLO AI auto-pick).
+      const hostIdx = state.activeSlot0 ?? hostFleet.findIndex(s => s !== null);
+      const oppIdx  = state.activeSlot1 ?? oppFleet.findIndex(s => s !== null);
       if (winner !== 0 && hostIdx >= 0) hostFleet[hostIdx] = null; // host lost or draw
       if (winner !== 1 && oppIdx  >= 0) oppFleet[oppIdx]  = null; // opp lost or draw
 
@@ -195,34 +202,22 @@ function reducer(state: AppState, action: Action): AppState {
         const finalWinner: 0 | 1 | null =
           !hostHasShips && !oppHasShips ? null
           : !hostHasShips ? 1 : 0;
-        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner, winnerState: null };
+        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner, winnerState: null, activeSlot0: null, activeSlot1: null };
       }
 
       // Who needs to pick?  Loser picks; on draw, host picks first.
-      // In SOLO mode, the AI (side 1) never needs the picker — it auto-picks
-      // by virtue of having the next non-null ship already at the front.
-      let shipSelectSide: 0 | 1;
-      if (winner === 0) {
-        // Host won → opponent (side 1) lost
-        if (isSolo) {
-          // AI silently auto-picks its next ship and jumps straight to battle
-          return {
-            ...state, room: updatedRoom,
-            screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
-            winner: undefined, shipSelectSide: null, winnerState: nextWinnerState,
-          };
-        }
-        shipSelectSide = 1;
-      } else {
-        // Opponent won, or draw → host (side 0) lost and must pick
-        shipSelectSide = 0;
-      }
+      const shipSelectSide: 0 | 1 = winner === 0 ? 1 : 0;
+
+      // Reset the loser's active slot; winner's persists for the next round
+      const nextActiveSlot0 = winner === 0 ? state.activeSlot0 : null;
+      const nextActiveSlot1 = winner === 1 ? state.activeSlot1 : null;
 
       return {
         ...state, room: updatedRoom,
         screen: 'ship_select', shipSelectSide,
         winner, // keep so ship_chosen knows if it was a draw
         winnerState: nextWinnerState,
+        activeSlot0: nextActiveSlot0, activeSlot1: nextActiveSlot1,
         shipSelectBoth: false, shipSelectP0Slot: null, shipSelectP1Slot: null,
       };
     }
@@ -232,28 +227,11 @@ function reducer(state: AppState, action: Action): AppState {
       const { side, slot } = action;
       const isSolo = state.room.code === 'SOLO';
 
-      // Move chosen slot to be the first non-null position so Battle's
-      // fleet.find(Boolean) picks it up correctly.
-      const swapToFront = (fleet: FleetSlot[], idx: number): FleetSlot[] => {
-        const first = fleet.findIndex(s => s !== null);
-        if (first < 0 || first === idx) return fleet;
-        const f = [...fleet];
-        [f[first], f[idx]] = [f[idx], f[first]];
-        return f;
-      };
-
-      const hostFleet = side === 0
-        ? swapToFront([...state.room.host.fleet], slot)
-        : [...state.room.host.fleet];
-      const oppFleet = side === 1
-        ? swapToFront([...(state.room.opponent?.fleet ?? [])], slot)
-        : [...(state.room.opponent?.fleet ?? [])];
-
-      const updatedRoom: FullRoomState = {
-        ...state.room,
-        host:     { ...state.room.host,      fleet: hostFleet },
-        opponent: state.room.opponent ? { ...state.room.opponent, fleet: oppFleet } : undefined,
-      };
+      // Record which slot each side is fighting with. Fleets are NOT reordered;
+      // ships stay in their original grid positions. The active slot is used by
+      // Battle.tsx to look up the ship type and by battle_over to null the right slot.
+      const newActiveSlot0 = side === 0 ? slot : state.activeSlot0;
+      const newActiveSlot1 = side === 1 ? slot : state.activeSlot1;
 
       // Simultaneous picking (LOCAL2P split-screen): wait for both sides before starting
       if (state.shipSelectBoth) {
@@ -262,24 +240,26 @@ function reducer(state: AppState, action: Action): AppState {
         if (p0 !== null && p1 !== null) {
           // Both picked — start battle
           return {
-            ...state, room: updatedRoom,
+            ...state,
+            activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1,
             screen: 'battle', battleSeed: state.battleSeed,
             winner: undefined, shipSelectSide: null,
             shipSelectBoth: false, shipSelectP0Slot: null, shipSelectP1Slot: null,
           };
         }
         // One side picked; wait for the other
-        return { ...state, room: updatedRoom, shipSelectP0Slot: p0, shipSelectP1Slot: p1 };
+        return { ...state, activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1, shipSelectP0Slot: p0, shipSelectP1Slot: p1 };
       }
 
       // Draw + LOCAL2P sequential: host just picked, now opponent must pick
       if (state.winner === null && !isSolo && side === 0) {
-        return { ...state, room: updatedRoom, screen: 'ship_select', shipSelectSide: 1 };
+        return { ...state, activeSlot0: newActiveSlot0, screen: 'ship_select', shipSelectSide: 1 };
       }
 
       // Otherwise start the next battle
       return {
-        ...state, room: updatedRoom,
+        ...state,
+        activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1,
         screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
         winner: undefined, shipSelectSide: null,
       };
@@ -291,10 +271,10 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'go_browser':
-      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null };
+      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null };
 
     case 'go_supermelee':
-      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null };
+      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null };
 
     case 'go_landing':
       return { ...state, screen: 'landing' };
@@ -731,6 +711,8 @@ export default function App() {
           isAI={battleRoom.code === 'SOLO'}
           isLocal2P={battleRoom.code === 'LOCAL2P'}
           winnerState={state.winnerState}
+          activeSlot0={state.activeSlot0}
+          activeSlot1={state.activeSlot1}
           onBattleEnd={(winner, ws) => dispatch({ type: 'battle_over', winner, winnerState: ws })}
         />
       ) : null;
@@ -776,7 +758,7 @@ export default function App() {
             pick={null}
             position="solo"
             navKeys="arrows"
-            isAI={false}
+            isAI={isSolo && side === 1}
             onSelect={slot => dispatch({ type: 'ship_chosen', side, slot })}
             onForfeit={() => dispatch({ type: 'forfeit_game', side })}
           />

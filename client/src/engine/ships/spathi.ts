@@ -10,8 +10,11 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import type { HumanShipState } from './human';
-import type { SpawnRequest } from './human';
+import { loadSpathiSprites, drawSprite, placeholderDot, type SpathiSprites } from '../sprites';
+import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
+
+// Backward-compat alias
+export type { ShipState as HumanShipState };
 
 // ─── Constants (from spathi.c) ────────────────────────────────────────────────
 
@@ -49,7 +52,7 @@ const MAX_SPEED_SQ = WORLD_TO_VELOCITY(SPATHI_MAX_THRUST) ** 2;
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 // Spathi uses the same state shape as the Earthling Cruiser.
-export function makeSpathiShip(x: number, y: number): HumanShipState {
+export function makeSpathiShip(x: number, y: number): ShipState {
   return {
     x, y,
     velocity: { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 },
@@ -67,7 +70,7 @@ export function makeSpathiShip(x: number, y: number): HumanShipState {
 
 // ─── Per-frame update ─────────────────────────────────────────────────────────
 
-export function updateSpathiShip(ship: HumanShipState, input: number): SpawnRequest[] {
+export function updateSpathiShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
 
   // ─── Turning ─────────────────────────────────────────────────────────────
@@ -187,3 +190,43 @@ export function updateSpathiShip(ship: HumanShipState, input: number): SpawnRequ
 
   return spawns;
 }
+
+// ─── Ship controller ─────────────────────────────────────────────────────────
+
+export const spathiController: ShipController = {
+  maxCrew:   SPATHI_MAX_CREW,
+  maxEnergy: SPATHI_MAX_ENERGY,
+
+  make: makeSpathiShip,
+  update: updateSpathiShip,
+
+  loadSprites: () => loadSpathiSprites(),
+
+  drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    const sp = sprites as SpathiSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
+    }
+  },
+
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as SpathiSprites | null;
+    // Tracking missiles (BUTT) use the butt sprite; forward shots use missile sprite
+    const group = m.tracks
+      ? (sp ? sp.butt    : null)
+      : (sp ? sp.missile : null);
+    const set = group
+      ? (dc.reduction >= 2 ? group.sml : dc.reduction === 1 ? group.med : group.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+    }
+  },
+};
