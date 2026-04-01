@@ -721,6 +721,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     };
     const addLaser = (l: LaserFlash) => bs.lasers.push(l);
     let launchSoundPlayed0 = false;
+    let gasSoundPlayed0 = false;
     for (const s of spawns0) {
       spawnRequest(s, 0);
       // Immediate weapon effects owned by each ship's controller
@@ -729,18 +730,19 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
       else if (s.type === 'missile')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
-      else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[0]);
+      else if (s.type === 'gas_cloud' && !gasSoundPlayed0) { playSecondary(bs.shipTypes[0]); gasSoundPlayed0 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
       else if (s.type === 'fighter' && !launchSoundPlayed0) { playFighterLaunch(); launchSoundPlayed0 = true; }
     }
     let launchSoundPlayed1 = false;
+    let gasSoundPlayed1 = false;
     for (const s of spawns1) {
       spawnRequest(s, 1);
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
       else if (s.type === 'missile')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
-      else if (s.type === 'gas_cloud') playSecondary(bs.shipTypes[1]);
+      else if (s.type === 'gas_cloud' && !gasSoundPlayed1) { playSecondary(bs.shipTypes[1]); gasSoundPlayed1 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }

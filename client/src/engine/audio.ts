@@ -15,12 +15,34 @@ const BATTLE_SOUNDS = {
 } as const;
 
 // Per-ship weapon sounds (in /sounds/ships/<species>/)
-const SHIP_SOUNDS: Partial<Record<string, { primary?: string; secondary?: string; extra?: string; dock?: string }>> = {
-  human:  { primary: '/sounds/ships/human/primary.wav',  secondary: '/sounds/ships/human/secondary.wav' },
-  spathi: { primary: '/sounds/ships/spathi/primary.wav', secondary: '/sounds/ships/spathi/secondary.wav' },
-  urquan: { primary: '/sounds/ships/urquan/primary.wav', secondary: '/sounds/ships/urquan/secondary.wav', extra: '/sounds/ships/urquan/fighter_laser.wav', dock: '/sounds/ships/urquan/fighter_get.wav' },
-  pkunk:  { primary: '/sounds/ships/pkunk/primary.wav' },
-  vux:    { primary: '/sounds/ships/vux/primary.wav' },
+const SHIP_SOUNDS: Record<string, Record<string, string | undefined>> = {
+  androsynth: { primary: '/sounds/ships/androsynth/primary.wav', secondary: '/sounds/ships/androsynth/secondary.wav' },
+  arilou:     { primary: '/sounds/ships/arilou/primary.wav',    secondary: '/sounds/ships/arilou/secondary.wav' },
+  chenjesu:   { primary: '/sounds/ships/chenjesu/primary.wav',  secondary: '/sounds/ships/chenjesu/secondary.wav', shrapnel: '/sounds/ships/chenjesu/shrapnel.wav', dogiBark: '/sounds/ships/chenjesu/dogibark.wav', dogiDie: '/sounds/ships/chenjesu/dogidie.wav' },
+  chmmr:      { primary: '/sounds/ships/chmmr/primary.wav',     secondary: '/sounds/ships/chmmr/secondary.wav' },
+  druuge:     { primary: '/sounds/ships/druuge/primary.wav',    secondary: '/sounds/ships/druuge/secondary.wav' },
+  flagship:   { primary: '/sounds/ships/flagship/primary.wav', secondary: '/sounds/ships/flagship/secondary.wav' },
+  human:      { primary: '/sounds/ships/human/primary.wav',    secondary: '/sounds/ships/human/secondary.wav' },
+  ilwrath:    { primary: '/sounds/ships/ilwrath/primary.wav', cloak: '/sounds/ships/ilwrath/cloak.wav', uncloak: '/sounds/ships/ilwrath/uncloak.wav' },
+  kohrah:     { primary: '/sounds/ships/kohrah/primary.wav',    secondary: '/sounds/ships/kohrah/secondary.wav' },
+  melnorme:   { primary: '/sounds/ships/melnorme/primary.wav',  secondary: '/sounds/ships/melnorme/secondary.wav' },
+  mmrnmhrm:   { primaryX: '/sounds/ships/mmrnmhrm/primaryx.wav', secondaryX: '/sounds/ships/mmrnmhrm/secondary.wav', primaryY: '/sounds/ships/mmrnmhrm/primaryy.wav', secondaryY: '/sounds/ships/mmrnmhrm/secondaryy.wav' },
+  mycon:      { primary: '/sounds/ships/mycon/primary.wav',     secondary: '/sounds/ships/mycon/secondary.wav' },
+  orz:        { primary: '/sounds/ships/orz/primary.wav',       secondary: '/sounds/ships/orz/secondary.wav', zap: '/sounds/ships/orz/zap.wav', argh: '/sounds/ships/orz/argh.wav' },
+  pkunk:      { primary: '/sounds/ships/pkunk/primary.wav',     rebirth: '/sounds/ships/pkunk/rebirth.wav', baby: '/sounds/ships/pkunk/insult01.wav', douDou: '/sounds/ships/pkunk/insult02.wav', fool: '/sounds/ships/pkunk/insult03.wav', idiot: '/sounds/ships/pkunk/insult04.wav', jerk: '/sounds/ships/pkunk/insult05.wav', looser: '/sounds/ships/pkunk/insult06.wav', moron: '/sounds/ships/pkunk/insult07.wav', nerd: '/sounds/ships/pkunk/insult08.wav', nitwit: '/sounds/ships/pkunk/insult09.wav', stupid: '/sounds/ships/pkunk/insult10.wav', twig: '/sounds/ships/pkunk/insult11.wav', whimp: '/sounds/ships/pkunk/insult12.wav', worm: '/sounds/ships/pkunk/insult13.wav', dummy: '/sounds/ships/pkunk/insult14.wav' },
+  samatra:    { primary: '/sounds/ships/samatra/primary.wav',   secondary: '/sounds/ships/samatra/secondary.wav' },
+  shofixti:   { primary: '/sounds/ships/shofixti/primary.wav',  secondary: '/sounds/ships/shofixti/secondary.wav' },
+  slylandro:  { primary: '/sounds/ships/slylandro/primary.wav', secondary: '/sounds/ships/slylandro/secondary.wav' },
+  spathi:     { primary: '/sounds/ships/spathi/primary.wav',    secondary: '/sounds/ships/spathi/secondary.wav' },
+  supox:      { primary: '/sounds/ships/supox/primary.wav' },
+  syreen:     { primary: '/sounds/ships/syreen/primary.wav',    secondary: '/sounds/ships/syreen/secondary.wav' },
+  thraddash:  { primary: '/sounds/ships/thraddash/primary.wav', secondary: '/sounds/ships/thraddash/secondary.wav' },
+  umgah:      { primary: '/sounds/ships/umgah/primary.wav',     secondary: '/sounds/ships/umgah/secondary.wav' },
+  urquan:     { primary: '/sounds/ships/urquan/primary.wav',    secondary: '/sounds/ships/urquan/secondary.wav', fighterLaser: '/sounds/ships/urquan/fighter_laser.wav', fighterGet: '/sounds/ships/urquan/fighter_get.wav' },
+  utwig:      { primary: '/sounds/ships/utwig/primary.wav',     secondary: '/sounds/ships/utwig/secondary.wav', shieldBatteryGain: '/sounds/ships/utwig/shieldbattgain.wav' },
+  vux:        { primary: '/sounds/ships/vux/primary.wav',       secondary: '/sounds/ships/vux/secondary.wav', limpetBite: '/sounds/ships/vux/limpet_bite.wav' },
+  yehat:      { primary: '/sounds/ships/yehat/primary.wav',     secondary: '/sounds/ships/yehat/secondary.wav' },
+  zoqfotpik:  { primary: '/sounds/ships/zoqfotpik/primary.wav', secondary: '/sounds/ships/zoqfotpik/secondary.wav' }
 };
 
 // ─── Loader ───────────────────────────────────────────────────────────────────
@@ -63,10 +85,9 @@ export function preloadBattleSounds(shipTypes: string[]): void {
   for (const type of shipTypes) {
     const sounds = SHIP_SOUNDS[type];
     if (!sounds) continue;
-    if (sounds.primary)   load(sounds.primary);
-    if (sounds.secondary) load(sounds.secondary);
-    if (sounds.extra)     load(sounds.extra);
-    if (sounds.dock)      load(sounds.dock);
+    for (const url of Object.values(sounds)) {
+      if (url) load(url);
+    }
   }
 }
 
@@ -97,7 +118,7 @@ export function playSecondary(shipType: string): void {
 
 /** Fighter laser (Ur-Quan). */
 export function playFighterLaser(): void {
-  const url = SHIP_SOUNDS.urquan?.extra;
+  const url = SHIP_SOUNDS.urquan?.fighterLaser;
   if (url) playUrl(url, 0.5);
 }
 
@@ -109,7 +130,7 @@ export function playFighterLaunch(): void {
 
 /** Fighter docking — plays when a returning fighter docks with the mothership (fighter_get.wav). */
 export function playFighterDock(): void {
-  const url = SHIP_SOUNDS.urquan?.dock;
+  const url = SHIP_SOUNDS.urquan?.fighterGet;
   if (url) playUrl(url, 0.7);
 }
 
