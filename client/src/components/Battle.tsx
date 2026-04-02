@@ -4,9 +4,10 @@
 // and register it; Battle.tsx needs no changes.
 
 import { useEffect, useRef, useState } from 'react';
-import type { FullRoomState, FleetSlot } from 'shared/types';
+import type { FullRoomState } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
+import { getControls, buildKeyMap } from '../lib/controls';
 import { COSINE, SINE, tableAngle } from '../engine/sinetab';
 import { DISPLAY_TO_WORLD, setVelocityVector, setVelocityComponents, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
@@ -16,7 +17,7 @@ import { SHIP_RADIUS, trackFacing } from '../engine/ships/human';
 import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
-import HUD from './HUD';
+import StatusPanel, { type SideStatus } from './StatusPanel';
 import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -47,39 +48,30 @@ const FRAME_MS = 1000 / BATTLE_FPS;
 // Star field: 3 tiers matching UQM galaxy.c (BIG=30, MED=60, SML=90)
 const STAR_COUNTS = [30, 60, 90] as const;
 
-// Oolite planet sprite hotspots from oolite-{big|med|sml}.ani
+// Planet sprite hotspots from {type}-{big|med|sml}.ani
 // Format: <file> 0 -1 <hotX> <hotY>  (hotspot = sprite center)
+// All regular planet types share these values; shattered is 1px off (negligible).
 const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
   big: [37, 33],
   med: [19, 17],
   sml: [9, 8],
 };
 
-// Keyboard → input bit maps, keyed by event.code (layout-independent).
-// Bindings match the official UQM uqm.key defaults (base/uqm.key in content package).
-//   P1 "Arrows": Up=thrust  Left/Right=turn  RCtrl=weapon  RShift=special
-//                Enter=weapon(alt)  Numpad0=special(alt)
-//   P2 "WASD":   W=thrust   A/D=turn         V=weapon      B=special
-//                Space=weapon(alt)
-const KEY_MAP_P1: Record<string, number> = {
-  ArrowUp:      INPUT_THRUST,
-  ArrowLeft:    INPUT_LEFT,
-  ArrowRight:   INPUT_RIGHT,
-  ControlRight: INPUT_FIRE1,
-  Enter:        INPUT_FIRE1,   // alt — from uqm.key weapon.2
-  ShiftRight:   INPUT_FIRE2,
-  Numpad0:      INPUT_FIRE2,   // alt — from uqm.key special.2
-};
 
-const KEY_MAP_P2: Record<string, number> = {
-  KeyW:       INPUT_THRUST,
-  KeyA:       INPUT_LEFT,
-  KeyD:       INPUT_RIGHT,
-  KeyV:       INPUT_FIRE1,
-  Space:      INPUT_FIRE1,  // alt
-  KeyB:       INPUT_FIRE2,
-  ShiftLeft:  INPUT_FIRE2,  // alt
-};
+// Key maps are built dynamically from the player's control config (localStorage).
+// Defaults mirror UQM uqm.key: P1=Arrows, P2=WASD.
+// Reading at module evaluation time so they're stable for the component's lifetime.
+const _controls = getControls();
+const KEY_MAP_P1 = buildKeyMap(
+  _controls.p1.bindings,
+  INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2,
+);
+const KEY_MAP_P2 = buildKeyMap(
+  _controls.p2.bindings,
+  INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2,
+);
+const GAMEPAD_IDX_P1 = _controls.p1.bindings.gamepadIndex; // -1 = keyboard
+const GAMEPAD_IDX_P2 = _controls.p2.bindings.gamepadIndex;
 
 // Keys to preventDefault on (avoids browser shortcuts / scroll)
 const GAME_KEYS = new Set([
@@ -120,6 +112,9 @@ export interface WinnerShipState {
   vx: number;
   vy: number;
   facing: number;
+  // Fighters belonging to the winner that should survive into the next fight.
+  // Only set when the winner has live fighters (Ur-Quan Dreadnought).
+  persistedMissiles?: BattleMissile[];
 }
 
 interface BattleState {
@@ -142,6 +137,7 @@ interface Props {
   room:        FullRoomState;
   yourSide:    0 | 1;
   seed:        number;
+  planetType:  string;
   inputDelay:  number;
   isAI?:       boolean;
   isLocal2P?:  boolean;
@@ -154,7 +150,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI = false, isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, isAI = false, isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
@@ -214,9 +210,11 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     };
   }
 
-  // Planet sprite images (oolite big/med/sml); null until loaded
+  // Planet sprite images (type determined by parent, stable across ship fights); null until loaded
   const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
-  const [hudData, setHudData] = useState({ myCrew: 18, myMaxCrew: 18, myEnergy: 18, myMaxEnergy: 18, oppCrew: 18, oppMaxCrew: 18, oppEnergy: 18, oppMaxEnergy: 18 });
+  // Live status panel data — updated each sim frame via ref to avoid React re-render cost.
+  // StatusPanel reads directly from this ref in its own rAF loop.
+  const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
   // needing to re-bind the tick/render closures on every resize.
@@ -327,10 +325,15 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       inputBuf[1].set(f, 0);
     }
 
+    // Restore fighters carried over from the previous fight (Urquan winner scenario).
+    const initMissiles: BattleMissile[] = winnerState?.persistedMissiles
+      ? winnerState.persistedMissiles.map(m => ({ ...m }))
+      : [];
+
     stateRef.current = {
       ships: [s0, s1],
       shipTypes: [type0, type1],
-      missiles: [],
+      missiles: initMissiles,
       lasers: [],
       explosions: [],
       ionTrails: [[], []],
@@ -340,6 +343,12 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       inputBuf,
       pendingEnd: null,
     };
+
+    // Seed the status panel so it can preload assets before the first sim tick.
+    statusRef.current = [
+      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, inputs: 0, captainIdx: type0.charCodeAt(0) },
+      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, inputs: 0, captainIdx: type1.charCodeAt(0) },
+    ];
 
     // Preload sounds (non-blocking; silently ignored if files are missing)
     preloadBattleSounds([type0, type1]);
@@ -357,14 +366,19 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
     loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
 
-    // Load oolite planet sprites (non-blocking)
+    // Load planet sprites (non-blocking)
+    // onload must be assigned before src to handle cached images correctly.
     {
-      const big = new Image(); big.src = '/assets/battle/oolite-big-000.png';
-      const med = new Image(); med.src = '/assets/battle/oolite-med-000.png';
-      const sml = new Image(); sml.src = '/assets/battle/oolite-sml-000.png';
+      const pt = planetType;
+      const big = new Image();
+      const med = new Image();
+      const sml = new Image();
       let n = 0;
       const done = () => { if (++n === 3) planetImgRef.current = { big, med, sml }; };
       big.onload = med.onload = sml.onload = done;
+      big.src = `/planets/${pt}-big-000.png`;
+      med.src = `/planets/${pt}-med-000.png`;
+      sml.src = `/planets/${pt}-sml-000.png`;
     }
 
     // Tell server which ship slot we're entering with (first occupied slot)
@@ -487,9 +501,25 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
   // ─── Game loop ───────────────────────────────────────────────────────────
 
-  function computeInput(keyMap: Record<string, number>): number {
+  function computeInput(keyMap: Record<string, number>, gamepadIndex = -1): number {
     let bits = 0;
+    // Keyboard
     for (const code of keysRef.current) bits |= keyMap[code] ?? 0;
+    // Gamepad (polled each frame via Gamepad API)
+    if (gamepadIndex >= 0) {
+      const gp = navigator.getGamepads()[gamepadIndex];
+      if (gp) {
+        if (gp.axes[1] < -0.4) bits |= INPUT_THRUST;        // stick up
+        if (gp.axes[0] < -0.4) bits |= INPUT_LEFT;          // stick left
+        if (gp.axes[0] >  0.4) bits |= INPUT_RIGHT;         // stick right
+        // D-pad via standard hat axes (axes[6]/axes[7]) or buttons[12-15]
+        if ((gp.axes[7] ?? 0) < -0.5 || gp.buttons[12]?.pressed) bits |= INPUT_THRUST;
+        if ((gp.axes[6] ?? 0) < -0.5 || gp.buttons[14]?.pressed) bits |= INPUT_LEFT;
+        if ((gp.axes[6] ?? 0) >  0.5 || gp.buttons[15]?.pressed) bits |= INPUT_RIGHT;
+        if (gp.buttons[0]?.pressed) bits |= INPUT_FIRE1;    // A / ✕
+        if (gp.buttons[1]?.pressed) bits |= INPUT_FIRE2;    // B / ○
+      }
+    }
     return bits;
   }
 
@@ -512,16 +542,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
 
     const mySide = yourSide;
     const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
-    // P1 always uses KEY_MAP_P1; P2 always uses KEY_MAP_P2
-    const myInput = computeInput(mySide === 0 ? KEY_MAP_P1 : KEY_MAP_P2);
+    // Online: always use P1 bindings regardless of which side you're on
+    const myInput = computeInput(KEY_MAP_P1, GAMEPAD_IDX_P1);
 
     let i0: number;
     let i1: number;
 
     if (isLocal2P) {
-      // Both players on same keyboard — no network, no delay
-      i0 = computeInput(KEY_MAP_P1);
-      i1 = computeInput(KEY_MAP_P2);
+      // Both players on same device — P1 bindings for side 0, P2 for side 1
+      i0 = computeInput(KEY_MAP_P1, GAMEPAD_IDX_P1);
+      i1 = computeInput(KEY_MAP_P2, GAMEPAD_IDX_P2);
     } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
       const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
@@ -601,6 +631,14 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
             vy:      wShip.velocity.vy,
             facing:  wShip.facing,
           };
+          // Carry over live fighters belonging to the winner (Ur-Quan Dreadnought).
+          // Fighters die with their mothership, so only persist when the winner has them.
+          const winnerFighters = bs.missiles.filter(
+            m => m.weaponType === 'fighter' && m.owner === w,
+          );
+          if (winnerFighters.length > 0) {
+            ws.persistedMissiles = winnerFighters.map(m => ({ ...m }));
+          }
         }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         onBattleEnd(w, ws);
@@ -608,19 +646,27 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       }
     }
 
-    // Update HUD via registry max values
-    const myCtrl  = SHIP_REGISTRY[bs.shipTypes[mySide]];
-    const oppCtrl = SHIP_REGISTRY[bs.shipTypes[opSide]];
-    setHudData({
-      myCrew:       bs.ships[mySide].crew,
-      myMaxCrew:    myCtrl.maxCrew,
-      myEnergy:     bs.ships[mySide].energy,
-      myMaxEnergy:  myCtrl.maxEnergy,
-      oppCrew:      bs.ships[opSide].crew,
-      oppMaxCrew:   oppCtrl.maxCrew,
-      oppEnergy:    bs.ships[opSide].energy,
-      oppMaxEnergy: oppCtrl.maxEnergy,
-    });
+    // Update status panel (top = side 0 / bad-guy, bottom = side 1 / good-guy)
+    statusRef.current = [
+      {
+        shipId:     bs.shipTypes[0],
+        crew:       bs.ships[0].crew,
+        maxCrew:    SHIP_REGISTRY[bs.shipTypes[0]].maxCrew,
+        energy:     bs.ships[0].energy,
+        maxEnergy:  SHIP_REGISTRY[bs.shipTypes[0]].maxEnergy,
+        inputs:     i0,
+        captainIdx: bs.shipTypes[0].charCodeAt(0),
+      },
+      {
+        shipId:     bs.shipTypes[1],
+        crew:       bs.ships[1].crew,
+        maxCrew:    SHIP_REGISTRY[bs.shipTypes[1]].maxCrew,
+        energy:     bs.ships[1].energy,
+        maxEnergy:  SHIP_REGISTRY[bs.shipTypes[1]].maxEnergy,
+        inputs:     i1,
+        captainIdx: bs.shipTypes[1].charCodeAt(0),
+      },
+    ];
   }
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
@@ -816,8 +862,9 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
       const targetSide = m.owner === 0 ? 1 : 0;
       const targetShip = bs.ships[targetSide];
 
-      // Planet collision — only checked for missiles whose controller opts in.
-      if (!hit && ownerCtrl.collidesWithPlanet) {
+      // Planet collision — all weapons hit the planet unless controller explicitly opts out.
+      // Fighters have their own bounce logic below and are excluded here.
+      if (!hit && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
         const pdx = m.x - PLANET_X;
         const pdy = m.y - PLANET_Y;
         if (pdx * pdx + pdy * pdy < (PLANET_RADIUS_W + 4) ** 2) {
@@ -827,6 +874,26 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
             vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
           playBlast(m.damage);
           hit = true;
+        }
+      }
+
+      // Fighter-planet bounce: push fighter outside planet radius (from urquan.c fighter_collision).
+      // Fighters don't explode on planet contact — they bounce off and resume navigation.
+      if (!hit && m.weaponType === 'fighter') {
+        const fpdx = m.x - PLANET_X;
+        const fpdy = m.y - PLANET_Y;
+        const fDistSq = fpdx * fpdx + fpdy * fpdy;
+        const fCollideR = PLANET_RADIUS_W + DISPLAY_TO_WORLD(4);
+        if (fDistSq < fCollideR * fCollideR && fDistSq > 0) {
+          // Reflect velocity around the outward planet normal, then push outside.
+          const fDist = Math.sqrt(fDistSq);
+          const nx = fpdx / fDist;
+          const ny = fpdy / fDist;
+          const dot = m.velocity.vx * nx + m.velocity.vy * ny;
+          m.velocity.vx -= 2 * dot * nx;
+          m.velocity.vy -= 2 * dot * ny;
+          m.x = PLANET_X + nx * (fCollideR + 1);
+          m.y = PLANET_Y + ny * (fCollideR + 1);
         }
       }
 
@@ -1079,8 +1146,7 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
 
     // ── Planet ───────────────────────────────────────────────────────────
-    // Oolite sprite: big at r=0, med at r=1, sml at r≥2.
-    // Hotspot (sprite center) from oolite-{big|med|sml}.ani.
+    // Random planet sprite: big at r=0, med at r=1, sml at r≥2.
     // Falls back to a grey circle if images aren't loaded yet.
     {
       const pDX = w2d(PLANET_X - camX);
@@ -1252,16 +1318,16 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }
   }
 
-  // ─── HUD ─────────────────────────────────────────────────────────────────
-
-  const myFleet  = (yourSide === 0 ? room.host.fleet : room.opponent?.fleet) ?? [];
-  const oppFleet = (yourSide === 0 ? room.opponent?.fleet : room.host.fleet) ?? [];
-  const myActiveSlot  = yourSide === 0 ? activeSlot0 : activeSlot1;
-  const oppActiveSlot = yourSide === 0 ? activeSlot1 : activeSlot0;
-
   // Canvas pixel dims are set via the resize effect. The container div is
   // sized to match so the HUD (absolutely positioned inside it) covers the
   // game area correctly without any CSS transform.
+  //
+  // Status panel: 128×480 logical pixels (2× UQM's 64×240 per-player layout),
+  // displayed at 20% of the container width (128/640 = 1/5) × full height.
+  // It overlaps the rightmost 20% of the battle canvas, matching how UQM
+  // carved its 64px status column from the right of a 640px screen.
+  const panelW = Math.round(displaySize.w * 128 / 640);
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -1270,33 +1336,20 @@ export default function Battle({ room, yourSide, seed: _seed, inputDelay, isAI =
     }}>
       <div style={{ position: 'relative', width: displaySize.w, height: displaySize.h }}>
         <canvas ref={canvasRef} style={{ display: 'block' }} />
-        <HUD
-          left={{
-            name:      activeShip(myFleet, myActiveSlot),
-            crew:      hudData.myCrew,
-            maxCrew:   hudData.myMaxCrew,
-            energy:    hudData.myEnergy,
-            maxEnergy: hudData.myMaxEnergy,
-          }}
-          right={{
-            name:      activeShip(oppFleet, oppActiveSlot),
-            crew:      hudData.oppCrew,
-            maxCrew:   hudData.oppMaxCrew,
-            energy:    hudData.oppEnergy,
-            maxEnergy: hudData.oppMaxEnergy,
-          }}
-        />
+        {/* UQM-style status panel — right edge overlay, same as original game layout */}
+        <div style={{
+          position: 'absolute', top: 0, right: 0,
+          width: panelW, height: displaySize.h,
+          pointerEvents: 'none',
+        }}>
+          <StatusPanel sidesRef={statusRef} />
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── Helper functions ─────────────────────────────────────────────────────────
-
-function activeShip(fleet: FleetSlot[], activeSlot: number | null): string {
-  if (activeSlot != null && fleet[activeSlot]) return fleet[activeSlot] as string;
-  return fleet.find(Boolean) ?? 'Unknown';
-}
 
 // placeholderDot is imported from engine/sprites
 

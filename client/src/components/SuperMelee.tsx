@@ -45,7 +45,7 @@ const CONTROL_LABEL: Record<ControlType, string> = {
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
-const MENU = ['NET_P1', 'CONTROL_P1', 'SAVE', 'LOAD', 'BATTLE', 'CONTROL_P2', 'NET_P2', 'QUIT'] as const;
+const MENU = ['NET_P1', 'CONTROL_P1', 'SAVE', 'LOAD', 'BATTLE', 'CONTROL_P2', 'SETTINGS', 'QUIT'] as const;
 type MenuItem = typeof MENU[number];
 
 // ─── LocalStorage persistence ─────────────────────────────────────────────────
@@ -95,9 +95,10 @@ export interface BattleStartParams {
 }
 
 interface Props {
-  onBattle: (params: BattleStartParams) => void;
-  onNet: () => void;
+  onBattle:    (params: BattleStartParams) => void;
+  onNet:       () => void;
   onBGBuilder: () => void;
+  onSettings:  () => void;
 }
 
 // ─── Small Modal wrapper ──────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ function Modal({ children, title, onClose }: { children: React.ReactNode; title:
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function SuperMelee({ onBattle, onNet, onBGBuilder }: Props) {
+export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }: Props) {
   const last = loadLastState();
 
   const [fleet1, setFleet1]       = useState<FleetSlot[]>(last?.fleet1    ?? [...BALANCED_TEAM_1]);
@@ -174,8 +175,10 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder }: Props) {
   activateRef.current = (idx: number) => {
     switch (MENU[idx]) {
       case 'NET_P1':
-      case 'NET_P2':
         onNet();
+        break;
+      case 'SETTINGS':
+        onSettings();
         break;
       case 'CONTROL_P1':
         setP1Control(c => cycleControl(c));
@@ -259,14 +262,16 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder }: Props) {
 
   function renderMenuItem(item: MenuItem, idx: number) {
     const sel    = selectedIdx === idx;
-    const isBattle  = item === 'BATTLE';
-    const isControl = item === 'CONTROL_P1' || item === 'CONTROL_P2';
+    const isBattle   = item === 'BATTLE';
+    const isControl  = item === 'CONTROL_P1' || item === 'CONTROL_P2';
+    const isSettings = item === 'SETTINGS';
 
     const label =
-      item === 'NET_P1' || item === 'NET_P2' ? 'NET ...' :
+      item === 'NET_P1'    ? 'NET ...' :
+      item === 'SETTINGS'  ? 'SETTINGS' :
       item === 'CONTROL_P1' ? CONTROL_LABEL[p1Control] :
       item === 'CONTROL_P2' ? CONTROL_LABEL[p2Control] :
-      item === 'BATTLE' ? 'BATTLE!' : item;
+      item === 'BATTLE'    ? 'BATTLE!' : item;
 
     // Blink when selected: alternate between two dark backgrounds
     const selBg  = blink ? '#0d2878' : '#06061a';
@@ -274,8 +279,9 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder }: Props) {
     const bg     = sel ? selBg : idleBg;
 
     const textColor =
-      isBattle  ? (sel ? '#ff99ff' : '#8844aa') :
-      isControl ? '#77ccff' :
+      isBattle   ? (sel ? '#ff99ff' : '#8844aa') :
+      isControl  ? '#77ccff' :
+      isSettings ? '#aaaacc' :
       '#9090b8';
 
     const fontSize = isBattle ? 22 : isControl ? 14 : 13;

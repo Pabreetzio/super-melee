@@ -11,10 +11,29 @@ import SuperMelee from './components/SuperMelee';
 import type { BattleStartParams } from './components/SuperMelee';
 import { SHIP_COSTS } from './components/SuperMelee';
 import BGBuilder from './components/BGBuilder';
+import SettingsScreen from './components/Settings';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
-type Screen = 'supermelee' | 'bgbuilder' | 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select';
+// 58 regular planet types from UQM cons_res.c planet_types[] (samatra/slaveshield excluded).
+// A new type is picked once per game (new game or rematch), kept stable across ship fights.
+const PLANET_TYPES = [
+  'oolite', 'yttric', 'quasidegenerate', 'lanthanide', 'treasure',
+  'urea', 'metal', 'radioactive', 'opalescent', 'cyanic',
+  'acid', 'alkali', 'halide', 'green', 'copper',
+  'carbide', 'ultramarine', 'noble', 'azure', 'chondrite',
+  'purple', 'superdense', 'pellucid', 'dust', 'crimson',
+  'cimmerian', 'infrared', 'selenic', 'auric', 'fluorescent',
+  'plutonic', 'rainbow', 'shattered', 'sapphire',
+  'organic', 'xenolithic', 'redux', 'primordial', 'emerald',
+  'chlorine', 'magnetic', 'water', 'telluric', 'hydrocarbon',
+  'iodine', 'vinylogous', 'ruby', 'magma', 'maroon',
+  'bluegas', 'cyangas', 'greengas', 'greygas',
+  'purplegas', 'redgas', 'violetgas', 'yellowgas',
+];
+function randomPlanetType() { return PLANET_TYPES[Math.floor(Math.random() * PLANET_TYPES.length)]; }
+
+type Screen = 'supermelee' | 'bgbuilder' | 'settings' | 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select';
 
 interface AppState {
   screen:        Screen;
@@ -25,6 +44,7 @@ interface AppState {
   room:          FullRoomState | null;
   yourSide:      0 | 1;
   battleSeed:    number;
+  planetType:    string; // chosen once per game, stable across ship fights within same game
   inputDelay:    number;
   winner:        0 | 1 | null | undefined; // undefined = not yet
   joinError:     string;
@@ -59,6 +79,7 @@ type Action =
   | { type: 'go_browser' }
   | { type: 'go_supermelee' }
   | { type: 'go_landing' }
+  | { type: 'go_settings' }
   | { type: 'start_solo';     commanderName: string }
   | { type: 'solo_engage';    fleet: FleetSlot[] }
   | { type: 'start_local2p';  commanderName: string }
@@ -77,6 +98,7 @@ function init(): AppState {
     room:          null,
     yourSide:      0,
     battleSeed:    1,
+    planetType:    randomPlanetType(),
     inputDelay:    2,
     winner:        undefined,
     joinError:     '',
@@ -153,6 +175,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         screen:       'battle',
         battleSeed:   action.seed,
+        planetType:   randomPlanetType(),
         inputDelay:   action.inputDelay,
         yourSide:     action.yourSide,
         winner:       undefined,
@@ -282,6 +305,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'go_bgbuilder':
       return { ...state, screen: 'bgbuilder' };
 
+    case 'go_settings':
+      return { ...state, screen: 'settings' };
+
     case 'supermelee_start': {
       const { params } = action;
       const isLocal2P = params.p2Control === 'human';
@@ -320,6 +346,7 @@ function reducer(state: AppState, action: Action): AppState {
         screen:           'ship_select',
         room,
         battleSeed:       seed,
+        planetType:       randomPlanetType(),
         inputDelay:       0,
         yourSide:         0,
         winner:           undefined,
@@ -375,6 +402,7 @@ function reducer(state: AppState, action: Action): AppState {
       };
       const newOriginal = state.originalFleets ?? { host: action.fleet0, opponent: action.fleet1 };
       const seed = Date.now() & 0x7FFFFFFF;
+      const newPlanetL = randomPlanetType();
       // Supermelee rematch: show ship picker before each match
       if (state.battleOrigin === 'supermelee') {
         return {
@@ -382,6 +410,7 @@ function reducer(state: AppState, action: Action): AppState {
           screen: 'ship_select',
           room: updatedRoom,
           battleSeed: seed,
+          planetType: newPlanetL,
           inputDelay: 0,
           yourSide: 0,
           winner: undefined,
@@ -398,6 +427,7 @@ function reducer(state: AppState, action: Action): AppState {
         screen: 'battle',
         room: updatedRoom,
         battleSeed: seed,
+        planetType: newPlanetL,
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
@@ -465,6 +495,7 @@ function reducer(state: AppState, action: Action): AppState {
         opponent: state.room.opponent!.fleet,
       };
       const seed = Date.now() & 0x7FFFFFFF;
+      const newPlanet = randomPlanetType();
       // Supermelee rematch: show ship picker before each match
       if (state.battleOrigin === 'supermelee') {
         return {
@@ -472,6 +503,7 @@ function reducer(state: AppState, action: Action): AppState {
           screen: 'ship_select',
           room: updatedRoom,
           battleSeed: seed,
+          planetType: newPlanet,
           inputDelay: 0,
           yourSide: 0,
           winner: undefined,
@@ -488,6 +520,7 @@ function reducer(state: AppState, action: Action): AppState {
         screen: 'battle',
         room: updatedRoom,
         battleSeed: seed,
+        planetType: newPlanet,
         inputDelay: 0,
         yourSide: 0,
         winner: undefined,
@@ -638,11 +671,15 @@ export default function App() {
             }
           }}
           onBGBuilder={() => dispatch({ type: 'go_bgbuilder' })}
+          onSettings={() => dispatch({ type: 'go_settings' })}
         />
       );
 
     case 'bgbuilder':
       return <BGBuilder onBack={() => dispatch({ type: 'go_supermelee' })} />;
+
+    case 'settings':
+      return <SettingsScreen onBack={() => dispatch({ type: 'go_supermelee' })} />;
 
     case 'landing':
       return (
@@ -707,6 +744,7 @@ export default function App() {
           room={battleRoom}
           yourSide={state.yourSide}
           seed={state.battleSeed}
+          planetType={state.planetType}
           inputDelay={state.inputDelay}
           isAI={battleRoom.code === 'SOLO'}
           isLocal2P={battleRoom.code === 'LOCAL2P'}
