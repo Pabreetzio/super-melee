@@ -48,6 +48,7 @@ export default function FleetBuilder({
   // ── Picker state ────────────────────────────────────────────────────────────
   // Which fleet/slot the picker is editing. p2 = true means P2's fleet.
   const [pickerTarget, setPickerTarget] = useState<{ slot: number; p2: boolean } | null>(null);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
   function pickShip(ship: ShipId | null) {
     if (!pickerTarget) return;
@@ -60,6 +61,21 @@ export default function FleetBuilder({
     }
     setPickerTarget(null);
   }
+
+  async function handleCopyCode() {
+    try {
+      await copyText(room.code);
+      setCopyState('copied');
+    } catch {
+      setCopyState('error');
+    }
+  }
+
+  useEffect(() => {
+    if (copyState === 'idle') return;
+    const id = window.setTimeout(() => setCopyState('idle'), 1800);
+    return () => window.clearTimeout(id);
+  }, [copyState]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function fleetValue(fleet: FleetSlot[]): number {
@@ -165,6 +181,47 @@ export default function FleetBuilder({
           </div>
         </div>
 
+        {!isOffline && (
+          <div className="panel row" style={{
+            marginBottom: 16,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            padding: '14px 16px',
+          }}>
+            <div className="col" style={{ gap: 4 }}>
+              <span style={{ color: 'var(--text-dim)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                Room Code
+              </span>
+              <div style={{
+                color: 'var(--accent)',
+                fontSize: 32,
+                fontWeight: 'bold',
+                letterSpacing: '0.28em',
+                lineHeight: 1,
+                textTransform: 'uppercase',
+              }}>
+                {room.code}
+              </div>
+              <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
+                Share this code so your opponent can join directly.
+              </span>
+            </div>
+            <div className="col" style={{ alignItems: 'flex-end', gap: 6 }}>
+              <button onClick={handleCopyCode} style={{ minWidth: 110 }}>
+                Copy Code
+              </button>
+              <span style={{
+                minHeight: 16,
+                color: copyState === 'copied' ? 'var(--success)' : copyState === 'error' ? 'var(--danger)' : 'var(--text-dim)',
+                fontSize: 11,
+              }}>
+                {copyState === 'copied' ? 'Copied to clipboard' : copyState === 'error' ? 'Copy failed' : 'Use this in Join by Code'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* P1 fleet */}
         <div className="panel col" style={{ marginBottom: 16, gap: 12 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -216,7 +273,7 @@ export default function FleetBuilder({
           {bothHere
             ? renderFleetGrid(oppDisplayFleet, isLocal2P, true)
             : <p style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-                Share room code <strong style={{ color: 'var(--accent)' }}>{room.code}</strong> with your opponent.
+                Awaiting opponent. Send them code <strong style={{ color: 'var(--accent)' }}>{room.code}</strong> or use the copy button above.
               </p>
           }
 
@@ -321,4 +378,22 @@ function RematchResetToggle({ value }: { value: boolean }) {
       Reset fleets on rematch
     </label>
   );
+}
+
+async function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'absolute';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand('copy');
+  document.body.removeChild(ta);
+  if (!ok) throw new Error('copy failed');
 }
