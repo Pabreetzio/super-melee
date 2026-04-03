@@ -37,7 +37,7 @@ Progress notes:
 
 ### 2. Extract render/effect helpers
 
-Status: In progress
+Status: Completed
 
 Scope:
 - Move canvas-only helpers such as laser/effect rendering helpers out of `Battle.tsx`.
@@ -49,11 +49,12 @@ Target files:
 - `client/src/components/Battle.tsx`
 
 Progress notes:
-- Ready to start now that the shared battle module namespace exists.
+- Moved laser flash, ion trail, and explosion rendering into `client/src/engine/battle/renderEffects.ts`.
+- Kept draw ordering in `Battle.tsx` while reducing the size of the render body.
 
 ### 3. Extract simulation pipeline pieces
 
-Status: Pending
+Status: In progress
 
 Scope:
 - Move generic frame simulation helpers into engine modules.
@@ -67,7 +68,7 @@ Target files:
 - `client/src/components/Battle.tsx`
 
 Progress notes:
-- Not started yet.
+- Ready to start now that shared types/helpers and render effects live in `client/src/engine/battle/`.
 
 ### 4. Expand controller/battle object interfaces for future weapons
 

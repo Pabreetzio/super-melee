@@ -25,10 +25,11 @@ import {
   resolveShipCollision,
   worldAngle,
 } from '../engine/battle/helpers';
+import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 // Per-ship constants still needed for world-physics helpers that live here
 import { SHIP_RADIUS, trackFacing } from '../engine/ships/human';
-import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites } from '../engine/sprites';
+import { loadExplosionSprites, placeholderDot, type ExplosionSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
@@ -1181,49 +1182,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     // ── Point-defense laser flashes (1 frame, white lines) ───────────────
-    if (bs.lasers.length > 0) {
-      ctx.save();
-      ctx.lineWidth = 1;
-      for (const lz of bs.lasers) {
-        ctx.beginPath();
-        ctx.strokeStyle = lz.color ?? '#fff';
-        ctx.moveTo(tw2dx(lz.x1), tw2dy(lz.y1));
-        ctx.lineTo(tw2dx(lz.x2), tw2dy(lz.y2));
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
+    renderLaserFlashes(ctx, bs.lasers, tw2dx, tw2dy);
 
     // ── Ion trails (thruster exhaust dots) ──────────────────────────────
     // UQM-style: small 1×1 dots cycling orange → red → dark red → gone.
     // Colors from UQM tactrans.c cycle_ion_trail colorTab (RGB15 values).
-    {
-      // Per-age color: [r, g, b] — 12 steps matching UQM colorTab
-      const ION_COLORS: [number, number, number][] = [
-        [255, 171,  0], // age 0  (0x1F,0x15,0x00)
-        [255, 142,  0], // age 1  (0x1F,0x11,0x00)
-        [255, 113,  0], // age 2  (0x1F,0x0E,0x00)
-        [255,  85,  0], // age 3  (0x1F,0x0A,0x00)
-        [255,  57,  0], // age 4  (0x1F,0x07,0x00)
-        [255,  28,  0], // age 5  (0x1F,0x03,0x00)
-        [255,   0,  0], // age 6  (0x1F,0x00,0x00)
-        [219,   0,  0], // age 7  (0x1B,0x00,0x00)
-        [183,   0,  0], // age 8  (0x17,0x00,0x00)
-        [147,   0,  0], // age 9  (0x13,0x00,0x00)
-        [111,   0,  0], // age 10 (0x0F,0x00,0x00)
-        [ 75,   0,  0], // age 11 (0x0B,0x00,0x00)
-      ];
-      for (let side = 0; side < 2; side++) {
-        for (const dot of bs.ionTrails[side]) {
-          const [cr, cg, cb] = ION_COLORS[Math.min(dot.age, 11)];
-          const dotDX = tw2dx(dot.x);
-          const dotDY = tw2dy(dot.y);
-          if (dotDX < -1 || dotDX > CANVAS_W + 1 || dotDY < -1 || dotDY > CANVAS_H + 1) continue;
-          ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
-          ctx.fillRect(dotDX, dotDY, 1, 1);
-        }
-      }
-    }
+    renderIonTrails(ctx, bs.ionTrails, CANVAS_W, CANVAS_H, tw2dx, tw2dy);
 
     // ── Ships ────────────────────────────────────────────────────────────
     {
@@ -1254,45 +1218,19 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     // ── Explosions ───────────────────────────────────────────────────────
-    {
-      const exSp = explosionSpritesRef.current;
-      for (const ex of bs.explosions) {
-        if (ex.type === 'splinter') {
-          // Buzzsaw impact: render using buzzsaw sprite frames 2–6.
-          // Splinters always come from Kohr-Ah, so pull from their sprite bundle.
-          const khSp = shipSpritesRef.current.get('kohrah') as
-            { buzzsaw?: { big: object; med: object; sml: object } } | null;
-          const group = khSp?.buzzsaw ?? null;
-          const sset = group
-            ? (r >= 2 ? group.sml : r === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
-            : null;
-          if (sset) {
-            drawSprite(ctx, sset, ex.frame, ex.x, ex.y, CANVAS_W, CANVAS_H, camX, camY, r);
-          } else {
-            placeholderDot(ctx, ex.x, ex.y, camX, camY, 4, '#f80', r);
-          }
-          continue;
-        }
-        const set = ex.type === 'boom'
-          ? (exSp ? (r >= 2 ? exSp.boom.sml : r === 1 ? exSp.boom.med : exSp.boom.big) : null)
-          : (exSp ? (r >= 2 ? exSp.blast.sml : r === 1 ? exSp.blast.med : exSp.blast.big) : null);
-        if (set) {
-          drawSprite(ctx, set, ex.frame, ex.x, ex.y, CANVAS_W, CANVAS_H, camX, camY, r);
-        } else {
-          // Fallback: colored expanding circle
-          const frac = ex.frame / (ex.type === 'boom' ? 8 : 7);
-          const radius = (ex.type === 'boom' ? 12 : 6) * frac;
-          const sx = tw2dx(ex.x);
-          const sy = tw2dy(ex.y);
-          ctx.beginPath();
-          ctx.arc(sx, sy, Math.max(1, radius), 0, Math.PI * 2);
-          ctx.fillStyle = ex.type === 'boom'
-            ? `rgba(255,${Math.round(160 * (1 - frac))},0,${0.8 * (1 - frac)})`
-            : `rgba(255,255,${Math.round(200 * (1 - frac))},${0.9 * (1 - frac)})`;
-          ctx.fill();
-        }
-      }
-    }
+    renderExplosions(
+      ctx,
+      bs.explosions,
+      explosionSpritesRef.current,
+      shipSpritesRef.current,
+      CANVAS_W,
+      CANVAS_H,
+      camX,
+      camY,
+      r,
+      tw2dx,
+      tw2dy,
+    );
 
     // ── HUD overlays ─────────────────────────────────────────────────────
     ctx.fillStyle = 'rgba(100,100,120,0.6)';
