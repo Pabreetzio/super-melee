@@ -23,6 +23,7 @@ export interface ShipState {
   energyWait:  number;
   // Status flags
   thrusting:     boolean;
+  limpetCount?:  number;
   prevFireHeld?: boolean;   // edge-trigger for weapons like Kohr-Ah buzzsaw
   canResurrect?: boolean;   // Pkunk passive: true until the one free resurrection fires
 }
@@ -101,6 +102,7 @@ export interface BattleMissile {
 export interface LaserFlash {
   x1: number; y1: number;
   x2: number; y2: number;
+  color?: string;
 }
 
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
@@ -139,6 +141,8 @@ export interface MissileHitEffect {
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */
   impairTarget?: number;
+  /** Permanently attach this many limpets to the target ship. */
+  attachLimpet?: number;
 }
 
 // ─── Rendering context passed to controller draw functions ────────────────────

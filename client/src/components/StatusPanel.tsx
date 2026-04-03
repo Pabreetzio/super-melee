@@ -68,6 +68,7 @@ export interface SideStatus {
   maxCrew:   number;
   energy:    number;
   maxEnergy: number;
+  limpetCount?: number;
   inputs:    number;   // current input bit flags (INPUT_THRUST | INPUT_LEFT …)
   captainIdx: number;  // which captain name to show (stable per match)
 }
@@ -112,6 +113,14 @@ async function preloadShip(shipId: ShipId): Promise<void> {
   // Captain portrait frames (background + 4 animation groups)
   for (let i = 0; i < def.capCount; i++) {
     urls.push(`${base}/${sprite}-cap-${String(i).padStart(3, '0')}.png`);
+  }
+  await Promise.allSettled(urls.map(loadImg));
+}
+
+async function preloadLimpetOverlay(): Promise<void> {
+  const urls: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    urls.push(`/ships/vux/slime-${String(i).padStart(3, '0')}.png`);
   }
   await Promise.allSettled(urls.map(loadImg));
 }
@@ -166,7 +175,10 @@ function drawSection(
     const iw = iconImg.naturalWidth  * S;
     const ih = iconImg.naturalHeight * S;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(iconImg, STATUS_W / 2 - iw / 2, sectionY + ICON_CY - ih / 2, iw, ih);
+    const iconX = STATUS_W / 2 - iw / 2;
+    const iconY = sectionY + ICON_CY - ih / 2;
+    ctx.drawImage(iconImg, iconX, iconY, iw, ih);
+    drawLimpetOverlay(ctx, side.limpetCount ?? 0, iconX, iconY, iw, ih);
   }
 
   // ── Crew gauge ────────────────────────────────────────────────────────────
@@ -236,6 +248,38 @@ function drawSection(
     ctx.textBaseline = 'top';
     ctx.fillStyle = C_CAPNAME;
     ctx.fillText(capName, STATUS_W / 2, capTop + 2 * S);
+  }
+}
+
+function drawLimpetOverlay(
+  ctx: CanvasRenderingContext2D,
+  limpetCount: number,
+  iconX: number,
+  iconY: number,
+  iconW: number,
+  iconH: number,
+) {
+  if (limpetCount <= 0) return;
+
+  const slots: Array<[number, number]> = [
+    [0.16, 0.20],
+    [0.62, 0.18],
+    [0.34, 0.42],
+    [0.70, 0.48],
+    [0.22, 0.66],
+    [0.58, 0.72],
+  ];
+  const count = Math.min(limpetCount, slots.length);
+
+  for (let i = 0; i < count; i++) {
+    const frame = getImg(`/ships/vux/slime-${String(i).padStart(3, '0')}.png`);
+    if (!frame) continue;
+    const [sx, sy] = slots[i];
+    const w = frame.naturalWidth * S;
+    const h = frame.naturalHeight * S;
+    const x = Math.round(iconX + iconW * sx - w / 2);
+    const y = Math.round(iconY + iconH * sy - h / 2);
+    ctx.drawImage(frame, x, y, w, h);
   }
 }
 
@@ -350,6 +394,7 @@ export default function StatusPanel({ sidesRef }: Props) {
   // Track which ship types we've already started loading so we only call
   // preloadShip() once per unique ShipId across frames.
   const loadedRef  = useRef(new Set<ShipId>());
+  const limpetsLoadedRef = useRef(false);
 
   // Single rAF loop: reads latest data from sidesRef each frame, pre-loads
   // any new ship assets it encounters, then redraws the whole panel.
@@ -369,6 +414,10 @@ export default function StatusPanel({ sidesRef }: Props) {
         if (side && !loadedRef.current.has(side.shipId)) {
           loadedRef.current.add(side.shipId);
           preloadShip(side.shipId).catch(() => {});
+        }
+        if (side?.limpetCount && !limpetsLoadedRef.current) {
+          limpetsLoadedRef.current = true;
+          preloadLimpetOverlay().catch(() => {});
         }
       }
 

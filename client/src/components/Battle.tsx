@@ -22,7 +22,7 @@ import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock, playVuxLimpetBite, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -352,8 +352,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Seed the status panel so it can preload assets before the first sim tick.
     statusRef.current = [
-      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, inputs: 0, captainIdx: type0.charCodeAt(0) },
-      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, inputs: 0, captainIdx: type1.charCodeAt(0) },
+      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: type0.charCodeAt(0) },
+      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: type1.charCodeAt(0) },
     ];
 
     // Preload sounds (non-blocking; silently ignored if files are missing)
@@ -675,6 +675,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         maxCrew:    SHIP_REGISTRY[bs.shipTypes[0]].maxCrew,
         energy:     bs.ships[0].energy,
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[0]].maxEnergy,
+        limpetCount: bs.ships[0].limpetCount ?? 0,
         inputs:     i0,
         captainIdx: bs.shipTypes[0].charCodeAt(0),
       },
@@ -684,6 +685,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         maxCrew:    SHIP_REGISTRY[bs.shipTypes[1]].maxCrew,
         energy:     bs.ships[1].energy,
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[1]].maxEnergy,
+        limpetCount: bs.ships[1].limpetCount ?? 0,
         inputs:     i1,
         captainIdx: bs.shipTypes[1].charCodeAt(0),
       },
@@ -707,8 +709,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (warping) return [];
       return SHIP_REGISTRY[type].update(ship, input);
     };
+    const preShip0 = { facing: bs.ships[0].facing, vx: bs.ships[0].velocity.vx, vy: bs.ships[0].velocity.vy };
+    const preShip1 = { facing: bs.ships[1].facing, vx: bs.ships[1].velocity.vx, vy: bs.ships[1].velocity.vy };
     const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0);
     const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0);
+    applyAttachedLimpetPenalty(bs.ships[0], preShip0);
+    applyAttachedLimpetPenalty(bs.ships[1], preShip1);
 
     // Wrap positions
     bs.ships[0].x = ((bs.ships[0].x % WORLD_W) + WORLD_W) % WORLD_W;
@@ -733,6 +739,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           accel: s.accel, damage: s.damage,
           tracks: s.tracks, trackWait: s.trackRate, trackRate: s.trackRate,
           owner,
+          limpet: s.limpet,
         });
       } else if (s.type === 'buzzsaw') {
         // FIFO cap: controller specifies the limit via weaponCap.
@@ -795,7 +802,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(s, bs.ships[0], bs.ships[1], 0, bs.missiles, addLaser);
       // Sound dispatch (keyed on spawn type, independent of ship identity)
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
-      else if (s.type === 'missile')   playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed0) { playSecondary(bs.shipTypes[0]); gasSoundPlayed0 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
@@ -807,7 +814,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       spawnRequest(s, 1);
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
-      else if (s.type === 'missile')   playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed1) { playSecondary(bs.shipTypes[1]); gasSoundPlayed1 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
@@ -932,7 +939,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
           targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
         }
-        playBlast(m.damage);
+        if (hitFx.attachLimpet) {
+          targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
+          playVuxLimpetBite();
+        }
+        if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
         hit = true;
       }
       if (!hit) aliveMissiles.push(m);
@@ -1211,14 +1222,14 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // ── Point-defense laser flashes (1 frame, white lines) ───────────────
     if (bs.lasers.length > 0) {
       ctx.save();
-      ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1;
-      ctx.beginPath();
       for (const lz of bs.lasers) {
+        ctx.beginPath();
+        ctx.strokeStyle = lz.color ?? '#fff';
         ctx.moveTo(tw2dx(lz.x1), tw2dy(lz.y1));
         ctx.lineTo(tw2dx(lz.x2), tw2dy(lz.y2));
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.restore();
     }
 
@@ -1713,6 +1724,31 @@ function circleOverlap(
   const dy = ay - by;
   const r  = ar + br;
   return dx * dx + dy * dy < r * r;
+}
+
+function applyAttachedLimpetPenalty(
+  ship: ShipState,
+  previous: { facing: number; vx: number; vy: number },
+): void {
+  const limpets = ship.limpetCount ?? 0;
+  if (limpets <= 0) return;
+
+  if (ship.facing !== previous.facing) {
+    ship.turnWait = Math.min(30, ship.turnWait + limpets);
+  }
+
+  if (ship.thrusting) {
+    ship.thrustWait = Math.min(30, ship.thrustWait + limpets);
+
+    const thrustScale = Math.max(0.35, 1 - limpets * 0.12);
+    const dvx = ship.velocity.vx - previous.vx;
+    const dvy = ship.velocity.vy - previous.vy;
+    setVelocityComponents(
+      ship.velocity,
+      previous.vx + dvx * thrustScale,
+      previous.vy + dvy * thrustScale,
+    );
+  }
 }
 
 function worldAngle(fromX: number, fromY: number, toX: number, toY: number): number {

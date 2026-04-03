@@ -164,6 +164,11 @@ export function playFighterDock(): void {
   if (url) playUrl(url, 0.7);
 }
 
+export function playVuxLimpetBite(): void {
+  const url = SHIP_SOUNDS.vux?.limpetBite;
+  if (url) playUrl(url, 0.7);
+}
+
 /** Small blast key by battle sound name. */
 export function playBattleSound(key: SoundKey, volume = 0.7): void {
   playUrl(BATTLE_SOUNDS[key], volume);

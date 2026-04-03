@@ -40,7 +40,8 @@ export const VUX_SPECIAL_WAIT        = 7;
 export const LIMPET_SPEED            = 25; // world units (raw, not DISPLAY_TO_WORLD)
 export const LIMPET_OFFSET           = DISPLAY_TO_WORLD(8); // 32 world units
 export const LIMPET_LIFE             = 80;
-export const LIMPET_DAMAGE           = 1;  // simplified: 1 crew on hit
+export const LIMPET_DAMAGE           = 0;
+const VUX_LASER_COLOR                = '#52ff52';
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(VUX_MAX_THRUST) ** 2;
 
@@ -217,13 +218,13 @@ export const vuxController: ShipController = {
       const frameIdx = m.life > 0 ? (LIMPET_LIFE - m.life) & 3 : 0;
       drawSprite(dc.ctx, set, frameIdx, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction);
     } else {
-      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#52ff52', dc.reduction);
     }
   },
 
-  onMissileHit(m: BattleMissile, _target: ShipState | null): MissileHitEffect {
+  onMissileHit(m: BattleMissile, target: ShipState | null): MissileHitEffect {
     // Limpet hit: apply movement impairment to the target ship
-    if (m.limpet) return { impairTarget: 1 };
+    if (m.limpet && target) return { skipBlast: true, impairTarget: 1, attachLimpet: 1 };
     return {};
   },
 
@@ -259,6 +260,6 @@ export const vuxController: ShipController = {
       enemyShip.crew = Math.max(0, enemyShip.crew - 1);
     }
     // Always show flash, hit or miss
-    addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey });
+    addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey, color: VUX_LASER_COLOR });
   },
 };
