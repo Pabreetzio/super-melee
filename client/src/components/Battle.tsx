@@ -13,8 +13,18 @@ import {
   type ControlsConfig,
 } from '../lib/controls';
 import { COSINE, SINE, tableAngle } from '../engine/sinetab';
-import { DISPLAY_TO_WORLD, setVelocityVector, setVelocityComponents, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
+import { DISPLAY_TO_WORLD, setVelocityVector, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
+import type { BattleState, WinnerShipState } from '../engine/battle/types';
+import {
+  applyAttachedLimpetPenalty,
+  applyGravity,
+  calcReduction,
+  circleOverlap,
+  computeChecksum,
+  resolveShipCollision,
+  worldAngle,
+} from '../engine/battle/helpers';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 // Per-ship constants still needed for world-physics helpers that live here
 import { SHIP_RADIUS, trackFacing } from '../engine/ships/human';
@@ -70,55 +80,6 @@ const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
 
 // BattleMissile and LaserFlash are defined in engine/ships/types.ts and
 // imported above — no local redefinition needed.
-
-// Cosmetic explosion animation (not included in checksum; purely visual)
-interface BattleExplosion {
-  type: 'boom' | 'blast' | 'splinter';
-  x: number;
-  y: number;
-  frame: number; // current frame index; advances each sim tick
-  // splinter only: velocity from the buzzsaw at impact (continues moving)
-  vx?: number;
-  vy?: number;
-  ex?: number; // Bresenham sub-pixel accumulator
-  ey?: number;
-}
-
-// Cosmetic ion trail dot emitted while thrusting (not checksummed)
-interface IonDot {
-  x: number; y: number; age: number; // age 0–11; fades and colors cycle
-}
-
-// Winner ship state preserved between rounds (offline modes only)
-export interface WinnerShipState {
-  side: 0 | 1;
-  crew: number;
-  energy: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  facing: number;
-  // Fighters belonging to the winner that should survive into the next fight.
-  // Only set when the winner has live fighters (Ur-Quan Dreadnought).
-  persistedMissiles?: BattleMissile[];
-}
-
-interface BattleState {
-  ships:     [ShipState, ShipState];
-  shipTypes: [ShipId, ShipId];
-  missiles:  BattleMissile[];
-  lasers:    LaserFlash[];      // cleared each sim frame; rendered as 1-frame flashes
-  explosions: BattleExplosion[]; // cosmetic; not checksum'd
-  ionTrails:  [IonDot[], IonDot[]]; // cosmetic thruster exhaust dots; not checksum'd
-  warpIn:     [number, number];     // countdown 15→0; ship invisible + nonsolid during warp-in
-  shipAlive:  [boolean, boolean]; // tracks alive→dead transition for boom spawn
-  frame: number;
-  // Input buffers: [myInputs, opponentInputs], indexed by frame number
-  inputBuf: [Map<number, number>, Map<number, number>];
-  // Pending battle end: counts down after death to let explosion animate
-  pendingEnd: { winner: 0 | 1 | null; countdown: number } | null;
-}
 
 interface Props {
   room:        FullRoomState;
@@ -696,8 +657,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.lasers = []; // clear previous frame's laser flashes
 
     // Apply gravity to both ships
-    applyGravity(bs.ships[0]);
-    applyGravity(bs.ships[1]);
+    applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
+    applyGravity(bs.ships[1], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
 
     // Decrement warp-in countdown (ship is invisible and nonsolid during this)
     if (bs.warpIn[0] > 0) bs.warpIn[0]--;
@@ -1095,7 +1056,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     ctx.imageSmoothingEnabled = false;
 
     // ── Zoom level ───────────────────────────────────────────────────────
-    reductionRef.current = calcReduction(bs.ships, reductionRef.current);
+    reductionRef.current = calcReduction(bs.ships, reductionRef.current, CANVAS_W, MAX_REDUCTION, WORLD_W, WORLD_H);
     const r = reductionRef.current;
 
     // w2d: world-space offset → display pixels at current zoom
@@ -1667,96 +1628,6 @@ function PauseVolumeSlider({ label, value, disabled, note, onChange }: {
  * on screen. Zoom out immediately; zoom in only after separation drops below
  * threshold by HYSTERESIS_W world units to prevent jitter at the boundary.
  */
-function calcReduction(ships: [ShipState, ShipState], current: number): number {
-  // Wrap-aware separation
-  let dx = Math.abs(ships[1].x - ships[0].x);
-  let dy = Math.abs(ships[1].y - ships[0].y);
-  if (dx > WORLD_W >> 1) dx = WORLD_W - dx;
-  if (dy > WORLD_H >> 1) dy = WORLD_H - dy;
-  const sep = Math.max(dx, dy);
-
-  const HYSTERESIS_W = 192; // ~48 display px — prevents rapid zoom toggling
-
-  // Find the minimum reduction where ships fit within the half-view width.
-  // When zooming IN (r < current), require the hysteresis margin so we don't
-  // oscillate at the threshold.
-  for (let candidate = 0; candidate < MAX_REDUCTION; candidate++) {
-    const halfView = CANVAS_W << (1 + candidate); // world units of half-view
-    const threshold = candidate < current ? halfView - HYSTERESIS_W : halfView;
-    if (sep < threshold) return candidate;
-  }
-  return MAX_REDUCTION;
-}
-
-/**
- * Proper equal-mass elastic collision along the collision axis.
- * Applies impulse only when ships are approaching (dot > 0), so ships
- * that are already separating pass through without re-firing.
- * Both ships have SHIP_MASS, so the impulse is split equally.
- */
-function resolveShipCollision(a: ShipState, b: ShipState): void {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const distSq = dx * dx + dy * dy;
-  if (distSq === 0) return;
-
-  // Relative velocity projected onto collision axis (unnormalized)
-  const rvx = a.velocity.vx - b.velocity.vx;
-  const rvy = a.velocity.vy - b.velocity.vy;
-  const dot = rvx * dx + rvy * dy;
-  if (dot <= 0) return; // already separating — don't resolve
-
-  // Equal-mass elastic: imp = dot / distSq (implicit unit-normal factor)
-  // For unequal masses this would need 2*massB/(massA+massB) weighting,
-  // but both Earthling Cruisers have SHIP_MASS=6 so the ratio is 1.
-  const imp = dot / distSq;
-  // Use setVelocityComponents so travelAngle stays correct — stale travelAngle
-  // causes wrong thrust-clamping decisions on the next frame.
-  setVelocityComponents(a.velocity, a.velocity.vx - imp * dx, a.velocity.vy - imp * dy);
-  setVelocityComponents(b.velocity, b.velocity.vx + imp * dx, b.velocity.vy + imp * dy);
-}
-
-function circleOverlap(
-  ax: number, ay: number, ar: number,
-  bx: number, by: number, br: number,
-): boolean {
-  const dx = ax - bx;
-  const dy = ay - by;
-  const r  = ar + br;
-  return dx * dx + dy * dy < r * r;
-}
-
-function applyAttachedLimpetPenalty(
-  ship: ShipState,
-  previous: { facing: number; vx: number; vy: number },
-): void {
-  const limpets = ship.limpetCount ?? 0;
-  if (limpets <= 0) return;
-
-  if (ship.facing !== previous.facing) {
-    ship.turnWait = Math.min(30, ship.turnWait + limpets);
-  }
-
-  if (ship.thrusting) {
-    ship.thrustWait = Math.min(30, ship.thrustWait + limpets);
-
-    const thrustScale = Math.max(0.35, 1 - limpets * 0.12);
-    const dvx = ship.velocity.vx - previous.vx;
-    const dvy = ship.velocity.vy - previous.vy;
-    setVelocityComponents(
-      ship.velocity,
-      previous.vx + dvx * thrustScale,
-      previous.vy + dvy * thrustScale,
-    );
-  }
-}
-
-function worldAngle(fromX: number, fromY: number, toX: number, toY: number): number {
-  // Use the deterministic integer sine-table lookup — identical on all platforms.
-  // tableAngle(dx, dy): dx>0=East, dy>0=South → UQM angle 0=North, 16=East, 32=South.
-  return tableAngle(toX - fromX, toY - fromY);
-}
-
 /**
  * Simple AI based on UQM human_intelligence behavior:
  * 1. Turn toward enemy
@@ -1793,53 +1664,4 @@ function computeAIInput(ai: ShipState, target: ShipState, nukes: BattleMissile[]
   if (hasIncomingNuke) input |= INPUT_FIRE2;
 
   return input;
-}
-
-function applyGravity(ship: ShipState) {
-  const dx = PLANET_X - ship.x;
-  const dy = PLANET_Y - ship.y;
-  const distSq = dx * dx + dy * dy;
-  const threshSq = GRAVITY_THRESHOLD_W * GRAVITY_THRESHOLD_W;
-  if (distSq === 0 || distSq > threshSq) return;
-
-  // Gravity = 1 world unit toward planet in facing direction
-  const angle = worldAngle(ship.x, ship.y, PLANET_X, PLANET_Y);
-  // Apply as delta velocity: ~4 velocity units (= DISPLAY_TO_WORLD(1) = 4 world, WORLD_TO_VELOCITY = *32... but that's strong)
-  // UQM gravity is 1 world unit/tick = WORLD_TO_VELOCITY(1) = 32 velocity units
-  const grav = 32; // velocity units
-  ship.velocity.vx += COSINE(angle, grav);
-  ship.velocity.vy += SINE(angle, grav);
-}
-
-
-// FNV-1a style mixing — detects all single-field divergences regardless of bit
-// position, including vx/vy values that differ by multiples of 256.
-function hashStep(h: number, v: number): number {
-  return Math.imul(h ^ (v | 0), 0x9e3779b9) >>> 0;
-}
-
-function computeChecksum(bs: BattleState): number {
-  let h = hashStep(0x811c9dc5, bs.frame);
-  for (const ship of bs.ships) {
-    h = hashStep(h, ship.x);
-    h = hashStep(h, ship.y);
-    h = hashStep(h, ship.velocity.vx);
-    h = hashStep(h, ship.velocity.vy);
-    h = hashStep(h, ship.velocity.travelAngle);
-    h = hashStep(h, ship.crew);
-    h = hashStep(h, ship.energy);
-    h = hashStep(h, ship.facing);
-  }
-  h = hashStep(h, bs.missiles.length);
-  for (const m of bs.missiles) {
-    h = hashStep(h, m.x);
-    h = hashStep(h, m.y);
-    h = hashStep(h, m.facing);
-    h = hashStep(h, m.life);
-    h = hashStep(h, m.speed);
-    h = hashStep(h, m.owner);
-  }
-  h = hashStep(h, bs.warpIn[0]);
-  h = hashStep(h, bs.warpIn[1]);
-  return h;
 }

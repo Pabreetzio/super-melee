@@ -5,7 +5,7 @@ import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
 import Battle from './components/Battle';
-import type { WinnerShipState } from './components/Battle';
+import type { WinnerShipState } from './engine/battle/types';
 import { SHIP_ICON } from './components/ShipPicker';
 import SuperMelee from './components/SuperMelee';
 import type { BattleStartParams } from './components/SuperMelee';

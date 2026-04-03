@@ -17,7 +17,7 @@ Goal: reduce the amount of ship- and weapon-specific context living inside `clie
 
 ### 1. Extract shared battle types and low-risk helpers
 
-Status: In progress
+Status: Completed
 
 Scope:
 - Move battle-only interfaces out of `Battle.tsx` into `client/src/engine/battle/`.
@@ -31,10 +31,13 @@ Target files:
 
 Progress notes:
 - Created plan file and locked VUX work into its own commit.
+- Moved battle-only interfaces into `client/src/engine/battle/types.ts`.
+- Moved checksum, gravity, collision, zoom, and limpet penalty helpers into `client/src/engine/battle/helpers.ts`.
+- Updated `Battle.tsx` and `App.tsx` imports to use the extracted modules.
 
 ### 2. Extract render/effect helpers
 
-Status: Pending
+Status: In progress
 
 Scope:
 - Move canvas-only helpers such as laser/effect rendering helpers out of `Battle.tsx`.
@@ -46,7 +49,7 @@ Target files:
 - `client/src/components/Battle.tsx`
 
 Progress notes:
-- Not started yet.
+- Ready to start now that the shared battle module namespace exists.
 
 ### 3. Extract simulation pipeline pieces
 
