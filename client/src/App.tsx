@@ -12,6 +12,7 @@ import type { BattleStartParams } from './components/SuperMelee';
 import { SHIP_COSTS } from './components/SuperMelee';
 import BGBuilder from './components/BGBuilder';
 import SettingsScreen from './components/Settings';
+import { getControls, codeDisplay } from './lib/controls';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
@@ -787,6 +788,10 @@ export default function App() {
       const fleet = side === 0 ? state.room.host.fleet : (state.room.opponent?.fleet ?? []);
       const origF = side === 0 ? origHost : origOpp;
       const label = side === 0 ? state.room.host.teamName : (state.room.opponent?.teamName ?? 'Opponent');
+      // LOCAL2P sequential draws: side 1 uses P2 bindings; all other cases use P1.
+      const isLocal2P = state.room.code === 'LOCAL2P';
+      const selCtrl   = getControls();
+      const selB      = (isLocal2P && side === 1) ? selCtrl.p2.bindings : selCtrl.p1.bindings;
       return (
         <div className="screen">
           <ShipSelectorPane
@@ -795,7 +800,10 @@ export default function App() {
             label={label}
             pick={null}
             position="solo"
-            navKeys="arrows"
+            navLeft={selB.turnLeft}   navRight={selB.turnRight}
+            navUp={selB.thrust}       navDown={selB.down}
+            navFire={[selB.weapon, selB.weaponAlt].filter(Boolean)}
+            navSpecial={selB.special}
             isAI={isSolo && side === 1}
             onSelect={slot => dispatch({ type: 'ship_chosen', side, slot })}
             onForfeit={() => dispatch({ type: 'forfeit_game', side })}
@@ -877,14 +885,23 @@ interface ShipSelectorPaneProps {
   label:         string;            // fleet/team name shown at bottom
   pick:          number | null;     // slot already chosen (null = still picking)
   position:      'top' | 'bottom' | 'solo';
-  navKeys:       'arrows' | 'wasd';
+  // Navigation keys — derived from the player's saved control bindings so the
+  // same keys used in battle work for ship selection too.
+  navLeft:       string;   // turnLeft  → move cursor left
+  navRight:      string;   // turnRight → move cursor right
+  navUp:         string;   // thrust    → move cursor up (row 0)
+  navDown:       string;   // down      → move cursor down (row 1)
+  navFire:       string[]; // weapon(s) → confirm selection
+  navSpecial:    string;   // special   — shown in controls hint
   isAI?:         boolean;           // AI-controlled: auto-picks random, no cursor shown
   onSelect:      (slot: number) => void;
   onForfeit:     () => void;
 }
 
 function ShipSelectorPane({
-  fleet, originalFleet, label, pick, position, navKeys, isAI = false, onSelect, onForfeit,
+  fleet, originalFleet, label, pick, position,
+  navLeft, navRight, navUp, navDown, navFire, navSpecial,
+  isAI = false, onSelect, onForfeit,
 }: ShipSelectorPaneProps) {
   // Start cursor on first available ship
   const [cursor, setCursor] = useState(() => {
@@ -893,6 +910,7 @@ function ShipSelectorPane({
   });
   const [blink, setBlink] = useState(true);
   const [showForfeit, setShowForfeit] = useState(false);
+  const [showControls, setShowControls] = useState(false);
   const chosen = pick !== null;
 
   // AI: immediately pick a random ship on mount (silently)
@@ -917,26 +935,35 @@ function ShipSelectorPane({
   fleetRef.current = fleet;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  // navFire in a ref so the nav effect closure stays stable across re-renders
+  const navFireRef = useRef(navFire);
+  navFireRef.current = navFire;
 
-  // Keyboard navigation
+  // ESC → toggle controls hint overlay (active even after a ship is chosen)
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape') return;
+      e.preventDefault();
+      setShowControls(c => !c);
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, []);
+
+  // Keyboard navigation — uses the player's configured ship controls
   useEffect(() => {
     if (chosen) return;
-
-    const L     = navKeys === 'arrows' ? 'ArrowLeft'  : 'KeyA';
-    const R     = navKeys === 'arrows' ? 'ArrowRight' : 'KeyD';
-    const U     = navKeys === 'arrows' ? 'ArrowUp'    : 'KeyW';
-    const D     = navKeys === 'arrows' ? 'ArrowDown'  : 'KeyS';
-    const fires = navKeys === 'arrows' ? ['Enter', 'ControlRight'] : ['KeyV'];
-    const allKeys = [L, R, U, D, ...fires];
+    const allKeys = [navLeft, navRight, navUp, navDown, ...navFireRef.current];
 
     const onKey = (e: KeyboardEvent) => {
       if (!allKeys.includes(e.code)) return;
       e.preventDefault();
-      if (e.code === L) setCursor(c => selectorNav(c, 'left'));
-      else if (e.code === R) setCursor(c => selectorNav(c, 'right'));
-      else if (e.code === U) setCursor(c => selectorNav(c, 'up'));
-      else if (e.code === D) setCursor(c => selectorNav(c, 'down'));
-      else if (fires.includes(e.code)) {
+      e.stopImmediatePropagation(); // prevent the other player's pane from also handling this key
+      if (e.code === navLeft)  setCursor(c => selectorNav(c, 'left'));
+      else if (e.code === navRight) setCursor(c => selectorNav(c, 'right'));
+      else if (e.code === navUp)   setCursor(c => selectorNav(c, 'up'));
+      else if (e.code === navDown) setCursor(c => selectorNav(c, 'down'));
+      else if (navFireRef.current.includes(e.code)) {
         const cur = cursorRef.current;
         const fl  = fleetRef.current;
         if (cur === 14) {
@@ -953,7 +980,7 @@ function ShipSelectorPane({
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [chosen, navKeys]);
+  }, [chosen, navLeft, navRight, navUp, navDown]);
 
   const totalValue  = originalFleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
   const remainValue = fleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
@@ -1118,6 +1145,45 @@ function ShipSelectorPane({
           </div>
         </div>
       )}
+
+      {/* Controls hint overlay (ESC to toggle) */}
+      {showControls && (
+        <div
+          onClick={() => setShowControls(false)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 10, zIndex: 10, fontFamily: 'var(--font)',
+          }}
+        >
+          <div style={{ color: accent, fontSize: 13, fontWeight: 'bold', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 4 }}>
+            Controls
+          </div>
+          {([
+            ['Left',    navLeft],
+            ['Right',   navRight],
+            ['Up',      navUp],
+            ['Down',    navDown],
+            ['Weapon',  navFire[0]],
+            ['Special', navSpecial],
+            ['Escape',  'Escape'],
+          ] as [string, string][]).map(([label, key]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', width: 200, gap: 12 }}>
+              <span style={{ color: '#778', fontSize: 11, letterSpacing: '0.06em', flex: 1 }}>{label}</span>
+              <span style={{
+                background: '#111130', border: '1px solid #2a2a50',
+                padding: '2px 10px', color: '#aabbff', fontSize: 11,
+                letterSpacing: '0.05em', minWidth: 70, textAlign: 'center',
+              }}>
+                {codeDisplay(key) || '—'}
+              </span>
+            </div>
+          ))}
+          <div style={{ color: '#334', fontSize: 10, letterSpacing: '0.1em', marginTop: 6, textTransform: 'uppercase' }}>
+            ESC or click to close
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1138,12 +1204,23 @@ function SplitShipSelect({
   fleet0, origFleet0, label0, pick0, onSelect0, onForfeit0,
   fleet1, origFleet1, label1, pick1, onSelect1, onForfeit1, isAI1 = false,
 }: SplitShipSelectProps) {
+  const { p1, p2 } = getControls();
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ShipSelectorPane fleet={fleet0} originalFleet={origFleet0} label={label0} pick={pick0}
-        position="top"    navKeys="arrows" isAI={false} onSelect={onSelect0} onForfeit={onForfeit0} />
+        position="top"
+        navLeft={p1.bindings.turnLeft}   navRight={p1.bindings.turnRight}
+        navUp={p1.bindings.thrust}       navDown={p1.bindings.down}
+        navFire={[p1.bindings.weapon, p1.bindings.weaponAlt].filter(Boolean)}
+        navSpecial={p1.bindings.special}
+        isAI={false} onSelect={onSelect0} onForfeit={onForfeit0} />
       <ShipSelectorPane fleet={fleet1} originalFleet={origFleet1} label={label1} pick={pick1}
-        position="bottom" navKeys="wasd"   isAI={isAI1} onSelect={onSelect1} onForfeit={onForfeit1} />
+        position="bottom"
+        navLeft={p2.bindings.turnLeft}   navRight={p2.bindings.turnRight}
+        navUp={p2.bindings.thrust}       navDown={p2.bindings.down}
+        navFire={[p2.bindings.weapon, p2.bindings.weaponAlt].filter(Boolean)}
+        navSpecial={p2.bindings.special}
+        isAI={isAI1} onSelect={onSelect1} onForfeit={onForfeit1} />
     </div>
   );
 }

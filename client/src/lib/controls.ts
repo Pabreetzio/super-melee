@@ -1,10 +1,10 @@
 // Control bindings for both players.
 // Matches UQM's six built-in templates from base/uqm.key in the content package.
 //
-// Preset 1 "Arrows"    — Up/Left/Right + RCtrl/RShift (alts: Enter/Num0)
-// Preset 2 "WASD"      — W/A/D + V/B
+// Preset 1 "Arrows"    — Up/Down/Left/Right + RCtrl/RShift (alts: Enter/Num0)
+// Preset 2 "WASD"      — W/S/A/D + V/B
 // Preset 3 "Arrows (2)"— Same movement as Arrows, but ] / [ for weapon/special
-// Preset 4 "ESDF"      — E/S/F + Q/A
+// Preset 4 "ESDF"      — E/D/S/F + Q/A
 // Preset 5 "Joystick 1"— Gamepad index 0 (axis+buttons, polled via Gamepad API)
 // Preset 6 "Joystick 2"— Gamepad index 1
 
@@ -14,54 +14,57 @@ export type ControlPreset =
   | 'custom';
 
 export interface KeyBindings {
-  thrust:     string; // event.code
-  turnLeft:   string;
-  turnRight:  string;
-  weapon:     string;
+  thrust:     string; // Up   — also used as "up" in menus / ship select
+  down:       string; // Down — menu navigation; not used during combat
+  turnLeft:   string; // Left
+  turnRight:  string; // Right
+  weapon:     string; // Weapon / Confirm
   weaponAlt:  string; // empty = no alt
-  special:    string;
+  special:    string; // Special
   specialAlt: string;
   gamepadIndex: number; // -1 = keyboard; 0 or 1 for joystick presets
 }
 
-// ─── Presets (mirroring uqm.key exactly) ─────────────────────────────────────
+// ─── Presets ──────────────────────────────────────────────────────────────────
 
 export const PRESET_BINDINGS: Record<Exclude<ControlPreset, 'custom'>, KeyBindings> = {
   arrows: {
-    thrust: 'ArrowUp', turnLeft: 'ArrowLeft', turnRight: 'ArrowRight',
+    thrust: 'ArrowUp', down: 'ArrowDown',
+    turnLeft: 'ArrowLeft', turnRight: 'ArrowRight',
     weapon: 'ControlRight', weaponAlt: 'Enter',
     special: 'ShiftRight', specialAlt: 'Numpad0',
     gamepadIndex: -1,
   },
   wasd: {
-    thrust: 'KeyW', turnLeft: 'KeyA', turnRight: 'KeyD',
+    thrust: 'KeyW', down: 'KeyS',
+    turnLeft: 'KeyA', turnRight: 'KeyD',
     weapon: 'KeyV', weaponAlt: '',
     special: 'KeyB', specialAlt: '',
     gamepadIndex: -1,
   },
   // Same movement as Arrows but ] / [ for weapon/special (UQM template 3)
   arrows2: {
-    thrust: 'ArrowUp', turnLeft: 'ArrowLeft', turnRight: 'ArrowRight',
+    thrust: 'ArrowUp', down: 'Numpad2',
+    turnLeft: 'ArrowLeft', turnRight: 'ArrowRight',
     weapon: 'BracketRight', weaponAlt: '',
     special: 'BracketLeft', specialAlt: '',
     gamepadIndex: -1,
   },
   esdf: {
-    thrust: 'KeyE', turnLeft: 'KeyS', turnRight: 'KeyF',
+    thrust: 'KeyE', down: 'KeyD',
+    turnLeft: 'KeyS', turnRight: 'KeyF',
     weapon: 'KeyQ', weaponAlt: '',
     special: 'KeyA', specialAlt: '',
     gamepadIndex: -1,
   },
   joystick1: {
-    thrust: '', turnLeft: '', turnRight: '',
-    weapon: '', weaponAlt: '',
-    special: '', specialAlt: '',
+    thrust: '', down: '', turnLeft: '', turnRight: '',
+    weapon: '', weaponAlt: '', special: '', specialAlt: '',
     gamepadIndex: 0,
   },
   joystick2: {
-    thrust: '', turnLeft: '', turnRight: '',
-    weapon: '', weaponAlt: '',
-    special: '', specialAlt: '',
+    thrust: '', down: '', turnLeft: '', turnRight: '',
+    weapon: '', weaponAlt: '', special: '', specialAlt: '',
     gamepadIndex: 1,
   },
 };
@@ -142,7 +145,7 @@ function loadFromStorage(): ControlsConfig {
     const raw = localStorage.getItem('sm_controls');
     if (raw) {
       const parsed = JSON.parse(raw) as ControlsConfig;
-      // Ensure all fields exist (safe upgrade from older saves)
+      // Spread defaults first so new fields (e.g. `down`) are always present
       return {
         p1: { ...DEFAULTS.p1, ...parsed.p1, bindings: { ...DEFAULTS.p1.bindings, ...parsed.p1?.bindings } },
         p2: { ...DEFAULTS.p2, ...parsed.p2, bindings: { ...DEFAULTS.p2.bindings, ...parsed.p2?.bindings } },
@@ -161,6 +164,27 @@ export function setControls(cfg: ControlsConfig): void {
   _cfg = cfg;
   try { localStorage.setItem('sm_controls', JSON.stringify(cfg)); } catch { /* ignore */ }
 }
+
+// ─── Binding field metadata (shared between Settings and pause menu) ──────────
+
+export type BindingField = keyof Omit<KeyBindings, 'gamepadIndex'>;
+
+export const BINDING_FIELDS: BindingField[] = [
+  'thrust', 'down', 'turnLeft', 'turnRight', 'weapon', 'weaponAlt', 'special', 'specialAlt',
+];
+
+// Universal labels — match how these keys are referred to across menus,
+// ship select, and battle so there's one consistent vocabulary everywhere.
+export const FIELD_LABELS: Record<BindingField, string> = {
+  thrust:     'Up',
+  down:       'Down',
+  turnLeft:   'Left',
+  turnRight:  'Right',
+  weapon:     'Weapon',
+  weaponAlt:  'Weapon (alt)',
+  special:    'Special',
+  specialAlt: 'Special (alt)',
+};
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
@@ -181,5 +205,6 @@ export function buildKeyMap(
   if (b.weaponAlt)  map[b.weaponAlt]  = INPUT_FIRE1;
   if (b.special)    map[b.special]    = INPUT_FIRE2;
   if (b.specialAlt) map[b.specialAlt] = INPUT_FIRE2;
+  // `down` is intentionally excluded — it's navigation-only, not a combat input
   return map;
 }

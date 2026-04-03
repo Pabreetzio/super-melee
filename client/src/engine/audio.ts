@@ -3,6 +3,35 @@
 // Sounds are played via HTMLAudioElement (Web Audio API's simpler cousin).
 // Multiple simultaneous instances are supported by cloning nodes.
 
+// ─── Audio config ─────────────────────────────────────────────────────────────
+
+export interface AudioConfig {
+  sfxVolume:   number; // 0.0 – 1.0
+  musicVolume: number; // 0.0 – 1.0  (reserved — no music yet)
+  muted:       boolean;
+}
+
+const AUDIO_CONFIG_KEY = 'smAudioConfig';
+
+function defaultConfig(): AudioConfig {
+  return { sfxVolume: 0.8, musicVolume: 0.8, muted: false };
+}
+
+let _config: AudioConfig = (() => {
+  try {
+    const raw = localStorage.getItem(AUDIO_CONFIG_KEY);
+    if (raw) return { ...defaultConfig(), ...JSON.parse(raw) } as AudioConfig;
+  } catch { /* ignore */ }
+  return defaultConfig();
+})();
+
+export function getAudioConfig(): AudioConfig { return { ..._config }; }
+
+export function setAudioConfig(patch: Partial<AudioConfig>): void {
+  _config = { ..._config, ...patch };
+  try { localStorage.setItem(AUDIO_CONFIG_KEY, JSON.stringify(_config)); } catch { /* ignore */ }
+}
+
 // ─── Sound catalog ────────────────────────────────────────────────────────────
 
 // Battle-wide sounds (in /sounds/battle/)
@@ -64,11 +93,12 @@ function load(url: string): HTMLAudioElement | null {
 
 /** Play a cached sound. Clones the element so the same sound can overlap itself. */
 function playUrl(url: string, volume = 1.0): void {
+  if (_config.muted) return;
   const src = cache.get(url);
   if (!src) return;
   try {
     const clone = src.cloneNode() as HTMLAudioElement;
-    clone.volume = Math.max(0, Math.min(1, volume));
+    clone.volume = Math.max(0, Math.min(1, volume * _config.sfxVolume));
     clone.play().catch(() => {}); // ignore autoplay policy rejections
   } catch {
     // Audio not supported or already unmounted — ignore

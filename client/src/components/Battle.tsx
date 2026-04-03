@@ -3,11 +3,15 @@
 // per-ship if-chains here.  To add a new ship, implement its controller
 // and register it; Battle.tsx needs no changes.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { FullRoomState } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
-import { getControls, buildKeyMap } from '../lib/controls';
+import {
+  getControls, setControls, buildKeyMap, codeDisplay,
+  type BindingField, BINDING_FIELDS, FIELD_LABELS,
+  type ControlsConfig,
+} from '../lib/controls';
 import { COSINE, SINE, tableAngle } from '../engine/sinetab';
 import { DISPLAY_TO_WORLD, setVelocityVector, setVelocityComponents, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
@@ -18,7 +22,7 @@ import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -58,26 +62,9 @@ const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
 };
 
 
-// Key maps are built dynamically from the player's control config (localStorage).
-// Defaults mirror UQM uqm.key: P1=Arrows, P2=WASD.
-// Reading at module evaluation time so they're stable for the component's lifetime.
-const _controls = getControls();
-const KEY_MAP_P1 = buildKeyMap(
-  _controls.p1.bindings,
-  INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2,
-);
-const KEY_MAP_P2 = buildKeyMap(
-  _controls.p2.bindings,
-  INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2,
-);
-const GAMEPAD_IDX_P1 = _controls.p1.bindings.gamepadIndex; // -1 = keyboard
-const GAMEPAD_IDX_P2 = _controls.p2.bindings.gamepadIndex;
-
-// Keys to preventDefault on (avoids browser shortcuts / scroll)
-const GAME_KEYS = new Set([
-  ...Object.keys(KEY_MAP_P1),
-  ...Object.keys(KEY_MAP_P2),
-]);
+// Key maps are built inside the component at mount time from the live controls
+// singleton so they reflect any rebinds made in a previous battle this session.
+// (Module-level constants would be stale after an in-session setControls() call.)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,6 +144,25 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const rafRef       = useRef<number | null>(null);
   const lastTimeRef  = useRef(0);
   const accumRef     = useRef(0);
+  const [isPaused, setIsPaused]        = useState(false);
+  const pausedRef    = useRef(false); // mirror of isPaused readable in tick closure
+  const [pauseAudio, setPauseAudio]    = useState<AudioConfig>(getAudioConfig);
+  const [pauseTab, setPauseTab]        = useState<'audio' | 'controls'>('audio');
+  const [pauseControls, setPauseControls] = useState<ControlsConfig>(getControls);
+  const [pauseRebinding, setPauseRebinding] =
+    useState<{ player: 1 | 2; field: BindingField } | null>(null);
+
+  // Live key-map refs — initialized from getControls() at mount (not from the
+  // module-level constants, which are fixed at page load and go stale if the
+  // player rebinds during a previous battle in the same session).
+  // Updated when the player rebinds in the pause menu so changes take effect
+  // immediately on resume without a page reload.
+  const _initControls = getControls(); // reads live _cfg singleton
+  const keyMapP1Ref   = useRef(buildKeyMap(_initControls.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2));
+  const keyMapP2Ref   = useRef(buildKeyMap(_initControls.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2));
+  const gamepadP1Ref  = useRef(_initControls.p1.bindings.gamepadIndex);
+  const gamepadP2Ref  = useRef(_initControls.p2.bindings.gamepadIndex);
+  const gameKeysRef   = useRef(new Set([...Object.keys(keyMapP1Ref.current), ...Object.keys(keyMapP2Ref.current)]));
   // Per-ship sprites keyed by ShipId.  Each controller's loadSprites() returns
   // its own opaque sprite bundle; drawShip/drawMissile cast internally.
   const shipSpritesRef      = useRef<Map<string, unknown>>(new Map());
@@ -457,8 +463,20 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // Keyboard — track by event.code so bindings are layout-independent
     // and we can distinguish Left/RightCtrl, Left/RightShift, etc.
     const onDown = (e: KeyboardEvent) => {
-      if (GAME_KEYS.has(e.code)) e.preventDefault();
-      keysRef.current.add(e.code);
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        const next = !pausedRef.current;
+        pausedRef.current = next;
+        setIsPaused(next);
+        if (!next) {
+          // Reset accumulator when resuming so we don't try to catch up a huge dt
+          lastTimeRef.current = performance.now();
+          accumRef.current = 0;
+        }
+        return;
+      }
+      if (gameKeysRef.current.has(e.code)) e.preventDefault();
+      if (!pausedRef.current) keysRef.current.add(e.code);
     };
     const onUp = (e: KeyboardEvent) => { keysRef.current.delete(e.code); };
     window.addEventListener('keydown', onDown);
@@ -525,12 +543,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function tick(now: number) {
     rafRef.current = requestAnimationFrame(tick);
-    accumRef.current += now - lastTimeRef.current;
+    const dt = now - lastTimeRef.current;
     lastTimeRef.current = now;
 
-    while (accumRef.current >= FRAME_MS) {
-      accumRef.current -= FRAME_MS;
-      advance();
+    if (!pausedRef.current) {
+      accumRef.current += dt;
+      while (accumRef.current >= FRAME_MS) {
+        accumRef.current -= FRAME_MS;
+        advance();
+      }
     }
 
     render();
@@ -543,15 +564,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const mySide = yourSide;
     const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
     // Online: always use P1 bindings regardless of which side you're on
-    const myInput = computeInput(KEY_MAP_P1, GAMEPAD_IDX_P1);
+    const myInput = computeInput(keyMapP1Ref.current, gamepadP1Ref.current);
 
     let i0: number;
     let i1: number;
 
     if (isLocal2P) {
       // Both players on same device — P1 bindings for side 0, P2 for side 1
-      i0 = computeInput(KEY_MAP_P1, GAMEPAD_IDX_P1);
-      i1 = computeInput(KEY_MAP_P2, GAMEPAD_IDX_P2);
+      i0 = computeInput(keyMapP1Ref.current, gamepadP1Ref.current);
+      i1 = computeInput(keyMapP2Ref.current, gamepadP2Ref.current);
     } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
       const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
@@ -1328,6 +1349,53 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // carved its 64px status column from the right of a 640px screen.
   const panelW = Math.round(displaySize.w * 128 / 640);
 
+  // Key capture for in-pause rebinding — runs in the capture phase so ESC
+  // cancels the rebind instead of toggling the pause overlay.
+  useEffect(() => {
+    if (!isPaused || !pauseRebinding) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code !== 'Escape') {
+        const pKey = pauseRebinding.player === 1 ? 'p1' : 'p2';
+        const next: ControlsConfig = {
+          ...pauseControls,
+          [pKey]: {
+            preset: 'custom',
+            bindings: { ...pauseControls[pKey].bindings, [pauseRebinding.field]: e.code },
+          },
+        };
+        setPauseControls(next);
+        setControls(next);
+        // Rebuild live refs so new bindings work immediately on resume
+        keyMapP1Ref.current  = buildKeyMap(next.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+        keyMapP2Ref.current  = buildKeyMap(next.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+        gamepadP1Ref.current = next.p1.bindings.gamepadIndex;
+        gamepadP2Ref.current = next.p2.bindings.gamepadIndex;
+        gameKeysRef.current  = new Set([
+          ...Object.keys(keyMapP1Ref.current),
+          ...Object.keys(keyMapP2Ref.current),
+        ]);
+      }
+      setPauseRebinding(null);
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [isPaused, pauseRebinding, pauseControls]);
+
+  const handleResume = useCallback(() => {
+    pausedRef.current = false;
+    setIsPaused(false);
+    lastTimeRef.current = performance.now();
+    accumRef.current = 0;
+  }, []);
+
+  function patchPauseAudio(patch: Partial<AudioConfig>) {
+    const next = { ...pauseAudio, ...patch };
+    setPauseAudio(next);
+    setAudioConfig(next);
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -1344,7 +1412,237 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         }}>
           <StatusPanel sidesRef={statusRef} />
         </div>
+
+        {/* Pause overlay */}
+        {isPaused && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.72)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font)',
+          }}>
+            <div style={{
+              background: 'rgba(2,3,20,0.97)',
+              border: '1px solid #2a2a50',
+              padding: '24px 28px',
+              display: 'flex', flexDirection: 'column', gap: 16,
+              minWidth: 320, maxWidth: 480,
+              maxHeight: '90vh', overflowY: 'auto',
+            }}>
+              {/* Title */}
+              <div style={{
+                fontSize: 22, fontWeight: 'bold', letterSpacing: '0.3em',
+                color: '#ff44ff', textShadow: '0 0 12px #ff00ff50',
+                textTransform: 'uppercase', textAlign: 'center',
+              }}>
+                PAUSED
+              </div>
+
+              {/* Tab bar */}
+              <div style={{ display: 'flex', gap: 2 }}>
+                {(['audio', 'controls'] as const).map(t => (
+                  <button key={t} onClick={() => { setPauseTab(t); setPauseRebinding(null); }} style={{
+                    flex: 1, fontSize: 10, padding: '5px',
+                    background: pauseTab === t ? '#111130' : '#07070f',
+                    color: pauseTab === t ? '#ff88ff' : '#445',
+                    border: `1px solid ${pauseTab === t ? '#ff88ff44' : '#181830'}`,
+                    fontFamily: 'var(--font)', letterSpacing: '0.12em',
+                    cursor: 'pointer', textTransform: 'uppercase',
+                  }}>{t}</button>
+                ))}
+              </div>
+
+              {/* Audio tab */}
+              {pauseTab === 'audio' && <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#778', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mute All</span>
+                  <button
+                    onClick={() => patchPauseAudio({ muted: !pauseAudio.muted })}
+                    style={{
+                      fontSize: 10, padding: '4px 14px',
+                      background: pauseAudio.muted ? '#220a22' : '#07070f',
+                      color: pauseAudio.muted ? '#ff88ff' : '#556',
+                      border: `1px solid ${pauseAudio.muted ? '#ff44ff55' : '#1e1e40'}`,
+                      fontFamily: 'var(--font)', letterSpacing: '0.1em',
+                      cursor: 'pointer', textTransform: 'uppercase',
+                    }}
+                  >
+                    {pauseAudio.muted ? 'MUTED' : 'MUTE'}
+                  </button>
+                </div>
+                <PauseVolumeSlider label="Sound Effects" value={pauseAudio.sfxVolume} disabled={pauseAudio.muted} onChange={v => patchPauseAudio({ sfxVolume: v })} />
+                <PauseVolumeSlider label="Music" value={pauseAudio.musicVolume} disabled={pauseAudio.muted} note="(no music yet)" onChange={v => patchPauseAudio({ musicVolume: v })} />
+              </>}
+
+              {/* Controls tab */}
+              {pauseTab === 'controls' && (
+                <PauseControlsPanel
+                  controls={pauseControls}
+                  rebinding={pauseRebinding}
+                  isLocal2P={isLocal2P}
+                  onRebind={target => setPauseRebinding(target)}
+                />
+              )}
+
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid #1a1a30' }} />
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={handleResume}
+                  style={{
+                    fontSize: 12, padding: '9px',
+                    background: '#0d0d2a', color: '#ff88ff',
+                    border: '1px solid #ff44ff44',
+                    fontFamily: 'var(--font)', letterSpacing: '0.18em',
+                    cursor: 'pointer', textTransform: 'uppercase',
+                  }}
+                >
+                  RESUME  (Esc)
+                </button>
+                <button
+                  onClick={() => onBattleEnd(null)}
+                  style={{
+                    fontSize: 12, padding: '9px',
+                    background: '#07070f', color: '#556',
+                    border: '1px solid #1e1e40',
+                    fontFamily: 'var(--font)', letterSpacing: '0.18em',
+                    cursor: 'pointer', textTransform: 'uppercase',
+                  }}
+                >
+                  QUIT BATTLE
+                </button>
+              </div>
+
+              <div style={{ color: '#2a2a44', fontSize: 10, letterSpacing: '0.08em', textAlign: 'center' }}>
+                {pauseRebinding ? 'Press any key to bind · Esc to cancel' : 'ESC to resume · changes saved automatically'}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Pause menu sub-components ───────────────────────────────────────────────
+
+function PauseControlsPanel({ controls, rebinding, isLocal2P, onRebind }: {
+  controls: ControlsConfig;
+  rebinding: { player: 1 | 2; field: BindingField } | null;
+  isLocal2P: boolean;
+  onRebind: (target: { player: 1 | 2; field: BindingField }) => void;
+}) {
+  const players: Array<1 | 2> = isLocal2P ? [1, 2] : [1];
+  const accents: Record<1 | 2, string> = { 1: '#ff88ff', 2: '#88ccff' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {players.map(player => {
+        const cfg     = player === 1 ? controls.p1 : controls.p2;
+        const isJoy   = cfg.bindings.gamepadIndex >= 0;
+        const accent  = accents[player];
+        return (
+          <div key={player}>
+            {isLocal2P && (
+              <div style={{
+                color: accent, fontSize: 10, letterSpacing: '0.15em',
+                textTransform: 'uppercase', marginBottom: 6,
+                borderBottom: '1px solid #181830', paddingBottom: 4,
+              }}>
+                Player {player}
+              </div>
+            )}
+            {isJoy ? (
+              <div style={{ color: '#556', fontSize: 11, lineHeight: 1.7 }}>
+                <div>Gamepad {cfg.bindings.gamepadIndex + 1} — axis / buttons</div>
+                <div style={{ color: '#334', fontSize: 10, marginTop: 4 }}>Switch preset in Settings to use keyboard.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  color: '#334', fontSize: 10, letterSpacing: '0.1em',
+                  marginBottom: 3, paddingBottom: 3, borderBottom: '1px solid #111125',
+                }}>
+                  <span>ACTION</span>
+                  <span>KEY (CLICK TO REBIND)</span>
+                </div>
+                {BINDING_FIELDS.map(field => {
+                  const keyCode  = cfg.bindings[field as keyof typeof cfg.bindings] as string;
+                  const isAlt    = field === 'weaponAlt' || field === 'specialAlt';
+                  const isActive = rebinding?.player === player && rebinding?.field === field;
+                  if (isAlt && !keyCode && !isActive) return null;
+                  return (
+                    <div
+                      key={field}
+                      onClick={() => onRebind({ player, field })}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '4px 5px',
+                        background: isActive ? '#08082a' : 'transparent',
+                        border: `1px solid ${isActive ? '#334499' : 'transparent'}`,
+                        cursor: 'pointer', borderRadius: 2,
+                      }}
+                    >
+                      <span style={{
+                        color: isAlt ? '#445' : '#778', fontSize: isAlt ? 10 : 11,
+                        letterSpacing: '0.05em', paddingLeft: isAlt ? 10 : 0,
+                      }}>
+                        {FIELD_LABELS[field]}
+                      </span>
+                      <span style={{
+                        color: isActive ? '#aabbff' : keyCode ? accent : '#2a2a44',
+                        fontSize: 10,
+                        background: isActive ? '#111140' : '#040410',
+                        padding: '2px 8px',
+                        border: `1px solid ${isActive ? '#4455bb' : '#121220'}`,
+                        minWidth: 72, textAlign: 'center', letterSpacing: '0.04em',
+                      }}>
+                        {isActive ? 'Press a key…' : codeDisplay(keyCode) || '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {!isLocal2P && (
+        <div style={{ color: '#2a2a44', fontSize: 10, letterSpacing: '0.07em' }}>
+          Online play uses Player 1 controls.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PauseVolumeSlider({ label, value, disabled, note, onChange }: {
+  label: string;
+  value: number;
+  disabled?: boolean;
+  note?: string;
+  onChange: (v: number) => void;
+}) {
+  const pct = Math.round(value * 100);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, opacity: disabled ? 0.4 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ color: '#778', fontSize: 11, letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+          {label}
+          {note && <span style={{ color: '#334', fontSize: 10, marginLeft: 8 }}>{note}</span>}
+        </span>
+        <span style={{ color: '#ff88ff', fontSize: 11, minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+      </div>
+      <input
+        type="range" min={0} max={100} step={1}
+        value={pct}
+        disabled={disabled}
+        onChange={e => onChange(Number(e.target.value) / 100)}
+        style={{ width: '100%', accentColor: '#ff44ff', cursor: disabled ? 'not-allowed' : 'pointer' }}
+      />
     </div>
   );
 }

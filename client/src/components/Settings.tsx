@@ -1,19 +1,21 @@
-// Settings screen — currently hosts control bindings for Player 1 and Player 2.
+// Settings screen — hosts control bindings and audio settings.
 // Presets mirror the six templates from UQM's base/uqm.key exactly.
 // Online play always uses Player 1 controls (no matter which side you're on).
 
 import { useState, useEffect } from 'react';
-import type { ControlPreset, PlayerControlConfig, KeyBindings } from '../lib/controls';
+import type { ControlPreset, PlayerControlConfig } from '../lib/controls';
 import {
   getControls, setControls,
   PRESET_BINDINGS, PRESET_LABELS, codeDisplay,
+  type BindingField, BINDING_FIELDS, FIELD_LABELS,
 } from '../lib/controls';
+import { getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 import StarfieldBG from './StarfieldBG';
 import { loadConfig } from '../lib/starfield';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BindingField = keyof Omit<KeyBindings, 'gamepadIndex'>;
+type Tab = 'controls' | 'audio';
 
 interface RebindTarget {
   player: 1 | 2;
@@ -24,18 +26,6 @@ interface RebindTarget {
 
 const KEYBOARD_PRESETS: ControlPreset[] = ['arrows', 'wasd', 'esdf', 'arrows2'];
 const GAMEPAD_PRESETS:  ControlPreset[] = ['joystick1', 'joystick2'];
-
-const FIELDS: BindingField[] = ['thrust', 'turnLeft', 'turnRight', 'weapon', 'weaponAlt', 'special', 'specialAlt'];
-
-const FIELD_LABELS: Record<BindingField, string> = {
-  thrust:     'Thrust',
-  turnLeft:   'Turn Left',
-  turnRight:  'Turn Right',
-  weapon:     'Weapon',
-  weaponAlt:  'Weapon (alt)',
-  special:    'Special',
-  specialAlt: 'Special (alt)',
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,13 +41,21 @@ interface Props {
 
 export default function Settings({ onBack }: Props) {
   const [bgConfig]     = useState(loadConfig);
+  const [tab, setTab]  = useState<Tab>('controls');
   const initial        = getControls();
   const [p1, setP1]    = useState<PlayerControlConfig>(initial.p1);
   const [p2, setP2]    = useState<PlayerControlConfig>(initial.p2);
   const [rebinding, setRebinding] = useState<RebindTarget | null>(null);
+  const [audio, setAudioState]    = useState<AudioConfig>(getAudioConfig);
 
   // Persist on every change
   useEffect(() => { setControls({ p1, p2 }); }, [p1, p2]);
+
+  function patchAudio(patch: Partial<AudioConfig>) {
+    const next = { ...audio, ...patch };
+    setAudioState(next);
+    setAudioConfig(next);
+  }
 
   // Key capture when a rebind is active
   useEffect(() => {
@@ -196,34 +194,59 @@ export default function Settings({ onBack }: Props) {
           SETTINGS
         </div>
 
-        {/* Section label */}
+        {/* Tab bar */}
         <div style={{
-          color: '#334', fontSize: 11, letterSpacing: '0.18em',
-          textTransform: 'uppercase', marginBottom: 18,
+          display: 'flex', gap: 2, marginBottom: 14,
         }}>
-          Controls
+          {(['controls', 'audio'] as Tab[]).map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              fontSize: 11, padding: '6px 22px',
+              background: tab === t ? '#111130' : '#07070f',
+              color: tab === t ? '#ff88ff' : '#445',
+              border: `1px solid ${tab === t ? '#ff88ff44' : '#181830'}`,
+              fontFamily: 'var(--font)', letterSpacing: '0.14em',
+              cursor: 'pointer', textTransform: 'uppercase',
+            }}>
+              {t}
+            </button>
+          ))}
         </div>
 
-        {/* Two-player panels */}
-        <div style={{
-          display: 'flex', gap: 8, width: '100%',
-          padding: '0 16px', boxSizing: 'border-box',
-        }}>
-          <PlayerPanel player={1} />
-          <PlayerPanel player={2} />
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          width: '100%', padding: '12px 18px', boxSizing: 'border-box', marginTop: 4,
-        }}>
+        {/* Controls tab */}
+        {tab === 'controls' && <>
+          {/* Two-player panels */}
           <div style={{
+            display: 'flex', gap: 8, width: '100%',
+            padding: '0 16px', boxSizing: 'border-box',
+          }}>
+            <PlayerPanel player={1} />
+            <PlayerPanel player={2} />
+          </div>
+
+          {/* Footer hint */}
+          <div style={{
+            width: '100%', padding: '8px 18px', boxSizing: 'border-box',
             color: '#3a3a5a', fontSize: 11, letterSpacing: '0.1em',
             textTransform: 'uppercase',
           }}>
             Online play always uses Player 1 controls
           </div>
+        </>}
+
+        {/* Audio tab */}
+        {tab === 'audio' && (
+          <div style={{
+            width: '100%', padding: '0 16px', boxSizing: 'border-box',
+          }}>
+            <AudioPanel audio={audio} onChange={patchAudio} />
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+          width: '100%', padding: '12px 18px', boxSizing: 'border-box', marginTop: 4,
+        }}>
           <button
             onClick={onBack}
             style={{
@@ -319,7 +342,7 @@ function BindingTable({
         <span>KEY &nbsp;(CLICK TO REBIND)</span>
       </div>
 
-      {FIELDS.map(field => {
+      {BINDING_FIELDS.map(field => {
         const keyCode   = config.bindings[field];
         const isActive  = rebinding?.player === player && rebinding?.field === field;
         const isAlt     = field === 'weaponAlt' || field === 'specialAlt';
@@ -390,6 +413,93 @@ function BindingRow({
       }}>
         {isActive ? 'Press a key…' : codeDisplay(keyCode) || '—'}
       </span>
+    </div>
+  );
+}
+
+// ─── Audio panel ──────────────────────────────────────────────────────────────
+
+function AudioPanel({ audio, onChange }: {
+  audio: AudioConfig;
+  onChange: (patch: Partial<AudioConfig>) => void;
+}) {
+  return (
+    <div style={{
+      background: 'rgba(2, 3, 20, 0.96)',
+      border: '1px solid #1e1e40',
+      padding: '20px 20px 24px',
+      display: 'flex', flexDirection: 'column', gap: 22,
+    }}>
+      {/* Mute toggle */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ color: '#778', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          Mute All
+        </span>
+        <button
+          onClick={() => onChange({ muted: !audio.muted })}
+          style={{
+            fontSize: 11, padding: '5px 18px',
+            background: audio.muted ? '#220a22' : '#07070f',
+            color: audio.muted ? '#ff88ff' : '#556',
+            border: `1px solid ${audio.muted ? '#ff44ff55' : '#1e1e40'}`,
+            fontFamily: 'var(--font)', letterSpacing: '0.12em',
+            cursor: 'pointer', textTransform: 'uppercase',
+          }}
+        >
+          {audio.muted ? 'MUTED' : 'MUTE'}
+        </button>
+      </div>
+
+      <VolumeSlider
+        label="Sound Effects"
+        value={audio.sfxVolume}
+        disabled={audio.muted}
+        onChange={v => onChange({ sfxVolume: v })}
+      />
+
+      <VolumeSlider
+        label="Music"
+        value={audio.musicVolume}
+        disabled={audio.muted}
+        note="(no music yet)"
+        onChange={v => onChange({ musicVolume: v })}
+      />
+    </div>
+  );
+}
+
+function VolumeSlider({ label, value, disabled, note, onChange }: {
+  label: string;
+  value: number;
+  disabled?: boolean;
+  note?: string;
+  onChange: (v: number) => void;
+}) {
+  const pct = Math.round(value * 100);
+  const accent = '#ff88ff';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: disabled ? 0.4 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ color: '#778', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          {label}
+          {note && <span style={{ color: '#334', fontSize: 10, marginLeft: 8, textTransform: 'none', letterSpacing: '0.05em' }}>{note}</span>}
+        </span>
+        <span style={{ color: accent, fontSize: 12, minWidth: 36, textAlign: 'right', letterSpacing: '0.05em' }}>
+          {pct}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0} max={100} step={1}
+        value={pct}
+        disabled={disabled}
+        onChange={e => onChange(Number(e.target.value) / 100)}
+        style={{
+          width: '100%', accentColor: accent,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      />
     </div>
   );
 }
