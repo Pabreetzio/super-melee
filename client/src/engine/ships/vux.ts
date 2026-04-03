@@ -224,7 +224,7 @@ export const vuxController: ShipController = {
 
   onMissileHit(m: BattleMissile, target: ShipState | null): MissileHitEffect {
     // Limpet hit: apply movement impairment to the target ship
-    if (m.limpet && target) return { skipBlast: true, impairTarget: 1, attachLimpet: 1 };
+    if (m.limpet && target) return { skipBlast: true, impairTarget: 1, attachLimpet: 1, sounds: ['vux_limpet_bite'] };
     return {};
   },
 

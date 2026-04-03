@@ -105,6 +105,8 @@ export interface LaserFlash {
   color?: string;
 }
 
+export type EffectSound = 'fighter_laser' | 'fighter_dock' | 'vux_limpet_bite';
+
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
 
 /**
@@ -125,7 +127,7 @@ export interface MissileEffect {
   /** If true, skip the generic setVelocityVector call in Battle.tsx this frame. */
   skipVelocityUpdate?: boolean;
   /** Sound keys to play after applying this effect (Battle.tsx dispatches). */
-  sounds?: Array<'fighter_laser' | 'fighter_dock'>;
+  sounds?: EffectSound[];
 }
 
 // ─── Collision effect returned by onMissileHit() ─────────────────────────────
@@ -143,6 +145,8 @@ export interface MissileHitEffect {
   impairTarget?: number;
   /** Permanently attach this many limpets to the target ship. */
   attachLimpet?: number;
+  /** Sound keys to play when the hit effect resolves. */
+  sounds?: EffectSound[];
 }
 
 // ─── Rendering context passed to controller draw functions ────────────────────

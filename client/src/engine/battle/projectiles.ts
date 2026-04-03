@@ -1,4 +1,4 @@
-import { playBlast, playFighterDock, playFighterLaser, playVuxLimpetBite } from '../audio';
+import { playBlast, playEffectSound } from '../audio';
 import { SHIP_REGISTRY } from '../ships/registry';
 import type { BattleMissile, ShipState } from '../ships/types';
 import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD } from '../velocity';
@@ -83,10 +83,7 @@ export function processMissiles(
     if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
     if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
     if (effect.lasers)      bs.lasers.push(...effect.lasers);
-    if (effect.sounds) for (const snd of effect.sounds) {
-      if (snd === 'fighter_laser') playFighterLaser();
-      else if (snd === 'fighter_dock') playFighterDock();
-    }
+    if (effect.sounds) for (const snd of effect.sounds) playEffectSound(snd);
 
     if (effect.destroy) continue;
 
@@ -134,6 +131,7 @@ export function processMissiles(
         if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
         if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
           vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
+        if (hitFx.sounds) for (const snd of hitFx.sounds) playEffectSound(snd);
         playBlast(m.damage);
         hit = true;
       }
@@ -170,8 +168,8 @@ export function processMissiles(
       }
       if (hitFx.attachLimpet) {
         targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
-        playVuxLimpetBite();
       }
+      if (hitFx.sounds) for (const snd of hitFx.sounds) playEffectSound(snd);
       if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
       hit = true;
     }

@@ -2,6 +2,7 @@
 // All sounds are loaded non-blockingly; missing files are silently ignored.
 // Sounds are played via HTMLAudioElement (Web Audio API's simpler cousin).
 // Multiple simultaneous instances are supported by cloning nodes.
+import type { EffectSound } from './ships/types';
 
 // ─── Audio config ─────────────────────────────────────────────────────────────
 
@@ -167,6 +168,12 @@ export function playFighterDock(): void {
 export function playVuxLimpetBite(): void {
   const url = SHIP_SOUNDS.vux?.limpetBite;
   if (url) playUrl(url, 0.7);
+}
+
+export function playEffectSound(cue: EffectSound): void {
+  if (cue === 'fighter_laser') playFighterLaser();
+  else if (cue === 'fighter_dock') playFighterDock();
+  else if (cue === 'vux_limpet_bite') playVuxLimpetBite();
 }
 
 /** Small blast key by battle sound name. */
