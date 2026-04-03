@@ -69,6 +69,8 @@ Target files:
 
 Progress notes:
 - Ready to start now that shared types/helpers and render effects live in `client/src/engine/battle/`.
+- Extracted ship-vs-ship collision, ship-vs-planet collision, explosion advancement, and ion-trail updates into shared battle modules.
+- The central missile update loop still lives in `Battle.tsx`; that remains the next high-value extraction target.
 
 ### 4. Expand controller/battle object interfaces for future weapons
 

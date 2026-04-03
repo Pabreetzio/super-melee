@@ -12,7 +12,7 @@ import {
   type BindingField, BINDING_FIELDS, FIELD_LABELS,
   type ControlsConfig,
 } from '../lib/controls';
-import { COSINE, SINE, tableAngle } from '../engine/sinetab';
+import { COSINE, SINE } from '../engine/sinetab';
 import { DISPLAY_TO_WORLD, setVelocityVector, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
 import type { BattleState, WinnerShipState } from '../engine/battle/types';
@@ -22,9 +22,10 @@ import {
   calcReduction,
   circleOverlap,
   computeChecksum,
-  resolveShipCollision,
   worldAngle,
 } from '../engine/battle/helpers';
+import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
+import { advanceExplosions, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 // Per-ship constants still needed for world-physics helpers that live here
@@ -913,103 +914,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.missiles = aliveMissiles;
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
-    bs.explosions = bs.explosions.filter(e => {
-      if (e.type === 'splinter') {
-        // splinter_preprocess: keep moving at buzzsaw velocity, no deceleration
-        const vx = e.vx ?? 0, vy = e.vy ?? 0;
-        const fracX = Math.abs(vx) & 31;
-        const newExX = (e.ex ?? 0) + fracX;
-        e.ex = newExX & 31;
-        const carryX = newExX >= 32 ? 1 : 0;
-        e.x += VELOCITY_TO_WORLD(Math.abs(vx)) * Math.sign(vx) + (vx >= 0 ? carryX : -carryX);
-        const fracY = Math.abs(vy) & 31;
-        const newExY = (e.ey ?? 0) + fracY;
-        e.ey = newExY & 31;
-        const carryY = newExY >= 32 ? 1 : 0;
-        e.y += VELOCITY_TO_WORLD(Math.abs(vy)) * Math.sign(vy) + (vy >= 0 ? carryY : -carryY);
-        e.x = ((e.x % WORLD_W) + WORLD_W) % WORLD_W;
-        e.y = ((e.y % WORLD_H) + WORLD_H) % WORLD_H;
-      }
-      e.frame++;
-      // splinter: frames 2–6 = 5 frames (UQM life_span=5 after collision)
-      return e.type === 'splinter' ? e.frame < 7 : e.type === 'boom' ? e.frame < 9 : e.frame < 8;
-    });
+    bs.explosions = advanceExplosions(bs.explosions, WORLD_W, WORLD_H);
 
     // Ship–ship collision (skip if either ship is still warping in)
-    {
-      const r = DISPLAY_TO_WORLD(SHIP_RADIUS);
-      const dx = bs.ships[1].x - bs.ships[0].x;
-      const dy = bs.ships[1].y - bs.ships[0].y;
-      const distSq = dx * dx + dy * dy;
-      const minDist = r + r;
-      if (bs.warpIn[0] === 0 && bs.warpIn[1] === 0 && distSq < minDist * minDist && distSq > 0) {
-        resolveShipCollision(bs.ships[0], bs.ships[1]);
-        // Push ships apart so they don't re-trigger next frame.
-        // Use integer arithmetic (tableAngle + COSINE/SINE) to avoid any
-        // floating-point precision differences between JS engines.
-        const distInt = Math.round(Math.sqrt(distSq));
-        const overlap = minDist - distInt;
-        if (overlap > 0) {
-          const push = Math.ceil(overlap / 2);
-          const sepAngle = tableAngle(dx, dy); // direction ship0 → ship1
-          const ox = COSINE(sepAngle, push);
-          const oy = SINE(sepAngle, push);
-          bs.ships[0].x -= ox;
-          bs.ships[0].y -= oy;
-          bs.ships[1].x += ox;
-          bs.ships[1].y += oy;
-        }
-        bs.ships[0].crew = Math.max(0, bs.ships[0].crew - 1);
-        bs.ships[1].crew = Math.max(0, bs.ships[1].crew - 1);
-      }
-    }
+    handleShipShipCollision(bs.ships, bs.warpIn, SHIP_RADIUS);
 
     // Ship–planet collision (UQM misc.c / ship.c behavior):
     //   damage = ship.crew >> 2  (25% current HP, min 1)
     //   planet has DEFY_PHYSICS — ship bounces, planet doesn't move
-    {
-      const minDist = DISPLAY_TO_WORLD(SHIP_RADIUS) + PLANET_RADIUS_W;
-      const minDistSq = minDist * minDist;
-      for (let side = 0; side < 2; side++) {
-        const ship = bs.ships[side];
-        const pdx = ship.x - PLANET_X;
-        const pdy = ship.y - PLANET_Y;
-        const distSq = pdx * pdx + pdy * pdy;
-        if (distSq >= minDistSq || distSq === 0) continue;
-
-        // Bounce: reflect velocity away from planet center using COSINE/SINE tables
-        // (integer-safe; same trig tables used everywhere in UQM port)
-        const angle = worldAngle(PLANET_X, PLANET_Y, ship.x, ship.y); // away from planet
-        const cx = COSINE(angle, 64);
-        const cy = SINE(angle, 64);
-        const dot = ship.velocity.vx * cx + ship.velocity.vy * cy; // projected onto away-normal
-        if (dot < 0) {
-          // Approaching — reflect the toward-planet component
-          ship.velocity.vx = Math.trunc(ship.velocity.vx - 2 * dot * cx / 4096);
-          ship.velocity.vy = Math.trunc(ship.velocity.vy - 2 * dot * cy / 4096);
-        }
-
-        // Push ship outside collision radius — integer arithmetic only.
-        // `angle` already points away from planet; COSINE/SINE give the
-        // separation vector without any floating-point division.
-        const distInt = Math.round(Math.sqrt(distSq));
-        const pushAmt = minDist - distInt;
-        if (pushAmt > 0) {
-          ship.x += COSINE(angle, pushAmt);
-          ship.y += SINE(angle, pushAmt);
-        }
-
-        // Damage: 25% current HP, min 1 (mirrors UQM ship.c hit_points >> 2)
-        const damage = Math.max(1, ship.crew >> 2);
-        ship.crew = Math.max(0, ship.crew - damage);
-
-        // Sound: TARGET_DAMAGED_FOR_1_PT + (damage >> 1), capped at TARGET_DAMAGED_FOR_6_PLUS_PT
-        // Maps to boom1 / boom23 / boom45 / boom67 via playBlast frame thresholds.
-        // UQM indices: 2=1pt, 3=2-3pt, 4=4-5pt, 5=6+pt → frame 1 / 3 / 5 / 7
-        const soundFrame = damage <= 1 ? 1 : damage <= 3 ? 3 : damage <= 5 ? 5 : 7;
-        playBlast(soundFrame);
-      }
-    }
+    handleShipPlanetCollisions(bs.ships, PLANET_X, PLANET_Y, PLANET_RADIUS_W, SHIP_RADIUS);
 
     // Spawn boom explosion when a ship transitions alive→dead
     for (let side = 0; side < 2; side++) {
@@ -1023,21 +936,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Update ion trail dots (cosmetic thruster exhaust; not checksummed).
     // Colors cycle from orange → red → dark red per UQM cycle_ion_trail.
-    for (let side = 0; side < 2; side++) {
-      const ship = bs.ships[side];
-      // Advance age and cull expired dots
-      for (const dot of bs.ionTrails[side]) dot.age++;
-      bs.ionTrails[side] = bs.ionTrails[side].filter(d => d.age < 12);
-      // Spawn a new dot behind the ship when thrusting and not warping in
-      if (ship.thrusting && bs.warpIn[side] === 0 && ship.crew > 0) {
-        const backAng = ((ship.facing * 4 + 32) & 63);
-        bs.ionTrails[side].push({
-          x: ship.x + COSINE(backAng, 28), // ~7 display px at 1× zoom
-          y: ship.y + SINE(backAng, 28),
-          age: 0,
-        });
-      }
-    }
+    updateIonTrails(bs.ionTrails, bs.ships, bs.warpIn);
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
