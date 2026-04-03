@@ -13,28 +13,27 @@ import {
   type ControlsConfig,
 } from '../lib/controls';
 import { COSINE, SINE } from '../engine/sinetab';
-import { DISPLAY_TO_WORLD, setVelocityVector, VELOCITY_TO_WORLD, type VelocityDesc } from '../engine/velocity';
+import { DISPLAY_TO_WORLD, setVelocityVector, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
 import type { BattleState, WinnerShipState } from '../engine/battle/types';
 import {
   applyAttachedLimpetPenalty,
   applyGravity,
   calcReduction,
-  circleOverlap,
   computeChecksum,
   worldAngle,
 } from '../engine/battle/helpers';
 import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
-import { advanceExplosions, updateIonTrails } from '../engine/battle/projectiles';
+import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 // Per-ship constants still needed for world-physics helpers that live here
-import { SHIP_RADIUS, trackFacing } from '../engine/ships/human';
+import { SHIP_RADIUS } from '../engine/ships/human';
 import { loadExplosionSprites, placeholderDot, type ExplosionSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playBlast, playPrimary, playSecondary, playFighterLaser, playFighterLaunch, playFighterDock, playVuxLimpetBite, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -784,134 +783,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 
-    // Update missiles
-    const aliveMissiles: BattleMissile[] = [];
-    for (const m of bs.missiles) {
-      m.life--;
-      if (m.life <= 0) continue;
-
-      const ownerCtrl  = SHIP_REGISTRY[bs.shipTypes[m.owner]];
-      const ownShip    = bs.ships[m.owner];
-      const enemyShip  = bs.ships[m.owner === 0 ? 1 : 0];
-      const ownerInput = m.owner === 0 ? input0 : input1;
-
-      // Per-missile lifecycle hook: controllers handle all weapon-specific behaviour
-      // (buzzsaw spin, gas cloud velocity, fighter AI, etc.)
-      const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, ownerInput) ?? {};
-
-      // Apply effects from the controller (sounds and heals run even on destroy)
-      if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
-      if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
-      if (effect.lasers)      bs.lasers.push(...effect.lasers);
-      if (effect.sounds)      for (const snd of effect.sounds) {
-        if (snd === 'fighter_laser') playFighterLaser();
-        else if (snd === 'fighter_dock') playFighterDock();
-      }
-
-      if (effect.destroy) continue; // e.g. fighter docked with mothership
-
-      // Generic tracking (skip if controller already handled it)
-      if (!effect.skipDefaultTracking && m.tracks) {
-        const targetAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
-        if (m.trackWait > 0) {
-          m.trackWait--;
-        } else {
-          m.facing = trackFacing(m.facing, targetAngle);
-          m.trackWait = m.trackRate;
-        }
-      }
-
-      // Generic velocity update (skip if controller manages velocity directly)
-      if (!effect.skipVelocityUpdate) {
-        m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
-        setVelocityVector(m.velocity, m.speed, m.facing);
-      }
-
-      // Position advance (Bresenham sub-pixel, same as ships)
-      {
-        const fracX = Math.abs(m.velocity.vx) & 31;
-        m.velocity.ex += fracX;
-        const carryX = m.velocity.ex >= 32 ? 1 : 0;
-        m.velocity.ex &= 31;
-        m.x += VELOCITY_TO_WORLD(Math.abs(m.velocity.vx)) * Math.sign(m.velocity.vx)
-              + (m.velocity.vx >= 0 ? carryX : -carryX);
-
-        const fracY = Math.abs(m.velocity.vy) & 31;
-        m.velocity.ey += fracY;
-        const carryY = m.velocity.ey >= 32 ? 1 : 0;
-        m.velocity.ey &= 31;
-        m.y += VELOCITY_TO_WORLD(Math.abs(m.velocity.vy)) * Math.sign(m.velocity.vy)
-              + (m.velocity.vy >= 0 ? carryY : -carryY);
-      }
-
-      // Wrap
-      m.x = ((m.x % WORLD_W) + WORLD_W) % WORLD_W;
-      m.y = ((m.y % WORLD_H) + WORLD_H) % WORLD_H;
-
-      // Collision with ships (missile only hits the opposing side; skip if target is warping in)
-      let hit = false;
-      const targetSide = m.owner === 0 ? 1 : 0;
-      const targetShip = bs.ships[targetSide];
-
-      // Planet collision — all weapons hit the planet unless controller explicitly opts out.
-      // Fighters have their own bounce logic below and are excluded here.
-      if (!hit && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
-        const pdx = m.x - PLANET_X;
-        const pdy = m.y - PLANET_Y;
-        if (pdx * pdx + pdy * pdy < (PLANET_RADIUS_W + 4) ** 2) {
-          const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
-          if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
-          if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-            vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
-          playBlast(m.damage);
-          hit = true;
-        }
-      }
-
-      // Fighter-planet bounce: push fighter outside planet radius (from urquan.c fighter_collision).
-      // Fighters don't explode on planet contact — they bounce off and resume navigation.
-      if (!hit && m.weaponType === 'fighter') {
-        const fpdx = m.x - PLANET_X;
-        const fpdy = m.y - PLANET_Y;
-        const fDistSq = fpdx * fpdx + fpdy * fpdy;
-        const fCollideR = PLANET_RADIUS_W + DISPLAY_TO_WORLD(4);
-        if (fDistSq < fCollideR * fCollideR && fDistSq > 0) {
-          // Reflect velocity around the outward planet normal, then push outside.
-          const fDist = Math.sqrt(fDistSq);
-          const nx = fpdx / fDist;
-          const ny = fpdy / fDist;
-          const dot = m.velocity.vx * nx + m.velocity.vy * ny;
-          m.velocity.vx -= 2 * dot * nx;
-          m.velocity.vy -= 2 * dot * ny;
-          m.x = PLANET_X + nx * (fCollideR + 1);
-          m.y = PLANET_Y + ny * (fCollideR + 1);
-        }
-      }
-
-      // Fighters don't have a damage value and collide with neither planet nor enemy ship
-      // in the traditional sense (they dock, not explode). Skip ship collision for them.
-      if (!hit && m.weaponType !== 'fighter' &&
-          bs.warpIn[targetSide] === 0 &&
-          circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
-        targetShip.crew = Math.max(0, targetShip.crew - m.damage);
-        const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
-        if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
-        if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-          vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
-        if (hitFx.impairTarget) {
-          targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
-          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
-        }
-        if (hitFx.attachLimpet) {
-          targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
-          playVuxLimpetBite();
-        }
-        if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
-        hit = true;
-      }
-      if (!hit) aliveMissiles.push(m);
-    }
-    bs.missiles = aliveMissiles;
+    processMissiles(bs, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
     bs.explosions = advanceExplosions(bs.explosions, WORLD_W, WORLD_H);

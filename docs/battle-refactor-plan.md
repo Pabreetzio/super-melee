@@ -54,7 +54,7 @@ Progress notes:
 
 ### 3. Extract simulation pipeline pieces
 
-Status: In progress
+Status: Completed
 
 Scope:
 - Move generic frame simulation helpers into engine modules.
@@ -70,11 +70,12 @@ Target files:
 Progress notes:
 - Ready to start now that shared types/helpers and render effects live in `client/src/engine/battle/`.
 - Extracted ship-vs-ship collision, ship-vs-planet collision, explosion advancement, and ion-trail updates into shared battle modules.
-- The central missile update loop still lives in `Battle.tsx`; that remains the next high-value extraction target.
+- Moved the central missile update loop into `client/src/engine/battle/projectiles.ts`.
+- `Battle.tsx` now coordinates the simulation phases instead of owning projectile movement/collision details inline.
 
 ### 4. Expand controller/battle object interfaces for future weapons
 
-Status: Pending
+Status: In progress
 
 Scope:
 - Add richer effect/state hooks only after shared battle code is extracted.
@@ -87,7 +88,7 @@ Target files:
 - `client/src/engine/battle/*.ts`
 
 Progress notes:
-- Not started yet.
+- Next step: widen controller effect interfaces so ship modules can request more hit/weapon side-effects without adding special cases back into `Battle.tsx`.
 
 ## Working Rules For Future Weapon Tasks
 
