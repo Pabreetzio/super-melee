@@ -1,7 +1,42 @@
-import { COSINE, SINE, tableAngle } from '../sinetab';
-import { setVelocityComponents } from '../velocity';
+import { COSINE, SINE, tableAngle, HALF_CIRCLE, QUADRANT } from '../sinetab';
+import { setVelocityComponents, deltaVelocityComponents, VELOCITY_TO_WORLD, WORLD_TO_VELOCITY, DISPLAY_TO_WORLD } from '../velocity';
 import type { ShipState } from '../ships/types';
 import type { BattleState } from './types';
+
+const DEFAULT_WORLD_W = 20480;
+const DEFAULT_WORLD_H = 15360;
+const COLLISION_TURN_WAIT = 1;
+const COLLISION_THRUST_WAIT = 3;
+const MIN_COLLISION_SPEED = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(1)) - 1;
+
+function normalizeAngle(angle: number): number {
+  return ((angle % 64) + 64) % 64;
+}
+
+export function toroidalDelta(from: number, to: number, worldSize: number): number {
+  let delta = to - from;
+  if (delta > worldSize >> 1) delta -= worldSize;
+  else if (delta < -(worldSize >> 1)) delta += worldSize;
+  return delta;
+}
+
+export function worldDelta(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  worldW = DEFAULT_WORLD_W,
+  worldH = DEFAULT_WORLD_H,
+): { dx: number; dy: number } {
+  return {
+    dx: toroidalDelta(fromX, toX, worldW),
+    dy: toroidalDelta(fromY, toY, worldH),
+  };
+}
+
+export function wrapWorldCoord(value: number, worldSize: number): number {
+  return ((value % worldSize) + worldSize) % worldSize;
+}
 
 export function calcReduction(
   ships: [ShipState, ShipState],
@@ -26,28 +61,67 @@ export function calcReduction(
   return maxReduction;
 }
 
-export function resolveShipCollision(a: ShipState, b: ShipState): void {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const distSq = dx * dx + dy * dy;
-  if (distSq === 0) return;
+export function resolveShipCollision(
+  a: ShipState,
+  b: ShipState,
+  massA: number,
+  massB: number,
+  worldW = DEFAULT_WORLD_W,
+  worldH = DEFAULT_WORLD_H,
+): void {
+  const impact0Delta = worldDelta(b.x, b.y, a.x, a.y, worldW, worldH);
+  const impactAngle0 = tableAngle(impact0Delta.dx, impact0Delta.dy);
+  const impactAngle1 = normalizeAngle(impactAngle0 + HALF_CIRCLE);
 
-  const rvx = a.velocity.vx - b.velocity.vx;
-  const rvy = a.velocity.vy - b.velocity.vy;
-  const dot = rvx * dx + rvy * dy;
-  if (dot <= 0) return;
+  const dx0 = a.velocity.vx;
+  const dy0 = a.velocity.vy;
+  const dx1 = b.velocity.vx;
+  const dy1 = b.velocity.vy;
+  const travelAngle0 = a.velocity.travelAngle;
+  const travelAngle1 = b.velocity.travelAngle;
+  const relDx = dx0 - dx1;
+  const relDy = dy0 - dy1;
+  const relTravelAngle = tableAngle(relDx, relDy);
+  const speed = Math.round(Math.sqrt(relDx * relDx + relDy * relDy));
 
-  const imp = dot / distSq;
-  setVelocityComponents(a.velocity, a.velocity.vx - imp * dx, a.velocity.vy - imp * dy);
-  setVelocityComponents(b.velocity, b.velocity.vx + imp * dx, b.velocity.vy + imp * dy);
+  let directness = normalizeAngle(relTravelAngle - impactAngle0);
+  let bounceAngle0 = impactAngle0;
+  let bounceAngle1 = impactAngle1;
+  if (directness <= QUADRANT || directness >= HALF_CIRCLE + QUADRANT) {
+    directness = HALF_CIRCLE;
+    bounceAngle0 = normalizeAngle(travelAngle0 + HALF_CIRCLE);
+    bounceAngle1 = normalizeAngle(travelAngle1 + HALF_CIRCLE);
+  }
+
+  const impulseScalar = SINE(directness, speed << 1) * (massA * massB);
+  const totalMass = massA + massB;
+  if (totalMass <= 0) return;
+
+  if (a.turnWait < COLLISION_TURN_WAIT) a.turnWait += COLLISION_TURN_WAIT;
+  if (a.thrustWait < COLLISION_THRUST_WAIT) a.thrustWait += COLLISION_THRUST_WAIT;
+  if (b.turnWait < COLLISION_TURN_WAIT) b.turnWait += COLLISION_TURN_WAIT;
+  if (b.thrustWait < COLLISION_THRUST_WAIT) b.thrustWait += COLLISION_THRUST_WAIT;
+
+  const speed0 = Math.trunc(impulseScalar / (massA * totalMass));
+  deltaVelocityComponents(a.velocity, COSINE(bounceAngle0, speed0), SINE(bounceAngle0, speed0));
+  if (VELOCITY_TO_WORLD(Math.abs(a.velocity.vx) + Math.abs(a.velocity.vy)) < DISPLAY_TO_WORLD(1)) {
+    setVelocityComponents(a.velocity, COSINE(bounceAngle0, MIN_COLLISION_SPEED), SINE(bounceAngle0, MIN_COLLISION_SPEED));
+  }
+
+  const speed1 = Math.trunc(impulseScalar / (massB * totalMass));
+  deltaVelocityComponents(b.velocity, COSINE(bounceAngle1, speed1), SINE(bounceAngle1, speed1));
+  if (VELOCITY_TO_WORLD(Math.abs(b.velocity.vx) + Math.abs(b.velocity.vy)) < DISPLAY_TO_WORLD(1)) {
+    setVelocityComponents(b.velocity, COSINE(bounceAngle1, MIN_COLLISION_SPEED), SINE(bounceAngle1, MIN_COLLISION_SPEED));
+  }
 }
 
 export function circleOverlap(
   ax: number, ay: number, ar: number,
   bx: number, by: number, br: number,
+  worldW = DEFAULT_WORLD_W,
+  worldH = DEFAULT_WORLD_H,
 ): boolean {
-  const dx = ax - bx;
-  const dy = ay - by;
+  const { dx, dy } = worldDelta(ax, ay, bx, by, worldW, worldH);
   const r  = ar + br;
   return dx * dx + dy * dy < r * r;
 }
@@ -78,7 +152,8 @@ export function applyAttachedLimpetPenalty(
 }
 
 export function worldAngle(fromX: number, fromY: number, toX: number, toY: number): number {
-  return tableAngle(toX - fromX, toY - fromY);
+  const { dx, dy } = worldDelta(fromX, fromY, toX, toY);
+  return tableAngle(dx, dy);
 }
 
 export function applyGravity(
@@ -87,8 +162,7 @@ export function applyGravity(
   planetY: number,
   gravityThresholdW: number,
 ): void {
-  const dx = planetX - ship.x;
-  const dy = planetY - ship.y;
+  const { dx, dy } = worldDelta(ship.x, ship.y, planetX, planetY);
   const distSq = dx * dx + dy * dy;
   const threshSq = gravityThresholdW * gravityThresholdW;
   if (distSq === 0 || distSq > threshSq) return;
@@ -117,12 +191,19 @@ export function computeChecksum(bs: BattleState): number {
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
+    h = hashStep(h, m.prevX);
+    h = hashStep(h, m.prevY);
     h = hashStep(h, m.x);
     h = hashStep(h, m.y);
     h = hashStep(h, m.facing);
     h = hashStep(h, m.life);
+    h = hashStep(h, m.hitPoints);
+    h = hashStep(h, m.damage);
     h = hashStep(h, m.speed);
+    h = hashStep(h, m.trackWait);
+    h = hashStep(h, m.trackRate);
     h = hashStep(h, m.owner);
+    h = hashStep(h, m.weaponType === 'buzzsaw' ? 1 : m.weaponType === 'gas_cloud' ? 2 : m.weaponType === 'fighter' ? 3 : m.weaponType === 'plasmoid' ? 4 : 0);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

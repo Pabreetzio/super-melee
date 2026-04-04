@@ -85,6 +85,21 @@ export function renderExplosions(
       continue;
     }
 
+    if (ex.type === 'mycon_plasma') {
+      const mySp = shipSprites.get('mycon') as
+        { plasmaImpact?: { big: object; med: object; sml: object } } | null;
+      const group = mySp?.plasmaImpact ?? null;
+      const sset = group
+        ? (reduction >= 2 ? group.sml : reduction === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
+        : null;
+      if (sset) {
+        drawSprite(ctx, sset, ex.frame, ex.x, ex.y, canvasW, canvasH, camX, camY, reduction);
+      } else {
+        placeholderDot(ctx, ex.x, ex.y, camX, camY, 5, '#ff9a3c', reduction);
+      }
+      continue;
+    }
+
     const set = ex.type === 'boom'
       ? (explosionSprites ? (reduction >= 2 ? explosionSprites.boom.sml : reduction === 1 ? explosionSprites.boom.med : explosionSprites.boom.big) : null)
       : (explosionSprites ? (reduction >= 2 ? explosionSprites.blast.sml : reduction === 1 ? explosionSprites.blast.med : explosionSprites.blast.big) : null);

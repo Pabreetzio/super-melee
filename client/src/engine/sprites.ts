@@ -6,6 +6,7 @@ export interface SpriteFrame {
   img:    HTMLImageElement;
   hotX:   number; // pixels from left of image to ship center
   hotY:   number; // pixels from top  of image to ship center
+  mask:   Uint8Array; // 1 byte per pixel, non-zero = collidable
 }
 
 export interface SpriteSet {
@@ -60,7 +61,24 @@ const SATURN_SML_HOTSPOTS: [number, number][] = [
 function loadFrame(url: string, hotX: number, hotY: number): Promise<SpriteFrame> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve({ img, hotX, hotY });
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        resolve({ img, hotX, hotY, mask: new Uint8Array(img.width * img.height) });
+        return;
+      }
+      ctx.clearRect(0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, img.width, img.height).data;
+      const mask = new Uint8Array(img.width * img.height);
+        for (let i = 0; i < mask.length; i++) {
+          mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
+        }
+      resolve({ img, hotX, hotY, mask });
+    };
     img.onerror = () => {
       console.warn(`Sprite not found: ${url} (extract UQM assets per SETUP.md)`);
       reject(new Error(`Failed to load ${url}`));
@@ -240,6 +258,28 @@ const BUG_BIG_HOTSPOT:  [number, number][] = [[3,3]];
 const BUG_MED_HOTSPOT:  [number, number][] = [[1,1]];
 const BUG_SML_HOTSPOT:  [number, number][] = [[0,0]];
 
+// ─── Mycon Podship projectile hotspots ───────────────────────────────────────
+
+// plasma-*.ani — first 11 frames are the in-flight plasmoid growth/decay states.
+const PLASMA_BIG_HOTSPOTS: [number, number][] = [
+  [7,6],[8,8],[11,9],[13,11],[15,14],[19,16],[23,19],[27,23],[27,23],[27,23],[25,22],
+];
+const PLASMA_MED_HOTSPOTS: [number, number][] = [
+  [2,3],[4,4],[4,4],[6,5],[7,7],[9,8],[11,9],[13,11],[13,11],[14,12],[12,11],
+];
+const PLASMA_SML_HOTSPOTS: [number, number][] = [
+  [1,1],[2,2],[2,2],[3,2],[4,3],[4,4],[5,4],[6,5],[7,5],[6,5],[5,5],
+];
+const PLASMA_IMPACT_BIG_HOTSPOTS: [number, number][] = [
+  [1,-1],[4,7],[4,7],[9,9],[9,8],[10,8],[10,8],[10,9],
+];
+const PLASMA_IMPACT_MED_HOTSPOTS: [number, number][] = [
+  [0,-1],[2,3],[2,3],[4,4],[4,4],[5,4],[5,4],[5,5],
+];
+const PLASMA_IMPACT_SML_HOTSPOTS: [number, number][] = [
+  [0,-1],[1,2],[1,2],[2,2],[2,2],[2,2],[2,2],[2,2],
+];
+
 // ─── Ur-Quan Dreadnought hotspot tables ──────────────────────────────────────
 
 // dreadnought-big.ani — 16 rotation frames
@@ -356,7 +396,8 @@ export function drawSprite(
   reduction: number = 0, // zoom level: 0=1x, 1=2x, 2=4x, 3=8x
   worldW = 20480, worldH = 15360,
 ): void {
-  const frame = set.frames[frameIndex & (set.count - 1)];
+  const normalizedIndex = ((frameIndex % set.count) + set.count) % set.count;
+  const frame = set.frames[normalizedIndex];
   if (!frame) return;
 
   // World → display: divide by 4 at 1x, 8 at 2x, 16 at 4x, 32 at 8x
@@ -448,6 +489,61 @@ export async function loadPkunkSprites(): Promise<PkunkSprites> {
   return {
     big, med, sml,
     bug: { big: bugBig, med: bugMed, sml: bugSml },
+  };
+}
+
+// ─── Mycon Podship sprites ────────────────────────────────────────────────────
+
+export interface MyconSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  plasma: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  plasmaImpact: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+async function loadSpriteSetRange(
+  path: string,
+  size: 'big' | 'med' | 'sml',
+  start: number,
+  count: number,
+  hotspots: [number, number][],
+): Promise<SpriteSet> {
+  const frames: (SpriteFrame | null)[] = Array(count).fill(null);
+
+  await Promise.all(
+    Array.from({ length: count }, (_, i) => {
+      const [hotX, hotY] = hotspots[i] ?? [0, 0];
+      const url = `/ships/${path}-${size}-${pad3(start + i)}.png`;
+      return loadFrame(url, hotX, hotY)
+        .then(f => { frames[i] = f; })
+        .catch(() => {});
+    })
+  );
+
+  return { frames, count };
+}
+
+export async function loadMyconSprites(): Promise<MyconSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('mycon/podship', 'big', 16, PODSHIP_BIG_HOTSPOTS),
+    loadSpriteSet('mycon/podship', 'med', 16, PODSHIP_MED_HOTSPOTS),
+    loadSpriteSet('mycon/podship', 'sml', 16, PODSHIP_SML_HOTSPOTS),
+  ]);
+  const [plasmaBig, plasmaMed, plasmaSml] = await Promise.all([
+    loadSpriteSet('mycon/plasma', 'big', 11, PLASMA_BIG_HOTSPOTS),
+    loadSpriteSet('mycon/plasma', 'med', 11, PLASMA_MED_HOTSPOTS),
+    loadSpriteSet('mycon/plasma', 'sml', 11, PLASMA_SML_HOTSPOTS),
+  ]);
+  const [plasmaImpactBig, plasmaImpactMed, plasmaImpactSml] = await Promise.all([
+    loadSpriteSetRange('mycon/plasma', 'big', 11, 8, PLASMA_IMPACT_BIG_HOTSPOTS),
+    loadSpriteSetRange('mycon/plasma', 'med', 11, 8, PLASMA_IMPACT_MED_HOTSPOTS),
+    loadSpriteSetRange('mycon/plasma', 'sml', 11, 8, PLASMA_IMPACT_SML_HOTSPOTS),
+  ]);
+  return {
+    big, med, sml,
+    plasma: { big: plasmaBig, med: plasmaMed, sml: plasmaSml },
+    plasmaImpact: { big: plasmaImpactBig, med: plasmaImpactMed, sml: plasmaImpactSml },
   };
 }
 

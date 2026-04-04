@@ -92,15 +92,15 @@ function load(url: string): HTMLAudioElement | null {
   return el;
 }
 
-/** Play a cached sound. Clones the element so the same sound can overlap itself. */
+/** Play a preloaded sound URL. Creates a fresh Audio element so the same
+ *  sound can overlap itself and avoids issues with errored cloneNode state. */
 function playUrl(url: string, volume = 1.0): void {
   if (_config.muted) return;
-  const src = cache.get(url);
-  if (!src) return;
+  if (!cache.has(url)) return;
   try {
-    const clone = src.cloneNode() as HTMLAudioElement;
-    clone.volume = Math.max(0, Math.min(1, volume * _config.sfxVolume));
-    clone.play().catch(() => {}); // ignore autoplay policy rejections
+    const el = new Audio(url);
+    el.volume = Math.max(0, Math.min(1, volume * _config.sfxVolume));
+    el.play().catch(() => {}); // ignore autoplay policy rejections
   } catch {
     // Audio not supported or already unmounted — ignore
   }

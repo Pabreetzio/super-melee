@@ -5,6 +5,7 @@
 // through SHIP_REGISTRY and never contains per-ship if-chains.
 
 import type { VelocityDesc } from '../velocity';
+import type { SpriteFrame } from '../sprites';
 
 // ─── Common ship state (all ships use this) ───────────────────────────────────
 
@@ -38,12 +39,16 @@ export type SpawnRequest =
       maxSpeed: number;
       accel: number;
       life: number;
+      hits?: number;
       damage: number;
       tracks: boolean;
       trackRate: number;
       inheritVelocity?: boolean;
       limpet?: boolean;
+      weaponType?: 'plasmoid';
+      initialTrackWait?: number;
     }
+  | { type: 'sound'; sound: 'primary' | 'secondary' }
   | { type: 'point_defense'; x: number; y: number }
   | {
       type: 'fighter';
@@ -80,10 +85,12 @@ export type SpawnRequest =
 // ─── Battle-world objects (live in BattleState) ───────────────────────────────
 
 export interface BattleMissile {
+  prevX: number; prevY: number;
   x: number; y: number;
   facing: number;
   velocity: VelocityDesc;
   life: number;
+  hitPoints: number;
   speed: number;
   maxSpeed: number;
   accel: number;
@@ -93,7 +100,7 @@ export interface BattleMissile {
   trackRate: number;
   owner: 0 | 1;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -134,11 +141,13 @@ export interface MissileEffect {
 
 /**
  * Effects a controller wants Battle.tsx to apply when one of its missiles
- * collides.  target === null means planet collision.
+ * collides.  target === null means a non-ship collision (planet or projectile).
  */
 export interface MissileHitEffect {
   /** If true, skip the default blast explosion at the impact site. */
   skipBlast?: boolean;
+  /** Override the cosmetic explosion animation used at the impact site. */
+  explosionType?: 'mycon_plasma';
   /** Spawn a splinter explosion at the impact position with this velocity. */
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */
@@ -184,6 +193,8 @@ export interface ShipController {
 
   /** Draw the ship body at its current position. */
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void;
+  /** Return the sprite frame used for ship collision tests, ideally the same one being drawn. */
+  getShipCollisionFrame?(ship: ShipState, sprites: unknown): SpriteFrame | null;
 
   /**
    * Draw a missile owned by this ship.
@@ -191,6 +202,8 @@ export interface ShipController {
    * Battle.tsx will fall back to a placeholder dot.
    */
   drawMissile?(dc: DrawContext, m: BattleMissile, sprites: unknown): void;
+  /** Return the sprite frame used for projectile collision tests. */
+  getMissileCollisionFrame?(m: BattleMissile, sprites: unknown): SpriteFrame | null;
 
   /**
    * Called when crew reaches 0.  Return true to cancel death (resurrection).

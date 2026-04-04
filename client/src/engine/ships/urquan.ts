@@ -8,10 +8,11 @@ import {
   setVelocityVector,
   setVelocityComponents, getCurrentVelocityComponents,
 } from '../velocity';
-import { COSINE, SINE, tableAngle } from '../sinetab';
+import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites } from '../sprites';
+import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect } from './types';
+import { worldAngle as battleWorldAngle } from '../battle/helpers';
 
 export type { ShipState as HumanShipState };
 
@@ -32,6 +33,7 @@ export const URQUAN_WEAPON_ENERGY_COST = 6;
 export const URQUAN_WEAPON_WAIT        = 6;
 export const URQUAN_MISSILE_SPEED      = DISPLAY_TO_WORLD(20); // 80 world units
 export const URQUAN_MISSILE_LIFE       = 20;
+export const URQUAN_MISSILE_HITS       = 10;
 export const URQUAN_MISSILE_DAMAGE     = 6;
 export const URQUAN_OFFSET             = DISPLAY_TO_WORLD(32); // 128 world units
 
@@ -156,6 +158,7 @@ export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[]
       maxSpeed: URQUAN_MISSILE_SPEED,
       accel:    0,
       life:     URQUAN_MISSILE_LIFE,
+      hits:     URQUAN_MISSILE_HITS,
       damage:   URQUAN_MISSILE_DAMAGE,
       tracks:   false,
       trackRate: 0,
@@ -206,10 +209,6 @@ export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function worldAngle(x1: number, y1: number, x2: number, y2: number): number {
-  return tableAngle(x2 - x1, y2 - y1);
-}
-
 function trackFacing(facing: number, targetAngle: number): number {
   const targetFacing = ((targetAngle + 2) >> 2) & 15;
   const diff = (targetFacing - facing + 16) % 16;
@@ -241,6 +240,11 @@ export const urquanController: ShipController = {
     }
   },
 
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as UrquanSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
+  },
+
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
     const sp = sprites as UrquanSprites | null;
     if (m.weaponType === 'fighter') {
@@ -268,6 +272,12 @@ export const urquanController: ShipController = {
     }
   },
 
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as UrquanSprites | null;
+    if (m.weaponType === 'fighter') return sp?.fighter.big.frames[m.facing] ?? null;
+    return sp?.fusion.big.frames[m.facing] ?? null;
+  },
+
   processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
     if (m.weaponType !== 'fighter') return {};
 
@@ -277,7 +287,7 @@ export const urquanController: ShipController = {
     const navTarget = returning ? ownShip : enemyShip;
 
     // Turn toward nav target and set velocity
-    const targetAngle = worldAngle(m.x, m.y, navTarget.x, navTarget.y);
+    const targetAngle = battleWorldAngle(m.x, m.y, navTarget.x, navTarget.y);
     m.facing = trackFacing(m.facing, targetAngle);
     setVelocityVector(m.velocity, FIGHTER_SPEED, m.facing);
 
@@ -297,7 +307,7 @@ export const urquanController: ShipController = {
       const dy = enemyShip.y - m.y;
       const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
       if (dx * dx + dy * dy < laserRangeSq) {
-        const laserAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
+        const laserAngle = battleWorldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
         const lx = COSINE(laserAngle, FIGHTER_LASER_RANGE);
         const ly = SINE(laserAngle, FIGHTER_LASER_RANGE);
         effect.lasers      = [{ x1: m.x, y1: m.y, x2: m.x + lx, y2: m.y + ly }];

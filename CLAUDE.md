@@ -45,9 +45,21 @@ docs/
 ├── netplay.md       # sync model analysis — read before touching net/
 ├── assets.md        # asset catalog and extraction notes
 ├── architecture.md  # planned web stack and module structure
+├── battle-architecture.md # current battle-loop ownership and extension points
+├── weapon-porting.md # repeatable checklist for implementing/fixing weapons
+├── porting-ships.md # broader ship-porting notes
 ├── survey.md        # broad source survey — start here for orientation
 └── ships/           # one file per ship with stats, weapons, specials
 ```
+
+## Battle / Weapon Workflow
+
+When working on weapons or battle behavior:
+
+1. Read `docs/battle-architecture.md` for current module boundaries.
+2. Read `docs/weapon-porting.md` for the implementation checklist.
+3. Read the relevant `docs/ships/<ship>.md` file if present.
+4. Check the matching UQM ship source before changing logic.
 
 ## Stack
 

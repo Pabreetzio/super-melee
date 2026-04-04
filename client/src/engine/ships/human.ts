@@ -9,7 +9,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadCruiserSprites, drawSprite, placeholderDot, type CruiserSprites } from '../sprites';
+import { loadCruiserSprites, drawSprite, placeholderDot, type CruiserSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, LaserFlash } from './types';
 
 // ─── Ship constants (from human.c) ───────────────────────────────────────────
@@ -33,6 +33,7 @@ export const MIN_MISSILE_SPEED  = DISPLAY_TO_WORLD(10); // 40 world units
 export const MAX_MISSILE_SPEED  = DISPLAY_TO_WORLD(20); // 80 world units
 export const MISSILE_SPEED      = Math.max(MAX_THRUST, MIN_MISSILE_SPEED); // 40
 export const THRUST_SCALE       = DISPLAY_TO_WORLD(1);  // 4 world units acceleration/frame
+export const MISSILE_HITS       = 1;
 export const MISSILE_DAMAGE     = 4;
 export const TRACK_WAIT         = 3;
 export const HUMAN_OFFSET       = 42;   // display pixels — nuke spawn offset from ship
@@ -160,6 +161,7 @@ export function updateHumanShip(ship: ShipState, input: number): SpawnRequest[] 
       maxSpeed: MAX_MISSILE_SPEED,
       accel:    THRUST_SCALE,
       life:     MISSILE_LIFE,
+      hits:     MISSILE_HITS,
       damage:   MISSILE_DAMAGE,
       tracks:   true,
       trackRate: TRACK_WAIT,
@@ -255,6 +257,11 @@ export const humanController: ShipController = {
     }
   },
 
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as CruiserSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
+  },
+
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
     const sp = sprites as CruiserSprites | null;
     const set = sp
@@ -265,6 +272,11 @@ export const humanController: ShipController = {
     } else {
       placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
     }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as CruiserSprites | null;
+    return sp?.nuke.big.frames[m.facing] ?? null;
   },
 
   applySpawn(

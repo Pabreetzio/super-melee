@@ -11,7 +11,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadPkunkSprites, drawSprite, placeholderDot, type PkunkSprites } from '../sprites';
+import { loadPkunkSprites, drawSprite, placeholderDot, type PkunkSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
 
 // ─── Constants (from pkunk.c) ─────────────────────────────────────────────────
@@ -31,6 +31,7 @@ export const PKUNK_WEAPON_WAIT        = 0;   // fires every frame while held
 export const PKUNK_OFFSET             = DISPLAY_TO_WORLD(15); // 60 world units
 export const PKUNK_MISSILE_SPEED      = DISPLAY_TO_WORLD(24); // 96 world units
 export const PKUNK_MISSILE_LIFE       = 5;
+export const PKUNK_MISSILE_HITS       = 1;
 export const PKUNK_MISSILE_DAMAGE     = 1;
 
 // Taunt (special — cosmetic in this port)
@@ -154,6 +155,7 @@ export function updatePkunkShip(
         maxSpeed: PKUNK_MISSILE_SPEED,
         accel:    0,
         life:     PKUNK_MISSILE_LIFE,
+        hits:     PKUNK_MISSILE_HITS,
         damage:   PKUNK_MISSILE_DAMAGE,
         tracks:   false,
         trackRate: 0,
@@ -201,6 +203,11 @@ export const pkunkController: ShipController = {
     }
   },
 
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as PkunkSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
+  },
+
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
     const sp = sprites as PkunkSprites | null;
     const group = sp ? sp.bug : null;
@@ -213,6 +220,11 @@ export const pkunkController: ShipController = {
     } else {
       placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
     }
+  },
+
+  getMissileCollisionFrame(_m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as PkunkSprites | null;
+    return sp?.bug.big.frames[0] ?? null;
   },
 
   onDeath(ship: ShipState, rand: (n: number) => number): boolean {

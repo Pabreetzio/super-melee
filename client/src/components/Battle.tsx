@@ -27,8 +27,6 @@ import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/b
 import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
-// Per-ship constants still needed for world-physics helpers that live here
-import { SHIP_RADIUS } from '../engine/ships/human';
 import { loadExplosionSprites, placeholderDot, type ExplosionSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
@@ -295,7 +293,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Restore fighters carried over from the previous fight (Urquan winner scenario).
     const initMissiles: BattleMissile[] = winnerState?.persistedMissiles
-      ? winnerState.persistedMissiles.map(m => ({ ...m }))
+      ? winnerState.persistedMissiles.map(m => ({
+          ...m,
+          prevX: m.prevX ?? m.x,
+          prevY: m.prevY ?? m.y,
+        }))
       : [];
 
     stateRef.current = {
@@ -696,13 +698,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           v.vy += ownerShip.velocity.vy;
         }
         bs.missiles.push({
+          prevX: s.x, prevY: s.y,
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: s.life, speed: s.speed, maxSpeed: s.maxSpeed,
+          life: s.life, hitPoints: s.hits ?? s.damage, speed: s.speed, maxSpeed: s.maxSpeed,
           accel: s.accel, damage: s.damage,
-          tracks: s.tracks, trackWait: s.trackRate, trackRate: s.trackRate,
+          tracks: s.tracks, trackWait: s.initialTrackWait ?? s.trackRate, trackRate: s.trackRate,
           owner,
           limpet: s.limpet,
+          weaponType: s.weaponType,
         });
+      } else if (s.type === 'sound') {
+        // Pure side-effect request; handled by the sound dispatch below.
       } else if (s.type === 'buzzsaw') {
         // FIFO cap: controller specifies the limit via weaponCap.
         if (s.weaponCap !== undefined) {
@@ -716,8 +722,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, s.speed, s.facing);
         bs.missiles.push({
+          prevX: s.x, prevY: s.y,
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: s.life, speed: s.speed, maxSpeed: s.speed,
+          life: s.life, hitPoints: s.hits, speed: s.speed, maxSpeed: s.speed,
           accel: 0, damage: s.damage,
           tracks: false,   // buzzsaws NEVER home — they freeze in place on release
           trackWait: 0, trackRate: 0,
@@ -733,8 +740,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         v.vx += s.shipVelocity.vx;
         v.vy += s.shipVelocity.vy;
         bs.missiles.push({
+          prevX: s.x, prevY: s.y,
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: 64, speed: s.speed, maxSpeed: s.speed,
+          life: 64, hitPoints: s.hits, speed: s.speed, maxSpeed: s.speed,
           accel: 0, damage: s.damage,
           tracks: false, trackWait: 0, trackRate: 0,
           owner,
@@ -745,8 +753,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, s.speed, s.facing);
         bs.missiles.push({
+          prevX: s.x, prevY: s.y,
           x: s.x, y: s.y, facing: s.facing, velocity: v,
-          life: s.life, speed: s.speed, maxSpeed: s.speed,
+          life: s.life, hitPoints: 1, speed: s.speed, maxSpeed: s.speed,
           accel: 0, damage: 0,
           tracks: false, trackWait: 0, trackRate: 0,
           owner,
@@ -763,6 +772,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       // Immediate weapon effects owned by each ship's controller
       SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(s, bs.ships[0], bs.ships[1], 0, bs.missiles, addLaser);
       // Sound dispatch (keyed on spawn type, independent of ship identity)
+      if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]);
+      else
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
       else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
@@ -775,6 +786,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     for (const s of spawns1) {
       spawnRequest(s, 1);
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
+      if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]);
+      else
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
       else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
@@ -783,18 +796,18 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 
-    processMissiles(bs, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
+    processMissiles(bs, shipSpritesRef.current, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
     bs.explosions = advanceExplosions(bs.explosions, WORLD_W, WORLD_H);
 
     // Ship–ship collision (skip if either ship is still warping in)
-    handleShipShipCollision(bs.ships, bs.warpIn, SHIP_RADIUS);
+    handleShipShipCollision(bs.ships, bs.warpIn, bs.shipTypes, shipSpritesRef.current);
 
     // Ship–planet collision (UQM misc.c / ship.c behavior):
     //   damage = ship.crew >> 2  (25% current HP, min 1)
     //   planet has DEFY_PHYSICS — ship bounces, planet doesn't move
-    handleShipPlanetCollisions(bs.ships, PLANET_X, PLANET_Y, PLANET_RADIUS_W, SHIP_RADIUS);
+    handleShipPlanetCollisions(bs.ships, bs.shipTypes, shipSpritesRef.current, PLANET_X, PLANET_Y, PLANET_RADIUS_W);
 
     // Spawn boom explosion when a ship transitions alive→dead
     for (let side = 0; side < 2; side++) {

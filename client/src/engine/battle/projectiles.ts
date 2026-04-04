@@ -1,12 +1,123 @@
 import { playBlast, playEffectSound } from '../audio';
 import { SHIP_REGISTRY } from '../ships/registry';
+import { getShipDef } from '../ships';
 import type { BattleMissile, ShipState } from '../ships/types';
-import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD } from '../velocity';
-import { trackFacing, SHIP_RADIUS } from '../ships/human';
+import type { SpriteFrame } from '../sprites';
+import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY } from '../velocity';
+import { trackFacing } from '../ships/human';
 import { COSINE, SINE } from '../sinetab';
 import type { BattleExplosion, IonDot } from './types';
 import type { BattleState } from './types';
-import { circleOverlap, worldAngle } from './helpers';
+import { circleOverlap, worldAngle, worldDelta } from './helpers';
+import { spriteMasksOverlap, spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
+
+function missileRadius(m: BattleMissile): number {
+  // Broad-phase circle radius — must be >= the sprite's actual pixel radius so
+  // the narrow-phase mask check is always triggered for real overlaps.
+  // Plasmoid: sprite grows from 14×13 (frame 0, ~7 px radius) to 49×41 (frame 10,
+  // ~25 px radius). Use 28 px to safely cover all frames.
+  if (m.weaponType === 'plasmoid') return DISPLAY_TO_WORLD(28);
+  // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
+  if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
+  if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
+  return DISPLAY_TO_WORLD(2);
+}
+
+function sweptCircleOverlap(
+  a: BattleMissile,
+  aRadius: number,
+  b: BattleMissile,
+  bRadius: number,
+  worldW: number,
+  worldH: number,
+): boolean {
+  const { dx: aMoveX, dy: aMoveY } = worldDelta(a.prevX, a.prevY, a.x, a.y, worldW, worldH);
+  const { dx: bMoveX, dy: bMoveY } = worldDelta(b.prevX, b.prevY, b.x, b.y, worldW, worldH);
+  const maxMovePx = Math.max(
+    Math.abs(WORLD_TO_DISPLAY(aMoveX)),
+    Math.abs(WORLD_TO_DISPLAY(aMoveY)),
+    Math.abs(WORLD_TO_DISPLAY(bMoveX)),
+    Math.abs(WORLD_TO_DISPLAY(bMoveY)),
+  );
+  const steps = Math.max(1, Math.ceil(maxMovePx));
+
+  for (let step = 0; step <= steps; step++) {
+    const t = step / steps;
+    const aSampleX = a.prevX + Math.round(aMoveX * t);
+    const aSampleY = a.prevY + Math.round(aMoveY * t);
+    const bSampleX = b.prevX + Math.round(bMoveX * t);
+    const bSampleY = b.prevY + Math.round(bMoveY * t);
+    if (circleOverlap(aSampleX, aSampleY, aRadius, bSampleX, bSampleY, bRadius, worldW, worldH)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getMissileCollisionFrame(
+  bs: BattleState,
+  shipSprites: Map<string, unknown>,
+  m: BattleMissile,
+): SpriteFrame | null {
+  const shipType = bs.shipTypes[m.owner];
+  const ctrl = SHIP_REGISTRY[shipType];
+  return ctrl.getMissileCollisionFrame?.(m, shipSprites.get(shipType) ?? null) ?? null;
+}
+
+function getShipCollisionFrame(
+  bs: BattleState,
+  shipSprites: Map<string, unknown>,
+  side: 0 | 1,
+): SpriteFrame | null {
+  const shipType = bs.shipTypes[side];
+  const ctrl = SHIP_REGISTRY[shipType];
+  return ctrl.getShipCollisionFrame?.(bs.ships[side], shipSprites.get(shipType) ?? null) ?? null;
+}
+
+function pushHitEffects(
+  bs: BattleState,
+  m: BattleMissile,
+  hitFx: ReturnType<NonNullable<(typeof SHIP_REGISTRY)[keyof typeof SHIP_REGISTRY]['onMissileHit']>>,
+): void {
+  const explosionType = hitFx.explosionType ?? 'blast';
+  if (!hitFx.skipBlast) bs.explosions.push({ type: explosionType, x: m.x, y: m.y, frame: 0 });
+  if (hitFx.splinter) {
+    bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2, vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
+  }
+  if (hitFx.sounds) {
+    for (const snd of hitFx.sounds) playEffectSound(snd);
+  }
+}
+
+function resolveWeaponCollisionPair(a: BattleMissile, b: BattleMissile): { aDestroyed: boolean; bDestroyed: boolean } {
+  let aDestroyed = false;
+  let bDestroyed = false;
+  let aCollided = false;
+  let bCollided = false;
+
+  if (a.damage > 0) {
+    b.hitPoints = Math.max(0, b.hitPoints - a.damage);
+    if (b.hitPoints > 0) aCollided = true;
+  }
+  if (!bCollided && a.hitPoints <= b.damage) {
+    a.hitPoints = 0;
+    aDestroyed = true;
+    aCollided = true;
+  }
+
+  if (b.damage > 0) {
+    a.hitPoints = Math.max(0, a.hitPoints - b.damage);
+    if (a.hitPoints > 0) bCollided = true;
+  }
+  if (!aCollided && b.hitPoints <= a.damage) {
+    b.hitPoints = 0;
+    bDestroyed = true;
+    bCollided = true;
+  }
+
+  return { aDestroyed: aDestroyed || a.hitPoints <= 0, bDestroyed: bDestroyed || b.hitPoints <= 0 };
+}
 
 export function advanceExplosions(
   explosions: BattleExplosion[],
@@ -59,6 +170,7 @@ export function updateIonTrails(
 
 export function processMissiles(
   bs: BattleState,
+  shipSprites: Map<string, unknown>,
   input0: number,
   input1: number,
   planetX: number,
@@ -72,6 +184,8 @@ export function processMissiles(
   for (const m of bs.missiles) {
     m.life--;
     if (m.life <= 0) continue;
+    m.prevX = m.x;
+    m.prevY = m.y;
 
     const ownerCtrl  = SHIP_REGISTRY[bs.shipTypes[m.owner]];
     const ownShip    = bs.ships[m.owner];
@@ -124,22 +238,22 @@ export function processMissiles(
     const targetShip = bs.ships[targetSide];
 
     if (!hit && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
-      const pdx = m.x - planetX;
-      const pdy = m.y - planetY;
+      const { dx: pdx, dy: pdy } = worldDelta(planetX, planetY, m.x, m.y);
       if (pdx * pdx + pdy * pdy < (planetRadiusW + 4) ** 2) {
+        const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);
+        if (missileFrame && !spriteMaskIntersectsCircle(missileFrame, m.x, m.y, planetX, planetY, planetRadiusW, worldW, worldH)) {
+          // Bounding spheres overlapped, but masks did not.
+        } else {
         const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
-        if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
-        if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-          vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
-        if (hitFx.sounds) for (const snd of hitFx.sounds) playEffectSound(snd);
+        pushHitEffects(bs, m, hitFx);
         playBlast(m.damage);
         hit = true;
+        }
       }
     }
 
     if (!hit && m.weaponType === 'fighter') {
-      const fpdx = m.x - planetX;
-      const fpdy = m.y - planetY;
+      const { dx: fpdx, dy: fpdy } = worldDelta(planetX, planetY, m.x, m.y);
       const fDistSq = fpdx * fpdx + fpdy * fpdy;
       const fCollideR = planetRadiusW + DISPLAY_TO_WORLD(4);
       if (fDistSq < fCollideR * fCollideR && fDistSq > 0) {
@@ -156,26 +270,81 @@ export function processMissiles(
 
     if (!hit && m.weaponType !== 'fighter' &&
         bs.warpIn[targetSide] === 0 &&
-        circleOverlap(m.x, m.y, 4, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(SHIP_RADIUS))) {
-      targetShip.crew = Math.max(0, targetShip.crew - m.damage);
-      const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
-      if (!hitFx.skipBlast) bs.explosions.push({ type: 'blast', x: m.x, y: m.y, frame: 0 });
-      if (hitFx.splinter)   bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2,
-        vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
-      if (hitFx.impairTarget) {
-        targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
-        targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
+        circleOverlap(m.x, m.y, missileRadius(m), targetShip.x, targetShip.y, DISPLAY_TO_WORLD(getShipDef(bs.shipTypes[targetSide])?.radius ?? 14))) {
+      const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);
+      const shipFrame = getShipCollisionFrame(bs, shipSprites, targetSide);
+      if ((missileFrame && shipFrame && !spriteMasksOverlap(missileFrame, m.x, m.y, shipFrame, targetShip.x, targetShip.y, worldW, worldH))
+        || (missileFrame && !shipFrame && !spriteMaskIntersectsCircle(missileFrame, m.x, m.y, targetShip.x, targetShip.y, DISPLAY_TO_WORLD(getShipDef(bs.shipTypes[targetSide])?.radius ?? 14), worldW, worldH))) {
+        // Broad-phase overlap only.
+      } else {
+        targetShip.crew = Math.max(0, targetShip.crew - m.damage);
+        const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
+        pushHitEffects(bs, m, hitFx);
+        if (hitFx.impairTarget) {
+          targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
+          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
+        }
+        if (hitFx.attachLimpet) {
+          targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
+        }
+        if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
+        hit = true;
       }
-      if (hitFx.attachLimpet) {
-        targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
-      }
-      if (hitFx.sounds) for (const snd of hitFx.sounds) playEffectSound(snd);
-      if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
-      hit = true;
     }
 
     if (!hit) aliveMissiles.push(m);
   }
 
-  bs.missiles = aliveMissiles;
+  const alive = Array(aliveMissiles.length).fill(true) as boolean[];
+  for (let i = 0; i < aliveMissiles.length; i++) {
+    if (!alive[i]) continue;
+    const a = aliveMissiles[i];
+    if (a.weaponType === 'fighter') continue;
+    for (let j = i + 1; j < aliveMissiles.length; j++) {
+      if (!alive[j]) continue;
+      const b = aliveMissiles[j];
+      if (b.weaponType === 'fighter') continue;
+      if (a.owner === b.owner) continue;
+      const aRadius = missileRadius(a);
+      const bRadius = missileRadius(b);
+      if (!sweptCircleOverlap(a, aRadius, b, bRadius, worldW, worldH)) continue;
+      const aFrame = getMissileCollisionFrame(bs, shipSprites, a);
+      const bFrame = getMissileCollisionFrame(bs, shipSprites, b);
+      if (aFrame && bFrame && !sweptSpriteMasksOverlapPadded(
+        aFrame,
+        a.prevX,
+        a.prevY,
+        a.x,
+        a.y,
+        bFrame,
+        b.prevX,
+        b.prevY,
+        b.x,
+        b.y,
+        worldW,
+        worldH,
+        1,
+      )) continue;
+
+      const aCtrl = SHIP_REGISTRY[bs.shipTypes[a.owner]];
+      const bCtrl = SHIP_REGISTRY[bs.shipTypes[b.owner]];
+      const { aDestroyed, bDestroyed } = resolveWeaponCollisionPair(a, b);
+
+      if (aDestroyed || a.hitPoints <= 0) {
+        const hitFx = aCtrl.onMissileHit?.(a, null) ?? {};
+        pushHitEffects(bs, a, hitFx);
+        if (!hitFx.skipBlast) playBlast(Math.max(1, a.damage));
+        alive[i] = false;
+      }
+      if (bDestroyed || b.hitPoints <= 0) {
+        const hitFx = bCtrl.onMissileHit?.(b, null) ?? {};
+        pushHitEffects(bs, b, hitFx);
+        if (!hitFx.skipBlast) playBlast(Math.max(1, b.damage));
+        alive[j] = false;
+      }
+      if (!alive[i]) break;
+    }
+  }
+
+  bs.missiles = aliveMissiles.filter((_m, idx) => alive[idx]);
 }

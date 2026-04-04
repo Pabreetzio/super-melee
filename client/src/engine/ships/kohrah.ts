@@ -8,10 +8,11 @@ import {
   WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
   setVelocityVector, setVelocityComponents, getCurrentVelocityComponents,
 } from '../velocity';
-import { COSINE, SINE, tableAngle } from '../sinetab';
+import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadKohrahSprites, drawSprite, placeholderDot, type KohrahSprites } from '../sprites';
+import { loadKohrahSprites, drawSprite, placeholderDot, type KohrahSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect, MissileHitEffect } from './types';
+import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
 
 export type { ShipState as HumanShipState };
 
@@ -206,12 +207,6 @@ export function updateKohrahShip(ship: ShipState, input: number): SpawnRequest[]
   return spawns;
 }
 
-// ─── World-angle helper (same as Battle.tsx's local worldAngle) ───────────────
-
-function worldAngle(x1: number, y1: number, x2: number, y2: number): number {
-  return tableAngle(x2 - x1, y2 - y1);
-}
-
 // ─── Ship controller ─────────────────────────────────────────────────────────
 
 export const kohrahController: ShipController = {
@@ -235,6 +230,11 @@ export const kohrahController: ShipController = {
     } else {
       placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#4af', dc.reduction);
     }
+  },
+
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as KohrahSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
   },
 
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
@@ -262,6 +262,13 @@ export const kohrahController: ShipController = {
     } else {
       placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
     }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as KohrahSprites | null;
+    if (m.weaponType === 'buzzsaw') return sp?.buzzsaw.big.frames[(m.decelWait ?? 0) & 1] ?? null;
+    if (m.weaponType === 'gas_cloud') return sp?.gas.big.frames[Math.min(7, (64 - m.life) >> 3)] ?? null;
+    return null;
   },
 
   processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, input: number): MissileEffect {
@@ -311,13 +318,12 @@ export const kohrahController: ShipController = {
           m.trackWait--;
         } else {
           m.trackWait = BUZZSAW_TRACK_WAIT;
-          const dxW = enemyShip.x - m.x;
-          const dyW = enemyShip.y - m.y;
+          const { dx: dxW, dy: dyW } = worldDelta(m.x, m.y, enemyShip.x, enemyShip.y);
           const dxD = Math.abs(dxW) >> 2; // WORLD_TO_DISPLAY
           const dyD = Math.abs(dyW) >> 2;
           if (dxD < ACTIVATE_RANGE && dyD < ACTIVATE_RANGE &&
               dxD * dxD + dyD * dyD < ACTIVATE_RANGE * ACTIVATE_RANGE) {
-            const angle  = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
+            const angle  = battleWorldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
             const facing = ((angle + 2) >> 2) & 15;
             setVelocityVector(m.velocity, BUZZSAW_TRACK_SPEED, facing);
           } else {

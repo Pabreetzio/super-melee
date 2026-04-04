@@ -10,7 +10,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites } from '../sprites';
+import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileHitEffect, LaserFlash } from './types';
 
 export type { ShipState as HumanShipState };
@@ -40,6 +40,7 @@ export const VUX_SPECIAL_WAIT        = 7;
 export const LIMPET_SPEED            = 25; // world units (raw, not DISPLAY_TO_WORLD)
 export const LIMPET_OFFSET           = DISPLAY_TO_WORLD(8); // 32 world units
 export const LIMPET_LIFE             = 80;
+export const LIMPET_HITS             = 1;
 export const LIMPET_DAMAGE           = 0;
 const VUX_LASER_COLOR                = '#52ff52';
 
@@ -173,6 +174,7 @@ export function updateVuxShip(ship: ShipState, input: number): SpawnRequest[] {
       maxSpeed: LIMPET_SPEED,
       accel:    0,
       life:     LIMPET_LIFE,
+      hits:     LIMPET_HITS,
       damage:   LIMPET_DAMAGE,
       tracks:   true,
       trackRate: 1,
@@ -206,6 +208,11 @@ export const vuxController: ShipController = {
     }
   },
 
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as VuxSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
+  },
+
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
     const sp = sprites as VuxSprites | null;
     // Only limpets get a custom sprite; vux_laser is handled as a LaserFlash, not a missile
@@ -220,6 +227,13 @@ export const vuxController: ShipController = {
     } else {
       placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#52ff52', dc.reduction);
     }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as VuxSprites | null;
+    if (!m.limpet) return null;
+    const frameIdx = m.life > 0 ? (LIMPET_LIFE - m.life) & 3 : 0;
+    return sp?.limpets.big.frames[frameIdx] ?? null;
   },
 
   onMissileHit(m: BattleMissile, target: ShipState | null): MissileHitEffect {

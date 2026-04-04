@@ -6,6 +6,7 @@
 
 import type { ShipId } from 'shared/types';
 import type { ShipController, ShipState, DrawContext } from './types';
+import type { SpriteFrame } from '../sprites';
 import { getAllShips } from './index';
 import { loadGenericShipSprites, drawSprite, placeholderDot } from '../sprites';
 import { makeHumanShip, updateHumanShip } from './human';
@@ -16,6 +17,7 @@ import { urquanController } from './urquan';
 import { pkunkController  } from './pkunk';
 import { vuxController    } from './vux';
 import { kohrahController } from './kohrah';
+import { myconController  } from './mycon';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -50,6 +52,11 @@ function makeDefaultController(id: ShipId): ShipController {
       }
     },
 
+    getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+      const sp = sprites as { big?: { frames: (SpriteFrame | null)[] } } | null;
+      return sp?.big?.frames[ship.facing] ?? null;
+    },
+
     // No custom missile sprite — Battle.tsx will call the owner controller's
     // drawMissile and fall through to placeholderDot.
   };
@@ -64,6 +71,7 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   pkunk:   pkunkController,
   vux:     vuxController,
   kohrah:  kohrahController,
+  mycon:   myconController,
 };
 
 // Build the full registry, filling every ShipId with either the explicit

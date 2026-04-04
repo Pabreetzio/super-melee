@@ -10,7 +10,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
-import { loadSpathiSprites, drawSprite, placeholderDot, type SpathiSprites } from '../sprites';
+import { loadSpathiSprites, drawSprite, placeholderDot, type SpathiSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
 
 // Backward-compat alias
@@ -35,6 +35,7 @@ export const SPATHI_WEAPON_WAIT        = 0;    // fires every frame while held
 export const SPATHI_FORWARD_OFFSET     = DISPLAY_TO_WORLD(16); // 64 world units
 export const SPATHI_MISSILE_SPEED      = DISPLAY_TO_WORLD(30); // 120 world units
 export const SPATHI_MISSILE_LIFE       = 10;
+export const SPATHI_MISSILE_HITS       = 1;
 export const SPATHI_MISSILE_DAMAGE     = 1;
 
 // Special: B.U.T.T. (backward tracking torpedo)
@@ -43,6 +44,7 @@ export const SPATHI_SPECIAL_WAIT        = 7;
 export const SPATHI_REAR_OFFSET         = DISPLAY_TO_WORLD(20); // 80 world units
 export const BUTT_SPEED                 = DISPLAY_TO_WORLD(8);  // 32 world units
 export const BUTT_LIFE                  = 30;
+export const BUTT_HITS                  = 1;
 export const BUTT_DAMAGE                = 2;
 export const BUTT_TRACK_WAIT            = 1;   // track every 2 frames
 
@@ -159,6 +161,7 @@ export function updateSpathiShip(ship: ShipState, input: number): SpawnRequest[]
       maxSpeed: SPATHI_MISSILE_SPEED,
       accel:    0,
       life:     SPATHI_MISSILE_LIFE,
+      hits:     SPATHI_MISSILE_HITS,
       damage:   SPATHI_MISSILE_DAMAGE,
       tracks:   false,
       trackRate: 0,
@@ -182,6 +185,7 @@ export function updateSpathiShip(ship: ShipState, input: number): SpawnRequest[]
       maxSpeed: BUTT_SPEED,
       accel:    0,
       life:     BUTT_LIFE,
+      hits:     BUTT_HITS,
       damage:   BUTT_DAMAGE,
       tracks:   true,
       trackRate: BUTT_TRACK_WAIT,
@@ -214,6 +218,11 @@ export const spathiController: ShipController = {
     }
   },
 
+  getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as SpathiSprites | null;
+    return sp?.big.frames[ship.facing] ?? null;
+  },
+
   drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
     const sp = sprites as SpathiSprites | null;
     // Tracking missiles (BUTT) use the butt sprite; forward shots use missile sprite
@@ -228,5 +237,11 @@ export const spathiController: ShipController = {
     } else {
       placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ff8', dc.reduction);
     }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as SpathiSprites | null;
+    const group = m.tracks ? sp?.butt.big : sp?.missile.big;
+    return group?.frames[m.facing] ?? null;
   },
 };
