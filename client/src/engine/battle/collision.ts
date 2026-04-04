@@ -54,8 +54,6 @@ export function handleShipShipCollision(
     ships[1].y = wrapWorldCoord(ships[1].y, 15360);
   }
 
-  ships[0].crew = Math.max(0, ships[0].crew - 1);
-  ships[1].crew = Math.max(0, ships[1].crew - 1);
 }
 
 export function handleShipPlanetCollisions(
