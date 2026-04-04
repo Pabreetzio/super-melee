@@ -247,6 +247,31 @@ confirmed from `load_gravity_well()` call in battle init.
 
 ---
 
+## Status Panel Fonts
+
+UQM bitmap fonts converted to woff2 and loaded via the CSS Font Loading API in `StatusPanel.tsx`.
+
+| Token | Font file | Used for |
+|-------|-----------|----------|
+| `UQMStarCon` | `assets/fonts/starcon.woff2` | Race name (status panel header) |
+| `UQMTiny`    | `assets/fonts/tiny.woff2`   | Captain name (between gauge bars) |
+
+**Loading strategy:** Fonts are registered at module init using `new FontFace(...)` and added to `document.fonts`. A module-level `uqmFontsReady` flag is set when all `face.load()` promises resolve. Until then, the panel draws with `bold Npx monospace` as a fallback — no frame is blocked waiting for fonts.
+
+**Race name rendering (faithful to UQM):**
+- Full race name, uppercased
+- Font size auto-scaled down if the text would exceed the panel width minus 4px padding each side
+- Drawn twice: offset +1px down in `#787878` (lighter than panel background — acts as drop shadow), then in `#000000` on top
+
+**Captain name rendering:**
+- Drawn centered between the crew and energy gauge columns
+- Auto-scaled to fit the available gap width
+- Baseline sits at the bottom of the gauge bars so text straddles the bar bottom edge
+
+See `docs/assets.md` (Fonts section) for extraction and conversion details.
+
+---
+
 ## Open Questions (to verify from UQM source)
 
 - [ ] Exact planet type used in Super Melee (check `spawn_planet` in `misc.c`)

@@ -67,8 +67,39 @@ planet sprites are extracted.
 - [ ] Ship thruster animation frames (per ship — used when thrusting)
 - [ ] Ship destruction frames (per ship — played on death)
 - [ ] Per-ship projectile sprites (varies by ship)
-- [ ] Bitmap fonts (`base/fonts/`) for UI text matching original style
+- [x] Bitmap fonts — converted to woff2 and placed in `assets/fonts/` (see Fonts section below)
 - [ ] Audio (music + SFX — format TBD, likely OGG in the content package)
+
+## Fonts (`assets/fonts/`)
+
+UQM uses custom bitmap fonts for all in-game UI text. Three fonts are relevant to the battle status panel:
+
+| File | Source (content package) | Used for |
+|------|--------------------------|----------|
+| `starcon.woff2` / `.ttf` | `base/fonts/startcon.fon` | Race name header in status panel |
+| `tiny.woff2` / `.ttf`    | `base/fonts/micro2.fon`  | Captain name between gauge bars |
+| `micro.woff2` / `.ttf`   | `base/fonts/micro.fon`   | Small labels (reserved, not yet used) |
+
+### Extraction / Conversion
+
+The `.fon` files are Windows bitmap font resources. Conversion to web fonts was done with:
+- `tools/convert-font.py` — extracts glyph bitmaps from `.fon` and builds a TTF via `fonttools`
+- `tools/font-test.html` — browser preview for verifying glyph coverage and sizing
+
+Converted fonts are committed to `assets/fonts/`; source `.fon` files remain in the gitignored content package.
+
+### Usage in StatusPanel
+
+`StatusPanel.tsx` loads all three fonts at module init via the CSS Font Loading API:
+
+```ts
+new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)')
+new FontFace('UQMTiny',    'url(/fonts/tiny.woff2)')
+```
+
+The panel falls back to monospace until fonts are ready (`uqmFontsReady` flag), so the first frame is never blocked. Once loaded, the race name renders in **UQMStarCon** (auto-scaled to fit the panel width) and the captain name renders in **UQMTiny** (auto-scaled to fit between the crew/energy gauge columns).
+
+Race name rendering matches UQM: text is drawn twice — once offset one pixel down in a lighter grey (drop shadow), then again in black on top.
 
 ## UQM Content Package
 

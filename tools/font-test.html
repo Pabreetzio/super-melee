@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>StarCon Font Test</title>
+<style>
+  @font-face {
+    font-family: 'StarCon';
+    src: url('/fonts/starcon.woff2') format('woff2'),
+         url('/fonts/starcon.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  body {
+    background: #000;
+    color: #fff;
+    padding: 40px;
+    font-family: monospace;
+  }
+
+  .ship-name {
+    font-family: 'StarCon', monospace;
+    font-size: 36px;
+    image-rendering: pixelated;
+    letter-spacing: 0;
+    line-height: 1;
+    color: #fff;
+    margin: 8px 0;
+  }
+
+  .scale-demo {
+    font-family: 'StarCon', monospace;
+    image-rendering: pixelated;
+    letter-spacing: 0;
+    line-height: 1;
+    color: #aef;
+    margin: 4px 0;
+  }
+
+  h2 { color: #888; font-size: 12px; margin: 24px 0 4px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<h2>SHIP RACE NAMES</h2>
+<div class="ship-name">SPATHI</div>
+<div class="ship-name">ANDROSYNTH</div>
+<div class="ship-name">CHENJESU</div>
+<div class="ship-name">UR-QUAN KZER-ZA</div>
+<div class="ship-name">ZOQ-FOT-PIK</div>
+<div class="ship-name">YEHAT</div>
+<div class="ship-name">PKUNK</div>
+<div class="ship-name">MYCON</div>
+<div class="ship-name">ILWRATH</div>
+<div class="ship-name">VUX</div>
+<div class="ship-name">ARILOU LALEE'LAY</div>
+<div class="ship-name">MMRNMHRM</div>
+<div class="ship-name">CHMMR</div>
+<div class="ship-name">SYREEN</div>
+<div class="ship-name">SLYLANDRO</div>
+<div class="ship-name">DRUUGE</div>
+<div class="ship-name">THRADDASH</div>
+<div class="ship-name">SUPOX</div>
+<div class="ship-name">UTWIG</div>
+<div class="ship-name">KOHR-AH</div>
+<div class="ship-name">ORZ</div>
+<div class="ship-name">SHOFIXTI</div>
+<div class="ship-name">EARTHLING</div>
+
+<h2>SCALE DEMO</h2>
+<div class="scale-demo" style="font-size:9px">9px (native pixel size)</div>
+<div class="scale-demo" style="font-size:18px">18px (2x)</div>
+<div class="scale-demo" style="font-size:27px">27px (3x)</div>
+<div class="scale-demo" style="font-size:36px">36px (4x)</div>
+<div class="scale-demo" style="font-size:54px">54px (6x)</div>
+
+<h2>FULL ASCII</h2>
+<div class="ship-name" style="font-size:27px">
+  ABCDEFGHIJKLMNOPQRSTUVWXYZ
+</div>
+<div class="ship-name" style="font-size:27px">
+  abcdefghijklmnopqrstuvwxyz
+</div>
+<div class="ship-name" style="font-size:27px">
+  0123456789 !@#$%^&*()-+=
+</div>
+
+</body>
+</html>
