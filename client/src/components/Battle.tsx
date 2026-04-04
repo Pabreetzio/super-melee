@@ -181,6 +181,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // Live status panel data — updated each sim frame via ref to avoid React re-render cost.
   // StatusPanel reads directly from this ref in its own rAF loop.
   const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
+  // Random captain index per side, picked once per match so the name is stable
+  // within a fight but varies across matches.
+  const captainIdxRef = useRef<[number, number]>([
+    Math.floor(Math.random() * 1000),
+    Math.floor(Math.random() * 1000),
+  ]);
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
   // needing to re-bind the tick/render closures on every resize.
@@ -316,8 +322,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Seed the status panel so it can preload assets before the first sim tick.
     statusRef.current = [
-      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: type0.charCodeAt(0) },
-      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: type1.charCodeAt(0) },
+      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[0] },
+      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[1] },
     ];
 
     // Preload sounds (non-blocking; silently ignored if files are missing)
@@ -641,7 +647,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[0]].maxEnergy,
         limpetCount: bs.ships[0].limpetCount ?? 0,
         inputs:     i0,
-        captainIdx: bs.shipTypes[0].charCodeAt(0),
+        captainIdx: captainIdxRef.current[0],
       },
       {
         shipId:     bs.shipTypes[1],
@@ -651,7 +657,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[1]].maxEnergy,
         limpetCount: bs.ships[1].limpetCount ?? 0,
         inputs:     i1,
-        captainIdx: bs.shipTypes[1].charCodeAt(0),
+        captainIdx: captainIdxRef.current[1],
       },
     ];
   }

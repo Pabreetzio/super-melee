@@ -40,11 +40,27 @@ const UNIT_W      = 2 * S;        //   4 — one dot width (two cols)
 const UNIT_H      = 1 * S;        //   2 — one dot height
 const STAT_W      = 7 * S;        //  14 — total gauge column width
 const CAP_X       = 4 * S;        //   8 — captain portrait left edge
-const CAP_Y_OFF   = 69 * S;       // 138 — portrait top, from section top
+const CAP_Y_OFF   = 75 * S;       // 150 — portrait top, from section top (pushed down to make room for captain name)
 const CAP_W       = 55 * S;       // 110 — portrait width
 const CAP_H       = 30 * S;       //  60 — portrait height
 const ICON_CY     = 31 * S;       //  62 — ship icon center Y within section
 const NAME_Y      = (7 + 3) * S;  //  20 — race name baseline Y within section
+// ─── UQM Font sizes (native UQM pixels × S for canvas) ──────────────────────
+
+const FONT_STARCON_PX = 7 * S;    // 14 — race name (slightly smaller than native 9px×2)
+const FONT_TINY_PX    = 12;       // 12px — captain name (sits between the gauge bars)
+
+// ─── Font loading ────────────────────────────────────────────────────────────
+
+// Fonts are loaded once at module init. The RAF loop falls back to monospace
+// until they're ready, then automatically switches on the next frame.
+let uqmFontsReady = false;
+void Promise.all(
+  [
+    new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)'),
+    new FontFace('UQMTiny',    'url(/fonts/tiny.woff2)'),
+  ].map(face => { document.fonts.add(face); return face.load(); }),
+).then(() => { uqmFontsReady = true; });
 
 // ─── Colors (from UQM colors.h MAKE_RGB15 values) ──────────────────────────
 
@@ -55,8 +71,7 @@ const C_CREW_ON    = '#00a800';  // active crew dot     (0x00,0x15,0x00)
 const C_CREW_OFF   = '#202020';  // empty crew slot
 const C_ENERGY_ON  = '#a80000';  // active energy dot   (0x15,0x00,0x00)
 const C_ENERGY_OFF = '#201010';  // empty energy slot
-const C_NAME       = '#c0c0c0';  // race name text
-const C_CAPNAME    = '#00a800';  // captain name (green, as in UQM)
+const C_SHADOW     = '#787878';  // race name drop shadow — lighter than C_BG (#525252)
 const C_LABEL      = '#a0a0a0';  // CREW / BATT label text
 const C_BLACK      = '#000000';
 
@@ -86,6 +101,36 @@ interface Props {
 
 // Shared module-level image cache so switching ships doesn't reload on every render.
 const imgCache = new Map<string, HTMLImageElement | null>();
+
+/**
+ * Per-icon horizontal offset: (ship-body center x) − (image center x) in
+ * native image pixels. Positive means the ship body is right of the image
+ * midpoint (shadow is to the left). Computed once per URL on first draw and
+ * cached so we can shift the icon left to visually centre the ship, not the
+ * shadow-inclusive image rectangle.
+ */
+const iconShipOffsetCache = new Map<string, number>();
+
+function computeIconShipOffset(img: HTMLImageElement): number {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const tmp = document.createElement('canvas');
+  tmp.width  = w;
+  tmp.height = h;
+  const tCtx = tmp.getContext('2d');
+  if (!tCtx) return 0;
+  tCtx.drawImage(img, 0, 0);
+  const { data } = tCtx.getImageData(0, 0, w, h);
+  let sumX = 0, count = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a > 10 && (data[i] + data[i+1] + data[i+2]) / 3 > 60) {
+      sumX += (i / 4) % w;
+      count++;
+    }
+  }
+  return count > 0 ? sumX / count - w / 2 : 0;
+}
 
 function loadImg(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -160,22 +205,42 @@ function drawSection(
   ctx.fillRect(STATUS_W - 2*S, sectionY + 2*S, S, SHIP_INFO_H - 2*S);
 
   // ── Race name ─────────────────────────────────────────────────────────────
-  const raceName = def?.raceShort ?? side.shipId;
-  ctx.fillStyle = C_DARK;
-  ctx.font = `bold ${7*S}px monospace`;
+  const raceName = (def?.race ?? side.shipId).toUpperCase();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
+  if (uqmFontsReady) {
+    // Auto-scale StarCon to fit within the panel with 4px padding each side.
+    const maxW = STATUS_W - 4 * S;
+    ctx.font = `${FONT_STARCON_PX}px "UQMStarCon"`;
+    const measured = ctx.measureText(raceName).width;
+    const sizePx = measured > maxW
+      ? Math.floor(FONT_STARCON_PX * maxW / measured)
+      : FONT_STARCON_PX;
+    ctx.font = `${sizePx}px "UQMStarCon"`;
+  } else {
+    ctx.font = `bold ${7*S}px monospace`;
+  }
+  // Shadow one pixel below, in a lighter grey than the panel background
+  ctx.fillStyle = C_SHADOW;
   ctx.fillText(raceName, STATUS_W / 2, sectionY + NAME_Y + S);
-  ctx.fillStyle = C_NAME;
+  // Main text in black
+  ctx.fillStyle = C_BLACK;
   ctx.fillText(raceName, STATUS_W / 2, sectionY + NAME_Y);
 
   // ── Ship icon (icons-001.png, centered at ICON_CY) ────────────────────────
-  const iconImg = getImg(`${shipBase}/${sprite}-icons-001.png`);
+  const iconUrl = `${shipBase}/${sprite}-icons-001.png`;
+  const iconImg = getImg(iconUrl);
   if (iconImg) {
     const iw = iconImg.naturalWidth  * S;
     const ih = iconImg.naturalHeight * S;
     ctx.imageSmoothingEnabled = false;
-    const iconX = STATUS_W / 2 - iw / 2;
+    // Compute ship-body centre offset on first use, then cache it.
+    // Shifts the icon left so the ship body (not the shadow) is centred.
+    if (!iconShipOffsetCache.has(iconUrl)) {
+      iconShipOffsetCache.set(iconUrl, computeIconShipOffset(iconImg));
+    }
+    const bodyOffset = iconShipOffsetCache.get(iconUrl)! * S;
+    const iconX = Math.round(STATUS_W / 2 - iw / 2 - bodyOffset);
     const iconY = sectionY + ICON_CY - ih / 2;
     ctx.drawImage(iconImg, iconX, iconY, iw, ih);
     drawLimpetOverlay(ctx, side.limpetCount ?? 0, iconX, iconY, iw, ih);
@@ -240,14 +305,30 @@ function drawSection(
     drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def);
   }
 
-  // ── Captain name (green text over portrait) ───────────────────────────────
+  // ── Captain name — centered horizontally between the two gauge columns,
+  //    baseline at the bottom edge of the bars (GAUGE_Y). Most of the text
+  //    sits between the bars; a small descender hangs just below.
   const capName = def ? pickCaptain(side.shipId, side.captainIdx) : '';
   if (capName) {
-    ctx.font = `bold ${4*S}px monospace`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = C_CAPNAME;
-    ctx.fillText(capName, STATUS_W / 2, capTop + 2 * S);
+    ctx.textBaseline = 'alphabetic';
+    // Max width = gap between the right edge of the crew column and the
+    // left edge of the energy column, with a little breathing room.
+    const capNameMaxW = ENERGY_X - (CREW_X + STAT_W) - 2 * S;  // ~78px
+    if (uqmFontsReady) {
+      ctx.font = `${FONT_TINY_PX}px "UQMTiny"`;
+      const measured = ctx.measureText(capName).width;
+      const sizePx = measured > capNameMaxW
+        ? Math.floor(FONT_TINY_PX * capNameMaxW / measured)
+        : FONT_TINY_PX;
+      ctx.font = `${sizePx}px "UQMTiny"`;
+    } else {
+      ctx.font = `bold ${3*S}px monospace`;
+    }
+    ctx.fillStyle = C_BLACK;
+    // Sit the baseline slightly below GAUGE_Y so the text straddles the
+    // bottom line of the bars — most glyphs above, descenders just below.
+    ctx.fillText(capName, STATUS_W / 2, sectionY + GAUGE_Y + S);
   }
 }
 
