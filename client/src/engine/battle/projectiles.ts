@@ -211,7 +211,7 @@ export function processMissiles(
       }
     }
 
-    if (!effect.skipVelocityUpdate) {
+    if (!effect.skipVelocityUpdate && !m.preserveVelocity) {
       m.speed = Math.min(m.speed + m.accel, m.maxSpeed);
       setVelocityVector(m.velocity, m.speed, m.facing);
     }

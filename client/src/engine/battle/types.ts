@@ -41,6 +41,7 @@ export interface BattleState {
   explosions: BattleExplosion[];
   ionTrails:  [IonDot[], IonDot[]];
   warpIn:     [number, number];
+  rebirth:    [number, number];
   shipAlive:  [boolean, boolean];
   frame: number;
   inputBuf: [Map<number, number>, Map<number, number>];

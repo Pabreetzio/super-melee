@@ -26,7 +26,7 @@ export interface ShipState {
   thrusting:     boolean;
   limpetCount?:  number;
   prevFireHeld?: boolean;   // edge-trigger for weapons like Kohr-Ah buzzsaw
-  canResurrect?: boolean;   // Pkunk passive: true until the one free resurrection fires
+  canResurrect?: boolean;   // Pkunk passive: 50% chance to reincarnate on this life
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -44,6 +44,7 @@ export type SpawnRequest =
       tracks: boolean;
       trackRate: number;
       inheritVelocity?: boolean;
+      preserveVelocity?: boolean;
       limpet?: boolean;
       weaponType?: 'plasmoid';
       initialTrackWait?: number;
@@ -99,6 +100,7 @@ export interface BattleMissile {
   trackWait: number;
   trackRate: number;
   owner: 0 | 1;
+  preserveVelocity?: boolean;
   limpet?: boolean;
   weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid';
   fireHeld?: boolean;

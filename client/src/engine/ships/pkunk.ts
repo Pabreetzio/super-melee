@@ -1,7 +1,7 @@
 // Pkunk Fury — ported from uqm-0.8.0/src/uqm/ships/pkunk/pkunk.c
 //
 // Primary (FIRES_FORE | FIRES_LEFT | FIRES_RIGHT): Triple bug-gun burst
-// Special: Taunt (2 energy, cosmetic — no combat effect in this port)
+// Special: Taunt (regains 2 energy and plays the next insult clip)
 // Passive: Resurrection — 50% chance to respawn with full stats on death
 
 import {
@@ -34,9 +34,11 @@ export const PKUNK_MISSILE_LIFE       = 5;
 export const PKUNK_MISSILE_HITS       = 1;
 export const PKUNK_MISSILE_DAMAGE     = 1;
 
-// Taunt (special — cosmetic in this port)
-export const PKUNK_SPECIAL_ENERGY_COST = 2;
-export const PKUNK_SPECIAL_WAIT        = 0;
+// Taunt
+export const PKUNK_SPECIAL_ENERGY_GAIN = 2;
+export const PKUNK_SPECIAL_WAIT        = 16;
+
+export const PKUNK_REBIRTH_LIFE        = 12;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(PKUNK_MAX_THRUST) ** 2;
 
@@ -140,6 +142,7 @@ export function updatePkunkShip(
   } else if ((input & INPUT_FIRE1) && ship.energy >= PKUNK_WEAPON_ENERGY_COST) {
     ship.energy -= PKUNK_WEAPON_ENERGY_COST;
     ship.weaponWait = PKUNK_WEAPON_WAIT;
+    spawns.push({ type: 'sound', sound: 'primary' });
 
     // Three facings: forward (0), right (+4), left (+12)
     const facingOffsets = [0, 4, 12] as const;
@@ -160,18 +163,18 @@ export function updatePkunkShip(
         tracks:   false,
         trackRate: 0,
         inheritVelocity: true,
+        preserveVelocity: true,
       });
     }
   }
 
   // ─── Special: Taunt ───────────────────────────────────────────────────────
-  // Cosmetic only in this port (no gameplay effect).
   if (ship.specialWait > 0) {
     ship.specialWait--;
-  } else if ((input & INPUT_FIRE2) && ship.energy >= PKUNK_SPECIAL_ENERGY_COST) {
-    ship.energy -= PKUNK_SPECIAL_ENERGY_COST;
+  } else if ((input & INPUT_FIRE2) && ship.energy < PKUNK_MAX_ENERGY) {
+    ship.energy = Math.min(PKUNK_MAX_ENERGY, ship.energy + PKUNK_SPECIAL_ENERGY_GAIN);
     ship.specialWait = PKUNK_SPECIAL_WAIT;
-    // No spawn — Taunt is cosmetic
+    spawns.push({ type: 'sound', sound: 'secondary' });
   }
 
   return spawns;
@@ -229,14 +232,21 @@ export const pkunkController: ShipController = {
 
   onDeath(ship: ShipState, rand: (n: number) => number): boolean {
     if (!ship.canResurrect) return false;
-    // Pkunk resurrection: one free respawn per life (UQM new_pkunk behavior)
-    ship.canResurrect = false;
+    // Each new Pkunk life gets its own fresh 50% reincarnation roll.
+    ship.canResurrect = rand(2) === 0;
     ship.crew    = PKUNK_MAX_CREW;
     ship.energy  = PKUNK_MAX_ENERGY;
     ship.x       = rand(20480); // WORLD_W
     ship.y       = rand(15360); // WORLD_H
     ship.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
     ship.facing  = rand(16);
+    ship.thrustWait = 0;
+    ship.turnWait = 0;
+    ship.weaponWait = 0;
+    ship.specialWait = 0;
+    ship.energyWait = 0;
+    ship.thrusting = false;
+    ship.limpetCount = 0;
     return true;
   },
 };

@@ -63,8 +63,10 @@ export function handleShipPlanetCollisions(
   planetX: number,
   planetY: number,
   planetRadiusW: number,
+  inactive: [boolean, boolean] = [false, false],
 ): void {
   for (let side = 0; side < 2; side++) {
+    if (inactive[side]) continue;
     const ship = ships[side];
     const shipRadiusW = DISPLAY_TO_WORLD(getShipDef(shipTypes[side])?.radius ?? 14);
     const minDist = shipRadiusW + planetRadiusW;

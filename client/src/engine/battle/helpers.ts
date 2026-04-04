@@ -207,5 +207,7 @@ export function computeChecksum(bs: BattleState): number {
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);
+  h = hashStep(h, bs.rebirth[0]);
+  h = hashStep(h, bs.rebirth[1]);
   return h;
 }

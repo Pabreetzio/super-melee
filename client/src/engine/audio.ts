@@ -75,6 +75,13 @@ const SHIP_SOUNDS: Record<string, Record<string, string | undefined>> = {
   zoqfotpik:  { primary: '/sounds/ships/zoqfotpik/primary.wav', secondary: '/sounds/ships/zoqfotpik/secondary.wav' }
 };
 
+const PKUNK_INSULT_KEYS = [
+  'baby', 'douDou', 'fool', 'idiot', 'jerk', 'looser', 'moron',
+  'nerd', 'nitwit', 'stupid', 'twig', 'whimp', 'worm', 'dummy',
+] as const;
+
+let pkunkInsultIndex = 0;
+
 // ─── Loader ───────────────────────────────────────────────────────────────────
 
 type SoundKey = keyof typeof BATTLE_SOUNDS;
@@ -143,8 +150,20 @@ export function playPrimary(shipType: string): void {
 
 /** Secondary weapon fire for the given ship type. */
 export function playSecondary(shipType: string): void {
+  if (shipType === 'pkunk') {
+    const key = PKUNK_INSULT_KEYS[pkunkInsultIndex % PKUNK_INSULT_KEYS.length];
+    pkunkInsultIndex = (pkunkInsultIndex + 1) % PKUNK_INSULT_KEYS.length;
+    const url = SHIP_SOUNDS.pkunk?.[key];
+    if (url) playUrl(url, 0.8);
+    return;
+  }
   const url = SHIP_SOUNDS[shipType]?.secondary;
   if (url) playUrl(url, 0.7);
+}
+
+export function playPkunkRebirth(): void {
+  const url = SHIP_SOUNDS.pkunk?.rebirth;
+  if (url) playUrl(url, 0.8);
 }
 
 /** Fighter laser (Ur-Quan). */

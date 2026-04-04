@@ -13,7 +13,7 @@ import {
   type ControlsConfig,
 } from '../lib/controls';
 import { COSINE, SINE } from '../engine/sinetab';
-import { DISPLAY_TO_WORLD, setVelocityVector, type VelocityDesc } from '../engine/velocity';
+import { DISPLAY_TO_WORLD, VELOCITY_TO_WORLD, setVelocityVector, type VelocityDesc } from '../engine/velocity';
 import type { ShipState, SpawnRequest, BattleMissile, LaserFlash, DrawContext } from '../engine/ships/types';
 import type { BattleState, WinnerShipState } from '../engine/battle/types';
 import {
@@ -27,11 +27,11 @@ import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/b
 import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
-import { loadExplosionSprites, placeholderDot, type ExplosionSprites } from '../engine/sprites';
+import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, playPkunkRebirth, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -150,6 +150,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }>;
     missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
     warpIn:   [number, number];
+    rebirth:  [number, number];
   }
   const snapHistoryRef = useRef<FrameSnap[]>([]);
 
@@ -173,6 +174,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         speed: m.speed, owner: m.owner, tracks: m.tracks,
       })),
       warpIn: [...bs.warpIn] as [number, number],
+      rebirth: [...bs.rebirth] as [number, number],
     };
   }
 
@@ -314,6 +316,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       explosions: [],
       ionTrails: [[], []],
       warpIn: [warpIn0, warpIn1],
+      rebirth: [0, 0],
       shipAlive: [true, true],
       frame: 0,
       inputBuf,
@@ -587,7 +590,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
         if (ctrl.onDeath) {
           const rng = rngRef.current!;
-          ctrl.onDeath(ship, (n) => rng.rand(n));
+          const resurrected = ctrl.onDeath(ship, (n) => rng.rand(n));
+          if (resurrected) {
+            bs.rebirth[side] = bs.shipTypes[side] === 'pkunk' ? 12 : 0;
+            bs.shipAlive[side] = true;
+            if (bs.shipTypes[side] === 'pkunk') playPkunkRebirth();
+          }
         }
       }
     }
@@ -672,6 +680,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // Decrement warp-in countdown (ship is invisible and nonsolid during this)
     if (bs.warpIn[0] > 0) bs.warpIn[0]--;
     if (bs.warpIn[1] > 0) bs.warpIn[1]--;
+    if (bs.rebirth[0] > 0) bs.rebirth[0]--;
+    if (bs.rebirth[1] > 0) bs.rebirth[1]--;
 
     // Update ships — dispatch through registry.
     // Ships still warping in cannot act (no weapons, no steering).
@@ -681,8 +691,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     };
     const preShip0 = { facing: bs.ships[0].facing, vx: bs.ships[0].velocity.vx, vy: bs.ships[0].velocity.vy };
     const preShip1 = { facing: bs.ships[1].facing, vx: bs.ships[1].velocity.vx, vy: bs.ships[1].velocity.vy };
-    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0);
-    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0);
+    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0 || bs.rebirth[0] > 0);
+    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0 || bs.rebirth[1] > 0);
     applyAttachedLimpetPenalty(bs.ships[0], preShip0);
     applyAttachedLimpetPenalty(bs.ships[1], preShip1);
 
@@ -698,18 +708,27 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const v: VelocityDesc = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
         setVelocityVector(v, s.speed, s.facing);
         // Pkunk bug-gun: add ship velocity to missile velocity (UQM DeltaVelocityComponents)
+        let spawnX = s.x;
+        let spawnY = s.y;
         if (s.inheritVelocity) {
           const ownerShip = bs.ships[owner];
           v.vx += ownerShip.velocity.vx;
           v.vy += ownerShip.velocity.vy;
+          // UQM nudges the missile's initial world position back by one frame
+          // of inherited ship movement so the burst stays centered on the ship.
+          spawnX -= VELOCITY_TO_WORLD(ownerShip.velocity.vx);
+          spawnY -= VELOCITY_TO_WORLD(ownerShip.velocity.vy);
         }
+        spawnX = ((spawnX % WORLD_W) + WORLD_W) % WORLD_W;
+        spawnY = ((spawnY % WORLD_H) + WORLD_H) % WORLD_H;
         bs.missiles.push({
-          prevX: s.x, prevY: s.y,
-          x: s.x, y: s.y, facing: s.facing, velocity: v,
+          prevX: spawnX, prevY: spawnY,
+          x: spawnX, y: spawnY, facing: s.facing, velocity: v,
           life: s.life, hitPoints: s.hits ?? s.damage, speed: s.speed, maxSpeed: s.maxSpeed,
           accel: s.accel, damage: s.damage,
           tracks: s.tracks, trackWait: s.initialTrackWait ?? s.trackRate, trackRate: s.trackRate,
           owner,
+          preserveVelocity: s.preserveVelocity,
           limpet: s.limpet,
           weaponType: s.weaponType,
         });
@@ -781,7 +800,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]);
       else
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
-      else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'missile') {
+        if (bs.shipTypes[0] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
+      }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed0) { playSecondary(bs.shipTypes[0]); gasSoundPlayed0 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
@@ -795,7 +816,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]);
       else
       if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
-      else if (s.type === 'missile')   s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'missile') {
+        if (bs.shipTypes[1] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
+      }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed1) { playSecondary(bs.shipTypes[1]); gasSoundPlayed1 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
@@ -808,12 +831,28 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.explosions = advanceExplosions(bs.explosions, WORLD_W, WORLD_H);
 
     // Ship–ship collision (skip if either ship is still warping in)
-    handleShipShipCollision(bs.ships, bs.warpIn, bs.shipTypes, shipSpritesRef.current);
+    handleShipShipCollision(
+      bs.ships,
+      [
+        bs.warpIn[0] + (bs.rebirth[0] > 0 ? 1 : 0),
+        bs.warpIn[1] + (bs.rebirth[1] > 0 ? 1 : 0),
+      ],
+      bs.shipTypes,
+      shipSpritesRef.current,
+    );
 
     // Ship–planet collision (UQM misc.c / ship.c behavior):
     //   damage = ship.crew >> 2  (25% current HP, min 1)
     //   planet has DEFY_PHYSICS — ship bounces, planet doesn't move
-    handleShipPlanetCollisions(bs.ships, bs.shipTypes, shipSpritesRef.current, PLANET_X, PLANET_Y, PLANET_RADIUS_W);
+    handleShipPlanetCollisions(
+      bs.ships,
+      bs.shipTypes,
+      shipSpritesRef.current,
+      PLANET_X,
+      PLANET_Y,
+      PLANET_RADIUS_W,
+      [bs.rebirth[0] > 0, bs.rebirth[1] > 0],
+    );
 
     // Spawn boom explosion when a ship transitions alive→dead
     for (let side = 0; side < 2; side++) {
@@ -998,6 +1037,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           const ionG = [171, 142, 113, 85,  57,  28,   0,   0,   0,   0,   0,  0][colorStep];
           ctx.fillStyle = `rgb(${ionR},${ionG},0)`;
           ctx.fillRect(sdx - 1, sdy - 1, 3, 3);
+          continue;
+        }
+
+        if (bs.rebirth[side] > 0 && bs.shipTypes[side] === 'pkunk') {
+          renderPkunkRebirth(
+            ctx,
+            ship,
+            shipSpritesRef.current.get(bs.shipTypes[side]) ?? null,
+            bs.rebirth[side],
+            { camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+          );
           continue;
         }
 
@@ -1350,6 +1400,50 @@ function PauseVolumeSlider({ label, value, disabled, note, onChange }: {
 // ─── Helper functions ─────────────────────────────────────────────────────────
 
 // placeholderDot is imported from engine/sprites
+
+function renderPkunkRebirth(
+  ctx: CanvasRenderingContext2D,
+  ship: ShipState,
+  sprites: unknown,
+  timer: number,
+  baseDc: Omit<DrawContext, 'ctx'>,
+): void {
+  const sp = sprites as PkunkSprites | null;
+  const set = sp
+    ? (baseDc.reduction >= 2 ? sp.sml : baseDc.reduction === 1 ? sp.med : sp.big)
+    : null;
+  const progress = 1 - ((timer - 1) / 12);
+  const distance = Math.round(DISPLAY_TO_WORLD(20) * (1 - progress));
+  const alpha = Math.max(0.2, Math.min(0.85, progress));
+  const faces = [ship.facing, (ship.facing + 4) & 15, (ship.facing + 8) & 15, (ship.facing + 12) & 15];
+
+  ctx.save();
+  for (const face of faces) {
+    const angle = (face * 4) & 63;
+    const x = ship.x - COSINE(angle, distance);
+    const y = ship.y - SINE(angle, distance);
+
+    for (let trail = 0; trail < 4; trail++) {
+      const trailDist = distance + DISPLAY_TO_WORLD(5 * (trail + 1));
+      const tx = ship.x - COSINE(angle, trailDist);
+      const ty = ship.y - SINE(angle, trailDist);
+      const tdx = (((tx - baseDc.camX) % baseDc.worldW) + baseDc.worldW) % baseDc.worldW;
+      const tdy = (((ty - baseDc.camY) % baseDc.worldH) + baseDc.worldH) % baseDc.worldH;
+      const sx = Math.floor((tdx > baseDc.worldW / 2 ? tdx - baseDc.worldW : tdx) / (1 << (2 + baseDc.reduction)));
+      const sy = Math.floor((tdy > baseDc.worldH / 2 ? tdy - baseDc.worldH : tdy) / (1 << (2 + baseDc.reduction)));
+      ctx.fillStyle = `rgba(${255 - trail * 24},${Math.max(0, 171 - trail * 40)},0,${alpha * (0.7 - trail * 0.12)})`;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+
+    ctx.globalAlpha = alpha;
+    if (set) {
+      drawSprite(ctx, set, face, x, y, baseDc.canvasW, baseDc.canvasH, baseDc.camX, baseDc.camY, baseDc.reduction);
+    } else {
+      placeholderDot(ctx, x, y, baseDc.camX, baseDc.camY, 8, '#f80', baseDc.reduction);
+    }
+  }
+  ctx.restore();
+}
 
 /**
  * Pick the smallest zoom-out level (0–MAX_REDUCTION) that keeps both ships
