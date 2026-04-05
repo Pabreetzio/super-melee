@@ -25,6 +25,8 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'chmmr_satellite') return DISPLAY_TO_WORLD(9);
   if (m.weaponType === 'melnorme_pump') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'melnorme_confuse') return DISPLAY_TO_WORLD(10);
+  if (m.weaponType === 'thraddash_horn') return DISPLAY_TO_WORLD(6);
+  if (m.weaponType === 'thraddash_napalm') return DISPLAY_TO_WORLD(11);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);

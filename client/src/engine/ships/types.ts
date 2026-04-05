@@ -47,6 +47,7 @@ export interface ShipState {
   melnormeConfusionFrames?: number;
   melnormeConfusionInput?: number;
   melnormeSeed?: number;
+  thraddashPrevSpecialHeld?: boolean;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -66,7 +67,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse';
+      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
@@ -128,7 +129,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot

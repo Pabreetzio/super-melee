@@ -39,7 +39,7 @@ const SHIPS: ShipDef[] = [
   { id: 'spathi',     name: 'Spathi Eluder',       crew: 30, energy: 10, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 3, secondaryDamage: 0 },
   { id: 'supox',      name: 'Supox Blade',         crew: 12, energy: 16, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 3, secondaryDamage: 0 },
   { id: 'syreen',     name: 'Syreen Penetrator',   crew: 12, energy: 16, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 3, radius: 12, primaryDamage: 3, secondaryDamage: 0 },
-  { id: 'thraddash',  name: 'Thraddash Torch',     crew:  8, energy: 24, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 4, secondaryDamage: 0 },
+  { id: 'thraddash',  name: 'Thraddash Torch',     crew:  8, energy: 24, speed: 28, turnRate: 1, thrustDelay: 0, turnDelay: 1, mass: 7, radius: 14, primaryDamage: 1, secondaryDamage: 2 },
   { id: 'umgah',      name: 'Umgah Drone',         crew: 10, energy: 30, speed: 12, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 6, radius: 16, primaryDamage: 5, secondaryDamage: 0 },
   { id: 'urquan',     name: "Ur-Quan Dreadnought", crew: 42, energy: 42, speed: 18, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 9, radius: 22, primaryDamage: 9, secondaryDamage: 0 },
   { id: 'utwig',      name: 'Utwig Jugger',        crew: 20, energy: 20, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 7, radius: 16, primaryDamage: 6, secondaryDamage: 0 },

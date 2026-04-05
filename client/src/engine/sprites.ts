@@ -270,6 +270,32 @@ export async function loadShofixtiSprites(): Promise<ShofixtiSprites> {
   };
 }
 
+export interface ThraddashSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  horn: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  napalm: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadThraddashSprites(): Promise<ThraddashSprites> {
+  const body = await loadGenericShipSprites('thraddash');
+  if (!body) throw new Error('Missing thraddash body sprites');
+  const [hornBig, hornMed, hornSml, napalmBig, napalmMed, napalmSml] = await Promise.all([
+    loadSpriteSet('thraddash/horn', 'big', 16, HORN_BIG_HOTSPOTS),
+    loadSpriteSet('thraddash/horn', 'med', 16, HORN_MED_HOTSPOTS),
+    loadSpriteSet('thraddash/horn', 'sml', 16, HORN_SML_HOTSPOTS),
+    loadSpriteSet('thraddash/napalm', 'big', 8, NAPALM_BIG_HOTSPOTS),
+    loadSpriteSet('thraddash/napalm', 'med', 8, NAPALM_MED_HOTSPOTS),
+    loadSpriteSet('thraddash/napalm', 'sml', 8, NAPALM_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    horn: { big: hornBig, med: hornMed, sml: hornSml },
+    napalm: { big: napalmBig, med: napalmMed, sml: napalmSml },
+  };
+}
+
 // ─── VUX Intruder hotspot tables ─────────────────────────────────────────────
 
 // intruder-big.ani — 16 rotation frames
@@ -358,6 +384,18 @@ const CANNON_SML_HOTSPOTS: [number, number][] = [
 const FIRE_BIG_HOTSPOTS: [number, number][] = [[4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9]];
 const FIRE_MED_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4]];
 const FIRE_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2]];
+const HORN_BIG_HOTSPOTS: [number, number][] = [
+  [2,5],[2,5],[3,4],[5,1],[5,2],[5,3],[3,3],[2,5],
+  [2,5],[2,5],[4,3],[5,3],[5,2],[5,2],[4,3],[2,5],
+];
+const HORN_MED_HOTSPOTS: [number, number][] = [
+  [1,2],[1,2],[1,2],[1,1],[1,1],[1,1],[1,1],[1,1],
+  [1,1],[1,1],[2,1],[3,1],[3,1],[3,1],[2,2],[1,2],
+];
+const HORN_SML_HOTSPOTS: [number, number][] = Array.from({ length: 16 }, () => [1, 1]);
+const NAPALM_BIG_HOTSPOTS: [number, number][] = [[4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9]];
+const NAPALM_MED_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4]];
+const NAPALM_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2]];
 const PUMPUP_BIG_HOTSPOTS: [number, number][] = [
   [5,5],[4,4],[3,3],[3,3],[4,4],[6,6],[5,5],[4,4],[4,4],[5,5],
   [8,8],[7,7],[5,5],[5,5],[7,7],[12,12],[10,10],[8,8],[7,7],[10,10],
