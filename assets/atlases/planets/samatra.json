@@ -1,0 +1,17 @@
+{
+  "id": "planets/samatra",
+  "imageUrl": "/atlases/planets/samatra.png",
+  "frames": {
+    "/planets/samatra-big-000.png": {
+      "key": "/planets/samatra-big-000.png",
+      "sourceUrl": "/planets/samatra-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 148,
+      "h": 74,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/samatra-big-000.png"
+    }
+  }
+}

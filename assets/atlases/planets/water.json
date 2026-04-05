@@ -1,0 +1,39 @@
+{
+  "id": "planets/water",
+  "imageUrl": "/atlases/planets/water.png",
+  "frames": {
+    "/planets/water-big-000.png": {
+      "key": "/planets/water-big-000.png",
+      "sourceUrl": "/planets/water-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/water-big-000.png"
+    },
+    "/planets/water-med-000.png": {
+      "key": "/planets/water-med-000.png",
+      "sourceUrl": "/planets/water-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/water-med-000.png"
+    },
+    "/planets/water-sml-000.png": {
+      "key": "/planets/water-sml-000.png",
+      "sourceUrl": "/planets/water-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/water-sml-000.png"
+    }
+  }
+}

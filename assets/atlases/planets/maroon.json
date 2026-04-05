@@ -1,0 +1,39 @@
+{
+  "id": "planets/maroon",
+  "imageUrl": "/atlases/planets/maroon.png",
+  "frames": {
+    "/planets/maroon-big-000.png": {
+      "key": "/planets/maroon-big-000.png",
+      "sourceUrl": "/planets/maroon-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/maroon-big-000.png"
+    },
+    "/planets/maroon-med-000.png": {
+      "key": "/planets/maroon-med-000.png",
+      "sourceUrl": "/planets/maroon-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/maroon-med-000.png"
+    },
+    "/planets/maroon-sml-000.png": {
+      "key": "/planets/maroon-sml-000.png",
+      "sourceUrl": "/planets/maroon-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/maroon-sml-000.png"
+    }
+  }
+}

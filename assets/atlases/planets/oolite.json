@@ -1,0 +1,39 @@
+{
+  "id": "planets/oolite",
+  "imageUrl": "/atlases/planets/oolite.png",
+  "frames": {
+    "/planets/oolite-big-000.png": {
+      "key": "/planets/oolite-big-000.png",
+      "sourceUrl": "/planets/oolite-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/oolite-big-000.png"
+    },
+    "/planets/oolite-med-000.png": {
+      "key": "/planets/oolite-med-000.png",
+      "sourceUrl": "/planets/oolite-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/oolite-med-000.png"
+    },
+    "/planets/oolite-sml-000.png": {
+      "key": "/planets/oolite-sml-000.png",
+      "sourceUrl": "/planets/oolite-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/oolite-sml-000.png"
+    }
+  }
+}

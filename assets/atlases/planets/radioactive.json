@@ -1,0 +1,39 @@
+{
+  "id": "planets/radioactive",
+  "imageUrl": "/atlases/planets/radioactive.png",
+  "frames": {
+    "/planets/radioactive-big-000.png": {
+      "key": "/planets/radioactive-big-000.png",
+      "sourceUrl": "/planets/radioactive-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/radioactive-big-000.png"
+    },
+    "/planets/radioactive-med-000.png": {
+      "key": "/planets/radioactive-med-000.png",
+      "sourceUrl": "/planets/radioactive-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/radioactive-med-000.png"
+    },
+    "/planets/radioactive-sml-000.png": {
+      "key": "/planets/radioactive-sml-000.png",
+      "sourceUrl": "/planets/radioactive-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/radioactive-sml-000.png"
+    }
+  }
+}

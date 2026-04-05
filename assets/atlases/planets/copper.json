@@ -1,0 +1,39 @@
+{
+  "id": "planets/copper",
+  "imageUrl": "/atlases/planets/copper.png",
+  "frames": {
+    "/planets/copper-big-000.png": {
+      "key": "/planets/copper-big-000.png",
+      "sourceUrl": "/planets/copper-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/copper-big-000.png"
+    },
+    "/planets/copper-med-000.png": {
+      "key": "/planets/copper-med-000.png",
+      "sourceUrl": "/planets/copper-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/copper-med-000.png"
+    },
+    "/planets/copper-sml-000.png": {
+      "key": "/planets/copper-sml-000.png",
+      "sourceUrl": "/planets/copper-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/copper-sml-000.png"
+    }
+  }
+}

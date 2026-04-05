@@ -1,0 +1,39 @@
+{
+  "id": "planets/cyanic",
+  "imageUrl": "/atlases/planets/cyanic.png",
+  "frames": {
+    "/planets/cyanic-big-000.png": {
+      "key": "/planets/cyanic-big-000.png",
+      "sourceUrl": "/planets/cyanic-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/cyanic-big-000.png"
+    },
+    "/planets/cyanic-med-000.png": {
+      "key": "/planets/cyanic-med-000.png",
+      "sourceUrl": "/planets/cyanic-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/cyanic-med-000.png"
+    },
+    "/planets/cyanic-sml-000.png": {
+      "key": "/planets/cyanic-sml-000.png",
+      "sourceUrl": "/planets/cyanic-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/cyanic-sml-000.png"
+    }
+  }
+}

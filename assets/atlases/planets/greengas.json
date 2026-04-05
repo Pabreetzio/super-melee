@@ -1,0 +1,39 @@
+{
+  "id": "planets/greengas",
+  "imageUrl": "/atlases/planets/greengas.png",
+  "frames": {
+    "/planets/greengas-big-000.png": {
+      "key": "/planets/greengas-big-000.png",
+      "sourceUrl": "/planets/greengas-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/greengas-big-000.png"
+    },
+    "/planets/greengas-med-000.png": {
+      "key": "/planets/greengas-med-000.png",
+      "sourceUrl": "/planets/greengas-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/greengas-med-000.png"
+    },
+    "/planets/greengas-sml-000.png": {
+      "key": "/planets/greengas-sml-000.png",
+      "sourceUrl": "/planets/greengas-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/greengas-sml-000.png"
+    }
+  }
+}

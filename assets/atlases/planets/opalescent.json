@@ -1,0 +1,39 @@
+{
+  "id": "planets/opalescent",
+  "imageUrl": "/atlases/planets/opalescent.png",
+  "frames": {
+    "/planets/opalescent-big-000.png": {
+      "key": "/planets/opalescent-big-000.png",
+      "sourceUrl": "/planets/opalescent-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/opalescent-big-000.png"
+    },
+    "/planets/opalescent-med-000.png": {
+      "key": "/planets/opalescent-med-000.png",
+      "sourceUrl": "/planets/opalescent-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/opalescent-med-000.png"
+    },
+    "/planets/opalescent-sml-000.png": {
+      "key": "/planets/opalescent-sml-000.png",
+      "sourceUrl": "/planets/opalescent-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/opalescent-sml-000.png"
+    }
+  }
+}

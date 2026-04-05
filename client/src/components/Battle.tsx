@@ -32,6 +32,7 @@ import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, playPkunkRebirth, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const accumRef     = useRef(0);
   const [isPaused, setIsPaused]        = useState(false);
   const pausedRef    = useRef(false); // mirror of isPaused readable in tick closure
+  const assetsReadyRef = useRef(false);
   const [pauseAudio, setPauseAudio]    = useState<AudioConfig>(getAudioConfig);
   const [pauseTab, setPauseTab]        = useState<'audio' | 'controls'>('audio');
   const [pauseControls, setPauseControls] = useState<ControlsConfig>(getControls);
@@ -179,7 +181,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   }
 
   // Planet sprite images (type determined by parent, stable across ship fights); null until loaded
-  const planetImgRef = useRef<{ big: HTMLImageElement; med: HTMLImageElement; sml: HTMLImageElement } | null>(null);
+  const planetImgRef = useRef<{ big: { source: CanvasImageSource; width: number; height: number }; med: { source: CanvasImageSource; width: number; height: number }; sml: { source: CanvasImageSource; width: number; height: number } } | null>(null);
   // Live status panel data — updated each sim frame via ref to avoid React re-render cost.
   // StatusPanel reads directly from this ref in its own rAF loop.
   const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
@@ -242,6 +244,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   // Initialize battle state
   useEffect(() => {
+    assetsReadyRef.current = false;
     // Determine each player's active ship type from their fleet.
     // fleet0 = host (ship 0), fleet1 = opponent (ship 1) — always absolute,
     // never relative to yourSide. Both clients must compute the same types
@@ -323,42 +326,52 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       pendingEnd: null,
     };
 
-    // Seed the status panel so it can preload assets before the first sim tick.
+    // Seed the status panel so its data is ready once assets finish preloading.
     statusRef.current = [
       { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[0] },
       { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[1] },
     ];
 
-    // Preload sounds (non-blocking; silently ignored if files are missing)
-    preloadBattleSounds([type0, type1]);
+    void (async () => {
+      await preloadBattleAssets({
+        fleets: [fleet0, fleet1],
+        activeShips: [type0, type1],
+        planetType,
+      });
+      preloadBattleSounds([type0, type1]);
 
-    // Load sprites via each ship's own controller (non-blocking; falls back to
-    // placeholder if files are missing).  Only load what the active ships need.
-    const loadedTypes = new Set<string>();
-    for (const t of [type0, type1]) {
-      if (!loadedTypes.has(t)) {
-        loadedTypes.add(t);
-        SHIP_REGISTRY[t].loadSprites()
-          .then(sp => { shipSpritesRef.current.set(t, sp); })
-          .catch(() => {});
+      const loadedTypes = new Set<string>();
+      for (const t of [type0, type1]) {
+        if (!loadedTypes.has(t)) {
+          loadedTypes.add(t);
+          try {
+            const sp = await SHIP_REGISTRY[t].loadSprites();
+            shipSpritesRef.current.set(t, sp);
+          } catch {
+            // Placeholder fallback still applies if an atlas entry is missing.
+          }
+        }
       }
-    }
-    loadExplosionSprites().then(sp => { explosionSpritesRef.current = sp; }).catch(() => {});
 
-    // Load planet sprites (non-blocking)
-    // onload must be assigned before src to handle cached images correctly.
-    {
-      const pt = planetType;
-      const big = new Image();
-      const med = new Image();
-      const sml = new Image();
-      let n = 0;
-      const done = () => { if (++n === 3) planetImgRef.current = { big, med, sml }; };
-      big.onload = med.onload = sml.onload = done;
-      big.src = `/planets/${pt}-big-000.png`;
-      med.src = `/planets/${pt}-med-000.png`;
-      sml.src = `/planets/${pt}-sml-000.png`;
-    }
+      try {
+        explosionSpritesRef.current = await loadExplosionSprites();
+      } catch {
+        explosionSpritesRef.current = null;
+      }
+
+      const [big, med, sml] = await Promise.all([
+        loadAtlasImageAsset(`/planets/${planetType}-big-000.png`),
+        loadAtlasImageAsset(`/planets/${planetType}-med-000.png`),
+        loadAtlasImageAsset(`/planets/${planetType}-sml-000.png`),
+      ]);
+      if (big && med && sml) {
+        planetImgRef.current = { big, med, sml };
+      }
+
+      assetsReadyRef.current = true;
+      lastTimeRef.current = performance.now();
+      accumRef.current = 0;
+    })();
 
     // Tell server which ship slot we're entering with (first occupied slot)
     const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
@@ -449,7 +462,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         return;
       }
       if (gameKeysRef.current.has(e.code)) e.preventDefault();
-      if (!pausedRef.current) keysRef.current.add(e.code);
+      if (!pausedRef.current && assetsReadyRef.current) keysRef.current.add(e.code);
     };
     const onUp = (e: KeyboardEvent) => { keysRef.current.delete(e.code); };
     window.addEventListener('keydown', onDown);
@@ -532,7 +545,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function advance() {
     const bs = stateRef.current;
-    if (!bs) return;
+    if (!bs || !assetsReadyRef.current) return;
 
     const mySide = yourSide;
     const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
@@ -934,6 +947,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
+    if (!assetsReadyRef.current) {
+      ctx.fillStyle = '#889';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Preparing battle assets...', CANVAS_W / 2, CANVAS_H / 2 - 6);
+      ctx.fillStyle = '#556';
+      ctx.font = '10px monospace';
+      ctx.fillText('Ships will become controllable when loading is complete.', CANVAS_W / 2, CANVAS_H / 2 + 14);
+      return;
+    }
+
     // ── Stars ────────────────────────────────────────────────────────────
     // 180 stars placed in world space (fixed, like UQM's galaxy.c stars).
     // 3 tiers: big (2×2 white), med (1×1 light), sml (1×1 dim).
@@ -981,7 +1005,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         if (pi) {
           const img = pi[sizeKey];
           const [hx, hy] = PLANET_HOT[sizeKey];
-          ctx.drawImage(img, pDX - hx, pDY - hy);
+          ctx.drawImage(img.source, pDX - hx, pDY - hy, img.width, img.height);
         } else {
           ctx.beginPath();
           ctx.arc(pDX, pDY, planetR, 0, Math.PI * 2);

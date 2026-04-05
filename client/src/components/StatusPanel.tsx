@@ -26,6 +26,7 @@ import React, { useEffect, useRef } from 'react';
 import type { ShipId } from 'shared/types';
 import { SHIP_STATUS_DATA, pickCaptain, type ShipStatusDef } from '../engine/ships/statusData';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../engine/game';
+import { loadAtlasImageAsset } from '../engine/atlasAssets';
 
 // ─── Layout constants (2× scale) ───────────────────────────────────────────
 
@@ -100,7 +101,13 @@ interface Props {
 // ─── Image cache ────────────────────────────────────────────────────────────
 
 // Shared module-level image cache so switching ships doesn't reload on every render.
-const imgCache = new Map<string, HTMLImageElement | null>();
+interface RenderableImage {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+}
+
+const imgCache = new Map<string, RenderableImage | null>();
 
 /**
  * Per-icon horizontal offset: (ship-body center x) − (image center x) in
@@ -111,15 +118,15 @@ const imgCache = new Map<string, HTMLImageElement | null>();
  */
 const iconShipOffsetCache = new Map<string, number>();
 
-function computeIconShipOffset(img: HTMLImageElement): number {
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
+function computeIconShipOffset(img: RenderableImage): number {
+  const w = img.width;
+  const h = img.height;
   const tmp = document.createElement('canvas');
   tmp.width  = w;
   tmp.height = h;
   const tCtx = tmp.getContext('2d');
   if (!tCtx) return 0;
-  tCtx.drawImage(img, 0, 0);
+  tCtx.drawImage(img.source, 0, 0, w, h);
   const { data } = tCtx.getImageData(0, 0, w, h);
   let sumX = 0, count = 0;
   for (let i = 0; i < data.length; i += 4) {
@@ -132,17 +139,27 @@ function computeIconShipOffset(img: HTMLImageElement): number {
   return count > 0 ? sumX / count - w / 2 : 0;
 }
 
-function loadImg(url: string): Promise<HTMLImageElement> {
+function loadImg(url: string): Promise<RenderableImage> {
   return new Promise((resolve, reject) => {
     if (imgCache.has(url)) {
       const cached = imgCache.get(url);
       if (cached) resolve(cached); else reject(new Error('not found'));
       return;
     }
-    const img = new Image();
-    img.onload  = () => { imgCache.set(url, img); resolve(img); };
-    img.onerror = () => { imgCache.set(url, null); reject(new Error(`Failed: ${url}`)); };
-    img.src = url;
+    loadAtlasImageAsset(url)
+      .then(img => {
+        if (!img) {
+          imgCache.set(url, null);
+          reject(new Error(`Failed: ${url}`));
+          return;
+        }
+        imgCache.set(url, img);
+        resolve(img);
+      })
+      .catch(err => {
+        imgCache.set(url, null);
+        reject(err);
+      });
   });
 }
 
@@ -170,7 +187,7 @@ async function preloadLimpetOverlay(): Promise<void> {
   await Promise.allSettled(urls.map(loadImg));
 }
 
-function getImg(url: string): HTMLImageElement | null {
+function getImg(url: string): RenderableImage | null {
   return imgCache.get(url) ?? null;
 }
 
@@ -231,8 +248,8 @@ function drawSection(
   const iconUrl = `${shipBase}/${sprite}-icons-001.png`;
   const iconImg = getImg(iconUrl);
   if (iconImg) {
-    const iw = iconImg.naturalWidth  * S;
-    const ih = iconImg.naturalHeight * S;
+    const iw = iconImg.width  * S;
+    const ih = iconImg.height * S;
     ctx.imageSmoothingEnabled = false;
     // Compute ship-body centre offset on first use, then cache it.
     // Shifts the icon left so the ship body (not the shadow) is centred.
@@ -242,7 +259,7 @@ function drawSection(
     const bodyOffset = iconShipOffsetCache.get(iconUrl)! * S;
     const iconX = Math.round(STATUS_W / 2 - iw / 2 - bodyOffset);
     const iconY = sectionY + ICON_CY - ih / 2;
-    ctx.drawImage(iconImg, iconX, iconY, iw, ih);
+    ctx.drawImage(iconImg.source, iconX, iconY, iw, ih);
     drawLimpetOverlay(ctx, side.limpetCount ?? 0, iconX, iconY, iw, ih);
   }
 
@@ -296,7 +313,7 @@ function drawSection(
     const bg = getImg(`${shipBase}/${sprite}-cap-000.png`);
     if (bg) {
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(bg, CAP_X, capTop, CAP_W, CAP_H);
+      ctx.drawImage(bg.source, CAP_X, capTop, CAP_W, CAP_H);
     }
   }
 
@@ -356,11 +373,11 @@ function drawLimpetOverlay(
     const frame = getImg(`/ships/vux/slime-${String(i).padStart(3, '0')}.png`);
     if (!frame) continue;
     const [sx, sy] = slots[i];
-    const w = frame.naturalWidth * S;
-    const h = frame.naturalHeight * S;
+    const w = frame.width * S;
+    const h = frame.height * S;
     const x = Math.round(iconX + iconW * sx - w / 2);
     const y = Math.round(iconY + iconH * sy - h / 2);
-    ctx.drawImage(frame, x, y, w, h);
+    ctx.drawImage(frame.source, x, y, w, h);
   }
 }
 
@@ -442,7 +459,7 @@ function drawCaptainOverlays(
     const drawX = CAP_X - ox * S;
     const drawY = capTop - oy * S;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, drawX, drawY, img.naturalWidth * S, img.naturalHeight * S);
+    ctx.drawImage(img.source, drawX, drawY, img.width * S, img.height * S);
   }
 
   // Turn (left takes priority over right in UQM when both held)

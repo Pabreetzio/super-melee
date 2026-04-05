@@ -1,0 +1,39 @@
+{
+  "id": "planets/shattered",
+  "imageUrl": "/atlases/planets/shattered.png",
+  "frames": {
+    "/planets/shattered-big-000.png": {
+      "key": "/planets/shattered-big-000.png",
+      "sourceUrl": "/planets/shattered-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 77,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/shattered-big-000.png"
+    },
+    "/planets/shattered-med-000.png": {
+      "key": "/planets/shattered-med-000.png",
+      "sourceUrl": "/planets/shattered-med-000.png",
+      "x": 81,
+      "y": 2,
+      "w": 39,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/shattered-med-000.png"
+    },
+    "/planets/shattered-sml-000.png": {
+      "key": "/planets/shattered-sml-000.png",
+      "sourceUrl": "/planets/shattered-sml-000.png",
+      "x": 122,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/shattered-sml-000.png"
+    }
+  }
+}

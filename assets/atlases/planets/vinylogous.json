@@ -1,0 +1,39 @@
+{
+  "id": "planets/vinylogous",
+  "imageUrl": "/atlases/planets/vinylogous.png",
+  "frames": {
+    "/planets/vinylogous-big-000.png": {
+      "key": "/planets/vinylogous-big-000.png",
+      "sourceUrl": "/planets/vinylogous-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/vinylogous-big-000.png"
+    },
+    "/planets/vinylogous-med-000.png": {
+      "key": "/planets/vinylogous-med-000.png",
+      "sourceUrl": "/planets/vinylogous-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/vinylogous-med-000.png"
+    },
+    "/planets/vinylogous-sml-000.png": {
+      "key": "/planets/vinylogous-sml-000.png",
+      "sourceUrl": "/planets/vinylogous-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/vinylogous-sml-000.png"
+    }
+  }
+}

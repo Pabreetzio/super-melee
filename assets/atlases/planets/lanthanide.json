@@ -1,0 +1,39 @@
+{
+  "id": "planets/lanthanide",
+  "imageUrl": "/atlases/planets/lanthanide.png",
+  "frames": {
+    "/planets/lanthanide-big-000.png": {
+      "key": "/planets/lanthanide-big-000.png",
+      "sourceUrl": "/planets/lanthanide-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/lanthanide-big-000.png"
+    },
+    "/planets/lanthanide-med-000.png": {
+      "key": "/planets/lanthanide-med-000.png",
+      "sourceUrl": "/planets/lanthanide-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/lanthanide-med-000.png"
+    },
+    "/planets/lanthanide-sml-000.png": {
+      "key": "/planets/lanthanide-sml-000.png",
+      "sourceUrl": "/planets/lanthanide-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/lanthanide-sml-000.png"
+    }
+  }
+}

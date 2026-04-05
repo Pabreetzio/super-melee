@@ -1,0 +1,39 @@
+{
+  "id": "planets/fluorescent",
+  "imageUrl": "/atlases/planets/fluorescent.png",
+  "frames": {
+    "/planets/fluorescent-big-000.png": {
+      "key": "/planets/fluorescent-big-000.png",
+      "sourceUrl": "/planets/fluorescent-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/fluorescent-big-000.png"
+    },
+    "/planets/fluorescent-med-000.png": {
+      "key": "/planets/fluorescent-med-000.png",
+      "sourceUrl": "/planets/fluorescent-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/fluorescent-med-000.png"
+    },
+    "/planets/fluorescent-sml-000.png": {
+      "key": "/planets/fluorescent-sml-000.png",
+      "sourceUrl": "/planets/fluorescent-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/fluorescent-sml-000.png"
+    }
+  }
+}

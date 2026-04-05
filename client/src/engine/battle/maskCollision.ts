@@ -3,8 +3,8 @@ import { WORLD_TO_DISPLAY } from '../velocity';
 import { worldDelta } from './helpers';
 
 function maskAt(frame: SpriteFrame, x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= frame.img.width || y >= frame.img.height) return false;
-  return frame.mask[y * frame.img.width + x] !== 0;
+  if (x < 0 || y < 0 || x >= frame.width || y >= frame.height) return false;
+  return frame.mask[y * frame.width + x] !== 0;
 }
 
 function spriteMasksOverlapInternal(
@@ -26,8 +26,8 @@ function spriteMasksOverlapInternal(
 
   const left = Math.max(aLeft, bLeft);
   const top = Math.max(aTop, bTop);
-  const right = Math.min(aLeft + aFrame.img.width, bLeft + bFrame.img.width);
-  const bottom = Math.min(aTop + aFrame.img.height, bTop + bFrame.img.height);
+  const right = Math.min(aLeft + aFrame.width, bLeft + bFrame.width);
+  const bottom = Math.min(aTop + aFrame.height, bTop + bFrame.height);
   if (left >= right || top >= bottom) return false;
 
   for (let y = top; y < bottom; y++) {
@@ -93,12 +93,12 @@ export function spriteMaskIntersectsCircle(
   const left = -frame.hotX;
   const top = -frame.hotY;
 
-  for (let y = 0; y < frame.img.height; y++) {
+  for (let y = 0; y < frame.height; y++) {
     const worldY = top + y;
     const relY = worldY - circleDy;
     const relYSq = relY * relY;
     if (relYSq > radiusSq) continue;
-    for (let x = 0; x < frame.img.width; x++) {
+    for (let x = 0; x < frame.width; x++) {
       if (!maskAt(frame, x, y)) continue;
       const relX = (left + x) - circleDx;
       if (relX * relX + relYSq <= radiusSq) return true;

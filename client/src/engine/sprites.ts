@@ -1,11 +1,19 @@
-// Sprite loader — loads PNG frames from the extracted UQM asset directory.
-// Frame filenames follow the pattern: <name>-<size>-<NNN>.png
-// Hot-spot data (center offset for rendering) is baked in here from the .ani files.
+// Sprite loader — loads battle frames through generated atlases.
+// Frame filenames still follow the extracted UQM naming, but runtime resolves
+// them from build-generated atlas images instead of downloading each PNG.
+
+import { getAtlasFrameForUrl } from './atlasAssets';
 
 export interface SpriteFrame {
-  img:    HTMLImageElement;
+  img:    CanvasImageSource;
+  width:  number;
+  height: number;
   hotX:   number; // pixels from left of image to ship center
   hotY:   number; // pixels from top  of image to ship center
+  sourceX?: number;
+  sourceY?: number;
+  sourceW?: number;
+  sourceH?: number;
   mask:   Uint8Array; // 1 byte per pixel, non-zero = collidable
 }
 
@@ -59,31 +67,23 @@ const SATURN_SML_HOTSPOTS: [number, number][] = [
 // ─── Loader ───────────────────────────────────────────────────────────────────
 
 function loadFrame(url: string, hotX: number, hotY: number): Promise<SpriteFrame> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
-        resolve({ img, hotX, hotY, mask: new Uint8Array(img.width * img.height) });
-        return;
-      }
-      ctx.clearRect(0, 0, img.width, img.height);
-      ctx.drawImage(img, 0, 0);
-      const data = ctx.getImageData(0, 0, img.width, img.height).data;
-      const mask = new Uint8Array(img.width * img.height);
-        for (let i = 0; i < mask.length; i++) {
-          mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
-        }
-      resolve({ img, hotX, hotY, mask });
+  return getAtlasFrameForUrl(url).then(frame => {
+    if (!frame) {
+      console.warn(`Sprite not found in atlas: ${url} (run the atlas generator)`);
+      throw new Error(`Failed to load ${url}`);
+    }
+    return {
+      img: frame.img,
+      width: frame.width,
+      height: frame.height,
+      hotX,
+      hotY,
+      sourceX: frame.x,
+      sourceY: frame.y,
+      sourceW: frame.width,
+      sourceH: frame.height,
+      mask: frame.mask,
     };
-    img.onerror = () => {
-      console.warn(`Sprite not found: ${url} (extract UQM assets per SETUP.md)`);
-      reject(new Error(`Failed to load ${url}`));
-    };
-    img.src = url;
   });
 }
 
@@ -426,10 +426,14 @@ export function drawSprite(
   const drawY = displayY - frame.hotY;
 
   // Only draw if on screen
-  if (drawX + frame.img.width < 0 || drawX > canvasW) return;
-  if (drawY + frame.img.height < 0 || drawY > canvasH) return;
+  if (drawX + frame.width < 0 || drawX > canvasW) return;
+  if (drawY + frame.height < 0 || drawY > canvasH) return;
 
-  ctx.drawImage(frame.img, drawX, drawY);
+  if (frame.sourceX !== undefined && frame.sourceY !== undefined && frame.sourceW !== undefined && frame.sourceH !== undefined) {
+    ctx.drawImage(frame.img, frame.sourceX, frame.sourceY, frame.sourceW, frame.sourceH, drawX, drawY, frame.width, frame.height);
+  } else {
+    ctx.drawImage(frame.img, drawX, drawY);
+  }
 }
 
 // ─── Ur-Quan sprites ──────────────────────────────────────────────────────────

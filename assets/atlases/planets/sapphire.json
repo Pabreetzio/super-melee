@@ -1,0 +1,39 @@
+{
+  "id": "planets/sapphire",
+  "imageUrl": "/atlases/planets/sapphire.png",
+  "frames": {
+    "/planets/sapphire-big-000.png": {
+      "key": "/planets/sapphire-big-000.png",
+      "sourceUrl": "/planets/sapphire-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/sapphire-big-000.png"
+    },
+    "/planets/sapphire-med-000.png": {
+      "key": "/planets/sapphire-med-000.png",
+      "sourceUrl": "/planets/sapphire-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/sapphire-med-000.png"
+    },
+    "/planets/sapphire-sml-000.png": {
+      "key": "/planets/sapphire-sml-000.png",
+      "sourceUrl": "/planets/sapphire-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/sapphire-sml-000.png"
+    }
+  }
+}

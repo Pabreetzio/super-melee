@@ -1,0 +1,39 @@
+{
+  "id": "planets/redgas",
+  "imageUrl": "/atlases/planets/redgas.png",
+  "frames": {
+    "/planets/redgas-big-000.png": {
+      "key": "/planets/redgas-big-000.png",
+      "sourceUrl": "/planets/redgas-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/redgas-big-000.png"
+    },
+    "/planets/redgas-med-000.png": {
+      "key": "/planets/redgas-med-000.png",
+      "sourceUrl": "/planets/redgas-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/redgas-med-000.png"
+    },
+    "/planets/redgas-sml-000.png": {
+      "key": "/planets/redgas-sml-000.png",
+      "sourceUrl": "/planets/redgas-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/redgas-sml-000.png"
+    }
+  }
+}

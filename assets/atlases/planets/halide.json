@@ -1,0 +1,39 @@
+{
+  "id": "planets/halide",
+  "imageUrl": "/atlases/planets/halide.png",
+  "frames": {
+    "/planets/halide-big-000.png": {
+      "key": "/planets/halide-big-000.png",
+      "sourceUrl": "/planets/halide-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/halide-big-000.png"
+    },
+    "/planets/halide-med-000.png": {
+      "key": "/planets/halide-med-000.png",
+      "sourceUrl": "/planets/halide-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/halide-med-000.png"
+    },
+    "/planets/halide-sml-000.png": {
+      "key": "/planets/halide-sml-000.png",
+      "sourceUrl": "/planets/halide-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/halide-sml-000.png"
+    }
+  }
+}

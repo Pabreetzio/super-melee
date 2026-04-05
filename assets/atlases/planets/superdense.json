@@ -1,0 +1,39 @@
+{
+  "id": "planets/superdense",
+  "imageUrl": "/atlases/planets/superdense.png",
+  "frames": {
+    "/planets/superdense-big-000.png": {
+      "key": "/planets/superdense-big-000.png",
+      "sourceUrl": "/planets/superdense-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/superdense-big-000.png"
+    },
+    "/planets/superdense-med-000.png": {
+      "key": "/planets/superdense-med-000.png",
+      "sourceUrl": "/planets/superdense-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/superdense-med-000.png"
+    },
+    "/planets/superdense-sml-000.png": {
+      "key": "/planets/superdense-sml-000.png",
+      "sourceUrl": "/planets/superdense-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/superdense-sml-000.png"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "planets/purplegas",
+  "imageUrl": "/atlases/planets/purplegas.png",
+  "frames": {
+    "/planets/purplegas-big-000.png": {
+      "key": "/planets/purplegas-big-000.png",
+      "sourceUrl": "/planets/purplegas-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/purplegas-big-000.png"
+    },
+    "/planets/purplegas-med-000.png": {
+      "key": "/planets/purplegas-med-000.png",
+      "sourceUrl": "/planets/purplegas-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/purplegas-med-000.png"
+    },
+    "/planets/purplegas-sml-000.png": {
+      "key": "/planets/purplegas-sml-000.png",
+      "sourceUrl": "/planets/purplegas-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/purplegas-sml-000.png"
+    }
+  }
+}

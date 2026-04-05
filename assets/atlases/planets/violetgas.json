@@ -1,0 +1,39 @@
+{
+  "id": "planets/violetgas",
+  "imageUrl": "/atlases/planets/violetgas.png",
+  "frames": {
+    "/planets/violetgas-big-000.png": {
+      "key": "/planets/violetgas-big-000.png",
+      "sourceUrl": "/planets/violetgas-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/violetgas-big-000.png"
+    },
+    "/planets/violetgas-med-000.png": {
+      "key": "/planets/violetgas-med-000.png",
+      "sourceUrl": "/planets/violetgas-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/violetgas-med-000.png"
+    },
+    "/planets/violetgas-sml-000.png": {
+      "key": "/planets/violetgas-sml-000.png",
+      "sourceUrl": "/planets/violetgas-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/violetgas-sml-000.png"
+    }
+  }
+}

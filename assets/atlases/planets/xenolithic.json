@@ -1,0 +1,39 @@
+{
+  "id": "planets/xenolithic",
+  "imageUrl": "/atlases/planets/xenolithic.png",
+  "frames": {
+    "/planets/xenolithic-big-000.png": {
+      "key": "/planets/xenolithic-big-000.png",
+      "sourceUrl": "/planets/xenolithic-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 75,
+      "h": 67,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/xenolithic-big-000.png"
+    },
+    "/planets/xenolithic-med-000.png": {
+      "key": "/planets/xenolithic-med-000.png",
+      "sourceUrl": "/planets/xenolithic-med-000.png",
+      "x": 79,
+      "y": 2,
+      "w": 38,
+      "h": 34,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/xenolithic-med-000.png"
+    },
+    "/planets/xenolithic-sml-000.png": {
+      "key": "/planets/xenolithic-sml-000.png",
+      "sourceUrl": "/planets/xenolithic-sml-000.png",
+      "x": 119,
+      "y": 2,
+      "w": 19,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/xenolithic-sml-000.png"
+    }
+  }
+}

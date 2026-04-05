@@ -1,0 +1,39 @@
+{
+  "id": "planets/slaveshield",
+  "imageUrl": "/atlases/planets/slaveshield.png",
+  "frames": {
+    "/planets/slaveshield-big-000.png": {
+      "key": "/planets/slaveshield-big-000.png",
+      "sourceUrl": "/planets/slaveshield-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 87,
+      "h": 79,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/slaveshield-big-000.png"
+    },
+    "/planets/slaveshield-med-000.png": {
+      "key": "/planets/slaveshield-med-000.png",
+      "sourceUrl": "/planets/slaveshield-med-000.png",
+      "x": 91,
+      "y": 2,
+      "w": 43,
+      "h": 39,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/slaveshield-med-000.png"
+    },
+    "/planets/slaveshield-sml-000.png": {
+      "key": "/planets/slaveshield-sml-000.png",
+      "sourceUrl": "/planets/slaveshield-sml-000.png",
+      "x": 136,
+      "y": 2,
+      "w": 22,
+      "h": 21,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/planets/slaveshield-sml-000.png"
+    }
+  }
+}
