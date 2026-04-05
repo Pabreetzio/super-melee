@@ -32,6 +32,7 @@ export interface ShipState {
   arilouTeleportSeed?: number;
   androsynthBlazer?: boolean;
   androsynthSeed?: number;
+  chenjesuDogiCount?: number;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -51,7 +52,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble';
+      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' }
@@ -110,7 +111,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -123,7 +124,13 @@ export interface LaserFlash {
   color?: string;
 }
 
-export type EffectSound = 'fighter_laser' | 'fighter_dock' | 'vux_limpet_bite';
+export type EffectSound =
+  | 'fighter_laser'
+  | 'fighter_dock'
+  | 'vux_limpet_bite'
+  | 'chenjesu_shrapnel'
+  | 'chenjesu_dogi_bark'
+  | 'chenjesu_dogi_die';
 
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
 
@@ -134,6 +141,8 @@ export type EffectSound = 'fighter_laser' | 'fighter_dock' | 'vux_limpet_bite';
 export interface MissileEffect {
   /** Force-remove the missile this frame (e.g. fighter docked). */
   destroy?: boolean;
+  /** Resolve the forced destroy through onMissileHit() and impact effects. */
+  resolveAsHit?: boolean;
   /** Crew damage to deal to the enemy ship. */
   damageEnemy?: number;
   /** Crew to restore to the owning ship (fighter return). Capped at maxCrew. */
@@ -158,13 +167,21 @@ export interface MissileHitEffect {
   /** If true, skip the default blast explosion at the impact site. */
   skipBlast?: boolean;
   /** Override the cosmetic explosion animation used at the impact site. */
-  explosionType?: 'mycon_plasma';
+  explosionType?: 'mycon_plasma' | 'chenjesu_spark';
   /** Spawn a splinter explosion at the impact position with this velocity. */
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */
   impairTarget?: number;
   /** Permanently attach this many limpets to the target ship. */
   attachLimpet?: number;
+  /** Drain up to this much energy from the target ship. */
+  drainTargetEnergy?: number;
+  /** Keep the missile alive after this hit instead of removing it. */
+  keepMissileAlive?: boolean;
+  /** Set the missile's weaponWait after the hit (used as custom cooldown/stun). */
+  missileCooldown?: number;
+  /** Spawn follow-up projectiles when the hit resolves. */
+  spawnMissiles?: SpawnRequest[];
   /** Sound keys to play when the hit effect resolves. */
   sounds?: EffectSound[];
 }

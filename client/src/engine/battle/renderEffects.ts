@@ -100,6 +100,21 @@ export function renderExplosions(
       continue;
     }
 
+    if (ex.type === 'chenjesu_spark') {
+      const chSp = shipSprites.get('chenjesu') as
+        { spark?: { big: object; med: object; sml: object } } | null;
+      const group = chSp?.spark ?? null;
+      const sset = group
+        ? (reduction >= 2 ? group.sml : reduction === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
+        : null;
+      if (sset) {
+        drawSprite(ctx, sset, ex.frame + 2, ex.x, ex.y, canvasW, canvasH, camX, camY, reduction);
+      } else {
+        placeholderDot(ctx, ex.x, ex.y, camX, camY, 5, '#d0f7ff', reduction);
+      }
+      continue;
+    }
+
     const set = ex.type === 'boom'
       ? (explosionSprites ? (reduction >= 2 ? explosionSprites.boom.sml : reduction === 1 ? explosionSprites.boom.med : explosionSprites.boom.big) : null)
       : (explosionSprites ? (reduction >= 2 ? explosionSprites.blast.sml : reduction === 1 ? explosionSprites.blast.med : explosionSprites.blast.big) : null);

@@ -253,6 +253,18 @@ const BLAZER_SML_HOTSPOTS: [number, number][] = [
   [1,2],[2,1],[3,1],[5,1],[4,1],[5,1],[3,3],[2,4],
   [1,4],[1,4],[1,3],[1,1],[2,1],[1,1],[1,1],[1,1],
 ];
+const CHENJESU_SPARK_BIG_HOTSPOTS: [number, number][] = [
+  [4,4],[2,2],[10,9],[11,11],[14,13],[16,15],[18,17],[18,17],[18,17],[18,17],[18,17],
+];
+const CHENJESU_SPARK_MED_HOTSPOTS: [number, number][] = [
+  [3,3],[1,1],[4,5],[5,5],[6,7],[7,7],[9,9],[8,9],[9,9],[8,9],[9,9],
+];
+const CHENJESU_SPARK_SML_HOTSPOTS: [number, number][] = [
+  [2,2],[0,0],[1,2],[2,3],[3,3],[4,4],[5,5],[5,5],[5,4],[5,4],[5,4],
+];
+const DOGGY_BIG_HOTSPOTS: [number, number][] = [[9,8],[9,8],[9,8],[9,8],[9,8],[9,8],[9,8]];
+const DOGGY_MED_HOTSPOTS: [number, number][] = [[4,4],[4,4],[4,4],[4,4],[4,4],[4,4],[4,4]];
+const DOGGY_SML_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2]];
 
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
@@ -625,6 +637,39 @@ export async function loadAndrosynthSprites(): Promise<AndrosynthSprites> {
     big, med, sml,
     bubble: { big: bubbleBig, med: bubbleMed, sml: bubbleSml },
     blazer: { big: blazerBig, med: blazerMed, sml: blazerSml },
+  };
+}
+
+export interface ChenjesuSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  spark: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  doggy: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadChenjesuSprites(): Promise<ChenjesuSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('chenjesu/broodhome', 'big', 16, BROODHOME_BIG_HOTSPOTS),
+    loadSpriteSet('chenjesu/broodhome', 'med', 16, BROODHOME_MED_HOTSPOTS),
+    loadSpriteSet('chenjesu/broodhome', 'sml', 16, BROODHOME_SML_HOTSPOTS),
+  ]);
+  const [sparkBig, sparkMed, sparkSml] = await Promise.all([
+    loadSpriteSet('chenjesu/spark', 'big', 11, CHENJESU_SPARK_BIG_HOTSPOTS),
+    loadSpriteSet('chenjesu/spark', 'med', 11, CHENJESU_SPARK_MED_HOTSPOTS),
+    loadSpriteSet('chenjesu/spark', 'sml', 11, CHENJESU_SPARK_SML_HOTSPOTS),
+  ]);
+  const [doggyBig, doggyMed, doggySml] = await Promise.all([
+    loadSpriteSet('chenjesu/doggy', 'big', 7, DOGGY_BIG_HOTSPOTS),
+    loadSpriteSet('chenjesu/doggy', 'med', 7, DOGGY_MED_HOTSPOTS),
+    loadSpriteSet('chenjesu/doggy', 'sml', 7, DOGGY_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    spark: { big: sparkBig, med: sparkMed, sml: sparkSml },
+    doggy: { big: doggyBig, med: doggyMed, sml: doggySml },
   };
 }
 

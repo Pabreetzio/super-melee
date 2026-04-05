@@ -246,6 +246,18 @@ export function playEffectSound(cue: EffectSound): void {
   if (cue === 'fighter_laser') playFighterLaser();
   else if (cue === 'fighter_dock') playFighterDock();
   else if (cue === 'vux_limpet_bite') playVuxLimpetBite();
+  else if (cue === 'chenjesu_shrapnel') {
+    const url = SHIP_SOUNDS.chenjesu?.shrapnel;
+    if (url) playUrl(url, 0.7);
+  }
+  else if (cue === 'chenjesu_dogi_bark') {
+    const url = SHIP_SOUNDS.chenjesu?.dogiBark;
+    if (url) playUrl(url, 0.75);
+  }
+  else if (cue === 'chenjesu_dogi_die') {
+    const url = SHIP_SOUNDS.chenjesu?.dogiDie;
+    if (url) playUrl(url, 0.75);
+  }
 }
 
 /** Small blast key by battle sound name. */

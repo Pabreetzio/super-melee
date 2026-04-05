@@ -10,6 +10,7 @@ import type { BattleExplosion, IonDot } from './types';
 import type { BattleState } from './types';
 import { circleOverlap, worldAngle, worldDelta } from './helpers';
 import { spriteMasksOverlap, spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
+import type { MissileHitEffect, SpawnRequest } from '../ships/types';
 
 function missileRadius(m: BattleMissile): number {
   // Broad-phase circle radius — must be >= the sprite's actual pixel radius so
@@ -18,6 +19,9 @@ function missileRadius(m: BattleMissile): number {
   // ~25 px radius). Use 28 px to safely cover all frames.
   if (m.weaponType === 'plasmoid') return DISPLAY_TO_WORLD(28);
   if (m.weaponType === 'bubble') return DISPLAY_TO_WORLD(5);
+  if (m.weaponType === 'chenjesu_crystal') return DISPLAY_TO_WORLD(9);
+  if (m.weaponType === 'chenjesu_shard') return DISPLAY_TO_WORLD(8);
+  if (m.weaponType === 'dogi') return DISPLAY_TO_WORLD(9);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
@@ -78,7 +82,53 @@ function getShipCollisionFrame(
 }
 
 function getShipCollisionRadius(bs: BattleState, side: 0 | 1): number {
-  return DISPLAY_TO_WORLD(getShipDef(bs.shipTypes[side])?.radius ?? 14);
+  const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+  return DISPLAY_TO_WORLD(ctrl.getCollisionRadius?.(bs.ships[side]) ?? getShipDef(bs.shipTypes[side])?.radius ?? 14);
+}
+
+function spawnMissileEffect(
+  bs: BattleState,
+  owner: 0 | 1,
+  s: SpawnRequest,
+  worldW: number,
+  worldH: number,
+): void {
+  if (s.type !== 'missile') return;
+
+  const v = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
+  setVelocityVector(v, s.speed, s.facing);
+  let spawnX = s.x;
+  let spawnY = s.y;
+  if (s.inheritVelocity) {
+    const ownerShip = bs.ships[owner];
+    v.vx += ownerShip.velocity.vx;
+    v.vy += ownerShip.velocity.vy;
+    spawnX -= VELOCITY_TO_WORLD(ownerShip.velocity.vx);
+    spawnY -= VELOCITY_TO_WORLD(ownerShip.velocity.vy);
+  }
+  spawnX = ((spawnX % worldW) + worldW) % worldW;
+  spawnY = ((spawnY % worldH) + worldH) % worldH;
+  bs.missiles.push({
+    prevX: spawnX,
+    prevY: spawnY,
+    x: spawnX,
+    y: spawnY,
+    facing: s.facing,
+    velocity: v,
+    life: s.life,
+    hitPoints: s.hits ?? s.damage,
+    speed: s.speed,
+    maxSpeed: s.maxSpeed,
+    accel: s.accel,
+    damage: s.damage,
+    tracks: s.tracks,
+    trackWait: s.initialTrackWait ?? s.trackRate,
+    trackRate: s.trackRate,
+    owner,
+    preserveVelocity: s.preserveVelocity,
+    limpet: s.limpet,
+    weaponType: s.weaponType,
+  });
 }
 
 function missileIntersectsShip(
@@ -114,12 +164,17 @@ function playMissileBlast(m: BattleMissile, skipBlast?: boolean): void {
 function pushHitEffects(
   bs: BattleState,
   m: BattleMissile,
-  hitFx: ReturnType<NonNullable<(typeof SHIP_REGISTRY)[keyof typeof SHIP_REGISTRY]['onMissileHit']>>,
+  hitFx: MissileHitEffect,
+  worldW: number,
+  worldH: number,
 ): void {
   const explosionType = hitFx.explosionType ?? 'blast';
   if (!hitFx.skipBlast) bs.explosions.push({ type: explosionType, x: m.x, y: m.y, frame: 0 });
   if (hitFx.splinter) {
     bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2, vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
+  }
+  if (hitFx.spawnMissiles) {
+    for (const spawn of hitFx.spawnMissiles) spawnMissileEffect(bs, m.owner, spawn, worldW, worldH);
   }
   if (hitFx.sounds) {
     for (const snd of hitFx.sounds) playEffectSound(snd);
@@ -138,7 +193,7 @@ export function applyDirectMissileDamage(
 
   const ownerCtrl = SHIP_REGISTRY[bs.shipTypes[m.owner]];
   const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
-  pushHitEffects(bs, m, hitFx);
+  pushHitEffects(bs, m, hitFx, 20480, 15360);
   playMissileBlast(m, hitFx.skipBlast);
   return true;
 }
@@ -236,7 +291,13 @@ export function processMissiles(
 
   for (const m of bs.missiles) {
     m.life--;
-    if (m.life <= 0) continue;
+    if (m.life <= 0) {
+      if (m.weaponType === 'dogi') {
+        const ownShip = bs.ships[m.owner];
+        ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+      }
+      continue;
+    }
     m.prevX = m.x;
     m.prevY = m.y;
 
@@ -252,7 +313,16 @@ export function processMissiles(
     if (effect.lasers)      bs.lasers.push(...effect.lasers);
     if (effect.sounds) for (const snd of effect.sounds) playEffectSound(snd);
 
-    if (effect.destroy) continue;
+    if (effect.destroy) {
+      if (effect.resolveAsHit) {
+        const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
+        pushHitEffects(bs, m, hitFx, worldW, worldH);
+        playMissileBlast(m, hitFx.skipBlast);
+      } else if (m.weaponType === 'dogi') {
+        ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+      }
+      continue;
+    }
 
     if (!effect.skipDefaultTracking && m.tracks) {
       const targetAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
@@ -298,9 +368,16 @@ export function processMissiles(
           // Bounding spheres overlapped, but masks did not.
         } else {
           const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
-          pushHitEffects(bs, m, hitFx);
+          pushHitEffects(bs, m, hitFx, worldW, worldH);
           playMissileBlast(m, hitFx.skipBlast);
-          hit = true;
+          if (hitFx.keepMissileAlive) {
+            m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
+          } else {
+            if (m.weaponType === 'dogi') {
+              ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+            }
+            hit = true;
+          }
         }
       }
     }
@@ -329,7 +406,7 @@ export function processMissiles(
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
       targetShip.crew = Math.max(0, targetShip.crew - m.damage);
       const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
-      pushHitEffects(bs, m, hitFx);
+      pushHitEffects(bs, m, hitFx, worldW, worldH);
       if (hitFx.impairTarget) {
         targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
         targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
@@ -337,8 +414,15 @@ export function processMissiles(
       if (hitFx.attachLimpet) {
         targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
       }
+      if (hitFx.drainTargetEnergy) {
+        targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
+      }
       playMissileBlast(m, hitFx.skipBlast);
-      hit = true;
+      if (hitFx.keepMissileAlive) {
+        m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
+      } else {
+        hit = true;
+      }
     }
 
     if (!hit &&
@@ -348,9 +432,16 @@ export function processMissiles(
         !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
       const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
-      pushHitEffects(bs, m, hitFx);
+      pushHitEffects(bs, m, hitFx, worldW, worldH);
+      if (hitFx.drainTargetEnergy) {
+        targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
+      }
       playMissileBlast(m, hitFx.skipBlast);
-      hit = true;
+      if (hitFx.keepMissileAlive) {
+        m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
+      } else {
+        hit = true;
+      }
     }
 
     if (!hit) aliveMissiles.push(m);
@@ -391,14 +482,22 @@ export function processMissiles(
 
       if (aDestroyed || a.hitPoints <= 0) {
         const hitFx = aCtrl.onMissileHit?.(a, null) ?? {};
-        pushHitEffects(bs, a, hitFx);
+        pushHitEffects(bs, a, hitFx, worldW, worldH);
         playMissileBlast(a, hitFx.skipBlast);
+        if (a.weaponType === 'dogi') {
+          const ownShip = bs.ships[a.owner];
+          ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        }
         alive[i] = false;
       }
       if (bDestroyed || b.hitPoints <= 0) {
         const hitFx = bCtrl.onMissileHit?.(b, null) ?? {};
-        pushHitEffects(bs, b, hitFx);
+        pushHitEffects(bs, b, hitFx, worldW, worldH);
         playMissileBlast(b, hitFx.skipBlast);
+        if (b.weaponType === 'dogi') {
+          const ownShip = bs.ships[b.owner];
+          ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        }
         alive[j] = false;
       }
       if (!alive[i]) break;
