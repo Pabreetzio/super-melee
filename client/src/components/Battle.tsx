@@ -21,7 +21,9 @@ import {
   applyGravity,
   calcReduction,
   computeChecksum,
+  worldDelta,
   worldAngle,
+  wrapWorldCoord,
 } from '../engine/battle/helpers';
 import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
 import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
@@ -56,6 +58,11 @@ const PLANET_RADIUS_W = 160;
 
 // Gravity threshold in world units = 255 display pixels * 4
 const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
+const HYPERJUMP_LIFE = 15;
+const TRANSITION_SPEED_W = DISPLAY_TO_WORLD(40);
+const POST_BATTLE_PAUSE_FRAMES = 72;
+const SPAWN_CONFLICT_RADIUS_W = DISPLAY_TO_WORLD(24);
+const VUX_AGGRESSIVE_ENTRY_DIST_W = DISPLAY_TO_WORLD((150 + 12 + 46) << 1);
 
 const FRAME_MS = 1000 / BATTLE_FPS;
 
@@ -70,6 +77,70 @@ const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
   med: [19, 17],
   sml: [9, 8],
 };
+
+function randomSpawnCoord(rng: RNG, worldSize: number): number {
+  return (rng.rand(worldSize >> 2) << 2) % worldSize;
+}
+
+function inGravityWell(x: number, y: number): boolean {
+  const { dx, dy } = worldDelta(x, y, PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
+  return dx * dx + dy * dy <= GRAVITY_THRESHOLD_W * GRAVITY_THRESHOLD_W;
+}
+
+function conflictsWithShips(
+  x: number,
+  y: number,
+  ships: ReadonlyArray<ShipState>,
+): boolean {
+  for (const ship of ships) {
+    const { dx, dy } = worldDelta(x, y, ship.x, ship.y, WORLD_W, WORLD_H);
+    if (dx * dx + dy * dy < SPAWN_CONFLICT_RADIUS_W * SPAWN_CONFLICT_RADIUS_W) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function pickSpawnPoint(
+  rng: RNG,
+  existingShips: ReadonlyArray<ShipState>,
+): { x: number; y: number } {
+  for (let attempt = 0; attempt < 256; attempt++) {
+    const x = randomSpawnCoord(rng, WORLD_W);
+    const y = randomSpawnCoord(rng, WORLD_H);
+    if (!inGravityWell(x, y) && !conflictsWithShips(x, y, existingShips)) {
+      return { x, y };
+    }
+  }
+
+  // Fallback: preserve progress even if our approximation gets unlucky.
+  return {
+    x: wrapWorldCoord(PLANET_X - DISPLAY_TO_WORLD(300), WORLD_W),
+    y: wrapWorldCoord(PLANET_Y, WORLD_H),
+  };
+}
+
+function pickVuxSpawnPoint(
+  rng: RNG,
+  targetShip: ShipState,
+  existingShips: ReadonlyArray<ShipState>,
+): { x: number; y: number } {
+  for (let attempt = 0; attempt < 256; attempt++) {
+    const x = wrapWorldCoord(
+      targetShip.x - (VUX_AGGRESSIVE_ENTRY_DIST_W >> 1) + rng.rand(VUX_AGGRESSIVE_ENTRY_DIST_W),
+      WORLD_W,
+    );
+    const y = wrapWorldCoord(
+      targetShip.y - (VUX_AGGRESSIVE_ENTRY_DIST_W >> 1) + rng.rand(VUX_AGGRESSIVE_ENTRY_DIST_W),
+      WORLD_H,
+    );
+    if (!inGravityWell(x, y) && !conflictsWithShips(x, y, existingShips)) {
+      return { x, y };
+    }
+  }
+
+  return pickSpawnPoint(rng, existingShips);
+}
 
 
 // Key maps are built inside the component at mount time from the live controls
@@ -268,15 +339,30 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const makeShip = (type: ShipId, x: number, y: number) =>
       SHIP_REGISTRY[type].make(x, y, () => rng.rand(1000) / 1000);
 
-    const s0 = makeShip(type0, PLANET_X - DISPLAY_TO_WORLD(300), PLANET_Y);
-    const s1 = makeShip(type1, PLANET_X + DISPLAY_TO_WORLD(300), PLANET_Y);
-    s1.facing = 8; // face the other direction
+    const spawn0 = pickSpawnPoint(rng, []);
+    const s0 = makeShip(type0, spawn0.x, spawn0.y);
+    s0.facing = rng.rand(16);
+
+    const spawn1 = type1 === 'vux'
+      ? pickVuxSpawnPoint(rng, s0, [s0])
+      : pickSpawnPoint(rng, [s0]);
+    const s1 = makeShip(type1, spawn1.x, spawn1.y);
+    s1.facing = type1 === 'vux'
+      ? worldAngle(s1.x, s1.y, s0.x, s0.y) >> 2
+      : rng.rand(16);
+
+    if (type0 === 'vux') {
+      const vuxSpawn0 = pickVuxSpawnPoint(rng, s1, [s1]);
+      s0.x = vuxSpawn0.x;
+      s0.y = vuxSpawn0.y;
+      s0.facing = worldAngle(s0.x, s0.y, s1.x, s1.y) >> 2;
+    }
 
     // Apply winner state if this is a continuation battle (offline modes).
     // Winner keeps exact crew/energy/position/velocity from previous fight.
-    // The loser's new ship starts at the default spawn position (above).
-    let warpIn0 = 15;
-    let warpIn1 = 15;
+    // The loser re-enters using the same spawn search as a fresh battle.
+    let warpIn0 = HYPERJUMP_LIFE;
+    let warpIn1 = HYPERJUMP_LIFE;
     if (winnerState) {
       const ws = winnerState;
       const wShip = ws.side === 0 ? s0 : s1;
@@ -289,6 +375,18 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       wShip.facing  = ws.facing;
       // Winner skips warp-in (they're already in the arena)
       if (ws.side === 0) warpIn0 = 0; else warpIn1 = 0;
+
+      const loserSide = ws.side === 0 ? 1 : 0;
+      const loserType = loserSide === 0 ? type0 : type1;
+      const respawn = loserType === 'vux'
+        ? pickVuxSpawnPoint(rng, wShip, [wShip])
+        : pickSpawnPoint(rng, [wShip]);
+      const loserShip = loserSide === 0 ? s0 : s1;
+      loserShip.x = respawn.x;
+      loserShip.y = respawn.y;
+      loserShip.facing = loserType === 'vux'
+        ? worldAngle(loserShip.x, loserShip.y, wShip.x, wShip.y) >> 2
+        : rng.rand(16);
     }
 
     // Pre-seed input buffers for frames 0..inputDelay-1 with zero input.
@@ -621,7 +719,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const s1dead = bs.ships[1].crew <= 0;
     if ((s0dead || s1dead) && !bs.pendingEnd) {
       const winner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : 0;
-      bs.pendingEnd = { winner, countdown: 10 }; // ~10 frames ≈ 415 ms
+      bs.pendingEnd = { winner, countdown: POST_BATTLE_PAUSE_FRAMES };
       if (!isAI && !isLocal2P) {
         client.send({ type: 'battle_over_ack', winner });
       }
@@ -685,6 +783,13 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
+
+    // UQM keeps physics running during the inter-round pause, but ships do not
+    // accept steering/weapon input while waiting for the next entrant.
+    if (bs.pendingEnd) {
+      input0 = 0;
+      input1 = 0;
+    }
 
     // Apply gravity to both ships
     applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
@@ -1048,19 +1153,27 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       for (let side = 0; side < 2; side++) {
         const ship = bs.ships[side];
 
-        // Warp-in: ship is invisible during countdown (HYPERJUMP_LIFE=15 frames).
-        // Render orange→red shadow dot approaching from the facing direction.
+        // Warp-in: tint the actual ship sprite into the UQM-style orange/red
+        // silhouette and slide it in from the facing direction.
         if (bs.warpIn[side] > 0) {
-          const wi  = bs.warpIn[side];
+          const wi = bs.warpIn[side];
           const ang = (ship.facing * 4) & 63;
-          const distW = Math.round((wi / 15) * DISPLAY_TO_WORLD(120));
-          const sdx = tw2dx(ship.x + COSINE(ang, distW));
-          const sdy = tw2dy(ship.y + SINE(ang, distW));
-          const colorStep = Math.min(11, Math.floor((15 - wi) * 12 / 15));
-          const ionR = [255, 255, 255, 255, 255, 255, 255, 219, 183, 147, 111, 75][colorStep];
-          const ionG = [171, 142, 113, 85,  57,  28,   0,   0,   0,   0,   0,  0][colorStep];
-          ctx.fillStyle = `rgb(${ionR},${ionG},0)`;
-          ctx.fillRect(sdx - 1, sdy - 1, 3, 3);
+          const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+          const sprites = shipSpritesRef.current.get(bs.shipTypes[side]) ?? null;
+          const progress = (HYPERJUMP_LIFE - wi + 1) / HYPERJUMP_LIFE;
+          const tintOpacity = 0.28 + progress * 0.45;
+
+          for (let trail = 0; trail < 3; trail++) {
+            const distW = TRANSITION_SPEED_W * Math.max(0, wi + trail - 1);
+            const warpX = wrapWorldCoord(ship.x - COSINE(ang, distW), WORLD_W);
+            const warpY = wrapWorldCoord(ship.y - SINE(ang, distW), WORLD_H);
+
+            ctx.save();
+            ctx.globalAlpha = tintOpacity * (1 - trail * 0.24);
+            ctx.filter = 'sepia(1) saturate(7) hue-rotate(-28deg) brightness(0.92)';
+            ctrl.drawShip(dc, { ...ship, x: warpX, y: warpY }, sprites);
+            ctx.restore();
+          }
           continue;
         }
 
