@@ -183,6 +183,8 @@ export interface MissileHitEffect {
   attachLimpet?: number;
   /** Drain up to this much energy from the target ship. */
   drainTargetEnergy?: number;
+  /** Apply an immediate velocity delta to the target ship, then clamp if needed. */
+  targetVelocityDelta?: { vx: number; vy: number; maxSpeed?: number };
   /** Keep the missile alive after this hit instead of removing it. */
   keepMissileAlive?: boolean;
   /** Set the missile's weaponWait after the hit (used as custom cooldown/stun). */

@@ -289,6 +289,18 @@ const MUZZLE_SML_HOTSPOTS: [number, number][] = [
 const SATELLITE_BIG_HOTSPOTS: [number, number][] = [[9,7],[8,7],[5,7],[3,7],[3,7],[3,7],[5,7],[8,7]];
 const SATELLITE_MED_HOTSPOTS: [number, number][] = [[4,3],[4,3],[3,3],[2,3],[1,3],[2,3],[3,3],[4,3]];
 const SATELLITE_SML_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[1,2],[1,2],[2,2],[2,2],[2,2]];
+const CANNON_BIG_HOTSPOTS: [number, number][] = [
+  [1,5],[2,5],[2,4],[3,2],[3,1],[3,2],[2,2],[2,3],
+  [1,3],[2,3],[4,2],[5,2],[5,1],[5,2],[4,4],[2,5],
+];
+const CANNON_MED_HOTSPOTS: [number, number][] = [
+  [1,3],[0,2],[1,1],[1,1],[1,1],[1,0],[1,1],[0,1],
+  [1,1],[1,1],[2,1],[2,0],[3,1],[2,1],[2,2],[1,2],
+];
+const CANNON_SML_HOTSPOTS: [number, number][] = [
+  [0,1],[0,1],[0,1],[1,1],[1,0],[1,1],[0,0],[0,1],
+  [0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[0,1],
+];
 
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
@@ -727,6 +739,32 @@ export async function loadChmmrSprites(): Promise<ChmmrSprites> {
     sml,
     muzzle: { big: muzzleBig, med: muzzleMed, sml: muzzleSml },
     satellite: { big: satBig, med: satMed, sml: satSml },
+  };
+}
+
+export interface DruugeSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  cannon: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadDruugeSprites(): Promise<DruugeSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('druuge/mauler', 'big', 16, MAULER_BIG_HOTSPOTS),
+    loadSpriteSet('druuge/mauler', 'med', 16, MAULER_MED_HOTSPOTS),
+    loadSpriteSet('druuge/mauler', 'sml', 16, MAULER_SML_HOTSPOTS),
+  ]);
+  const [cannonBig, cannonMed, cannonSml] = await Promise.all([
+    loadSpriteSet('druuge/cannon', 'big', 16, CANNON_BIG_HOTSPOTS),
+    loadSpriteSet('druuge/cannon', 'med', 16, CANNON_MED_HOTSPOTS),
+    loadSpriteSet('druuge/cannon', 'sml', 16, CANNON_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    cannon: { big: cannonBig, med: cannonMed, sml: cannonSml },
   };
 }
 

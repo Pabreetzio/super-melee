@@ -3,7 +3,7 @@ import { SHIP_REGISTRY } from '../ships/registry';
 import { getShipDef } from '../ships';
 import type { BattleMissile, ShipState } from '../ships/types';
 import type { SpriteFrame } from '../sprites';
-import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY } from '../velocity';
+import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY, setVelocityComponents } from '../velocity';
 import { trackFacing } from '../ships/human';
 import { COSINE, SINE } from '../sinetab';
 import type { BattleExplosion, IonDot } from './types';
@@ -424,6 +424,19 @@ export function processMissiles(
       }
       if (hitFx.drainTargetEnergy) {
         targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
+      }
+      if (hitFx.targetVelocityDelta) {
+        const nextVx = targetShip.velocity.vx + hitFx.targetVelocityDelta.vx;
+        const nextVy = targetShip.velocity.vy + hitFx.targetVelocityDelta.vy;
+        setVelocityComponents(targetShip.velocity, nextVx, nextVy);
+        if (hitFx.targetVelocityDelta.maxSpeed !== undefined) {
+          const speedSq = targetShip.velocity.vx * targetShip.velocity.vx + targetShip.velocity.vy * targetShip.velocity.vy;
+          const maxSpeedSq = hitFx.targetVelocityDelta.maxSpeed * hitFx.targetVelocityDelta.maxSpeed;
+          if (speedSq > maxSpeedSq) {
+            const scale = hitFx.targetVelocityDelta.maxSpeed / Math.sqrt(speedSq);
+            setVelocityComponents(targetShip.velocity, targetShip.velocity.vx * scale, targetShip.velocity.vy * scale);
+          }
+        }
       }
       playMissileBlast(m, hitFx.skipBlast);
       if (hitFx.keepMissileAlive) {
