@@ -18,6 +18,22 @@ function getShipCollisionFrame(
   return ctrl.getShipCollisionFrame?.(ship, shipSprites.get(shipType) ?? null) ?? null;
 }
 
+function getShipCollisionRadius(
+  ship: ShipState,
+  shipType: ShipId,
+): number {
+  const ctrl = SHIP_REGISTRY[shipType];
+  return DISPLAY_TO_WORLD(ctrl.getCollisionRadius?.(ship) ?? getShipDef(shipType)?.radius ?? 14);
+}
+
+function getShipCollisionMass(
+  ship: ShipState,
+  shipType: ShipId,
+): number {
+  const ctrl = SHIP_REGISTRY[shipType];
+  return ctrl.getCollisionMass?.(ship) ?? getShipDef(shipType)?.mass ?? 6;
+}
+
 export function handleShipShipCollision(
   ships: [ShipState, ShipState],
   warpIn: [number, number],
@@ -27,10 +43,8 @@ export function handleShipShipCollision(
   if (SHIP_REGISTRY[shipTypes[0]].isIntangible?.(ships[0]) || SHIP_REGISTRY[shipTypes[1]].isIntangible?.(ships[1])) {
     return;
   }
-  const def0 = getShipDef(shipTypes[0]);
-  const def1 = getShipDef(shipTypes[1]);
-  const r0 = DISPLAY_TO_WORLD(def0?.radius ?? 14);
-  const r1 = DISPLAY_TO_WORLD(def1?.radius ?? 14);
+  const r0 = getShipCollisionRadius(ships[0], shipTypes[0]);
+  const r1 = getShipCollisionRadius(ships[1], shipTypes[1]);
   const { dx, dy } = worldDelta(ships[0].x, ships[0].y, ships[1].x, ships[1].y);
   const distSq = dx * dx + dy * dy;
   const minDist = r0 + r1;
@@ -39,7 +53,14 @@ export function handleShipShipCollision(
   const frame1 = getShipCollisionFrame(ships[1], shipTypes[1], shipSprites);
   if (frame0 && frame1 && !spriteMasksOverlap(frame0, ships[0].x, ships[0].y, frame1, ships[1].x, ships[1].y, 20480, 15360)) return;
 
-  resolveShipCollision(ships[0], ships[1], def0?.mass ?? 6, def1?.mass ?? 6);
+  const ctrl0 = SHIP_REGISTRY[shipTypes[0]];
+  const ctrl1 = SHIP_REGISTRY[shipTypes[1]];
+  resolveShipCollision(
+    ships[0],
+    ships[1],
+    getShipCollisionMass(ships[0], shipTypes[0]),
+    getShipCollisionMass(ships[1], shipTypes[1]),
+  );
   const distInt = Math.round(Math.sqrt(distSq));
   const overlap = minDist - distInt;
   if (overlap > 0) {
@@ -57,6 +78,17 @@ export function handleShipShipCollision(
     ships[1].y = wrapWorldCoord(ships[1].y, 15360);
   }
 
+  const fx0 = ctrl0.onShipCollision?.(ships[0], ships[1]);
+  const fx1 = ctrl1.onShipCollision?.(ships[1], ships[0]);
+  if (fx0?.damageOther) {
+    ships[1].crew = Math.max(0, ships[1].crew - fx0.damageOther);
+    playBlast(Math.max(1, fx0.damageOther));
+  }
+  if (fx1?.damageOther) {
+    ships[0].crew = Math.max(0, ships[0].crew - fx1.damageOther);
+    playBlast(Math.max(1, fx1.damageOther));
+  }
+
 }
 
 export function handleShipPlanetCollisions(
@@ -72,7 +104,7 @@ export function handleShipPlanetCollisions(
     if (inactive[side]) continue;
     const ship = ships[side];
     if (SHIP_REGISTRY[shipTypes[side]].isIntangible?.(ship)) continue;
-    const shipRadiusW = DISPLAY_TO_WORLD(getShipDef(shipTypes[side])?.radius ?? 14);
+    const shipRadiusW = getShipCollisionRadius(ship, shipTypes[side]);
     const minDist = shipRadiusW + planetRadiusW;
     const minDistSq = minDist * minDist;
     const { dx: pdx, dy: pdy } = worldDelta(planetX, planetY, ship.x, ship.y);

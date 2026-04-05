@@ -30,6 +30,8 @@ export interface ShipState {
   canResurrect?: boolean;   // Pkunk passive: 50% chance to reincarnate on this life
   arilouTeleportFrames?: number;
   arilouTeleportSeed?: number;
+  androsynthBlazer?: boolean;
+  androsynthSeed?: number;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -49,7 +51,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid';
+      weaponType?: 'plasmoid' | 'bubble';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' }
@@ -108,7 +110,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -204,6 +206,8 @@ export interface ShipController {
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void;
   /** Return the sprite frame used for ship collision tests, ideally the same one being drawn. */
   getShipCollisionFrame?(ship: ShipState, sprites: unknown): SpriteFrame | null;
+  getCollisionRadius?(ship: ShipState): number;
+  getCollisionMass?(ship: ShipState): number;
 
   /**
    * Draw a missile owned by this ship.
@@ -268,6 +272,7 @@ export interface ShipController {
 
   /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
   isIntangible?(ship: ShipState): boolean;
+  onShipCollision?(ship: ShipState, other: ShipState): { damageOther?: number } | void;
 
   /** Optional ship-specific AI override for offline cyborg battles. */
   computeAIInput?(

@@ -2,10 +2,637 @@
   "id": "ships/androsynth",
   "imageUrl": "/atlases/ships/androsynth.png",
   "frames": {
+    "/ships/androsynth/blazer-big-000.png": {
+      "key": "/ships/androsynth/blazer-big-000.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 12,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-000.png"
+    },
+    "/ships/androsynth/blazer-big-001.png": {
+      "key": "/ships/androsynth/blazer-big-001.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-001.png",
+      "x": 16,
+      "y": 2,
+      "w": 14,
+      "h": 21,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-001.png"
+    },
+    "/ships/androsynth/blazer-big-002.png": {
+      "key": "/ships/androsynth/blazer-big-002.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-002.png",
+      "x": 32,
+      "y": 2,
+      "w": 17,
+      "h": 20,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-002.png"
+    },
+    "/ships/androsynth/blazer-big-003.png": {
+      "key": "/ships/androsynth/blazer-big-003.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-003.png",
+      "x": 51,
+      "y": 2,
+      "w": 19,
+      "h": 14,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-003.png"
+    },
+    "/ships/androsynth/blazer-big-004.png": {
+      "key": "/ships/androsynth/blazer-big-004.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-004.png",
+      "x": 72,
+      "y": 2,
+      "w": 25,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-004.png"
+    },
+    "/ships/androsynth/blazer-big-005.png": {
+      "key": "/ships/androsynth/blazer-big-005.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-005.png",
+      "x": 99,
+      "y": 2,
+      "w": 22,
+      "h": 13,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-005.png"
+    },
+    "/ships/androsynth/blazer-big-006.png": {
+      "key": "/ships/androsynth/blazer-big-006.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-006.png",
+      "x": 123,
+      "y": 2,
+      "w": 20,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-006.png"
+    },
+    "/ships/androsynth/blazer-big-007.png": {
+      "key": "/ships/androsynth/blazer-big-007.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-007.png",
+      "x": 145,
+      "y": 2,
+      "w": 16,
+      "h": 20,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-007.png"
+    },
+    "/ships/androsynth/blazer-big-008.png": {
+      "key": "/ships/androsynth/blazer-big-008.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-008.png",
+      "x": 163,
+      "y": 2,
+      "w": 12,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-008.png"
+    },
+    "/ships/androsynth/blazer-big-009.png": {
+      "key": "/ships/androsynth/blazer-big-009.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-009.png",
+      "x": 177,
+      "y": 2,
+      "w": 14,
+      "h": 21,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-009.png"
+    },
+    "/ships/androsynth/blazer-big-010.png": {
+      "key": "/ships/androsynth/blazer-big-010.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-010.png",
+      "x": 193,
+      "y": 2,
+      "w": 16,
+      "h": 18,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-010.png"
+    },
+    "/ships/androsynth/blazer-big-011.png": {
+      "key": "/ships/androsynth/blazer-big-011.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-011.png",
+      "x": 211,
+      "y": 2,
+      "w": 19,
+      "h": 14,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-011.png"
+    },
+    "/ships/androsynth/blazer-big-012.png": {
+      "key": "/ships/androsynth/blazer-big-012.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-012.png",
+      "x": 232,
+      "y": 2,
+      "w": 25,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-012.png"
+    },
+    "/ships/androsynth/blazer-big-013.png": {
+      "key": "/ships/androsynth/blazer-big-013.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-013.png",
+      "x": 259,
+      "y": 2,
+      "w": 22,
+      "h": 13,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-013.png"
+    },
+    "/ships/androsynth/blazer-big-014.png": {
+      "key": "/ships/androsynth/blazer-big-014.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-014.png",
+      "x": 283,
+      "y": 2,
+      "w": 20,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-014.png"
+    },
+    "/ships/androsynth/blazer-big-015.png": {
+      "key": "/ships/androsynth/blazer-big-015.png",
+      "sourceUrl": "/ships/androsynth/blazer-big-015.png",
+      "x": 305,
+      "y": 2,
+      "w": 16,
+      "h": 20,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-big-015.png"
+    },
+    "/ships/androsynth/blazer-med-000.png": {
+      "key": "/ships/androsynth/blazer-med-000.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-000.png",
+      "x": 323,
+      "y": 2,
+      "w": 6,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-000.png"
+    },
+    "/ships/androsynth/blazer-med-001.png": {
+      "key": "/ships/androsynth/blazer-med-001.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-001.png",
+      "x": 331,
+      "y": 2,
+      "w": 8,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-001.png"
+    },
+    "/ships/androsynth/blazer-med-002.png": {
+      "key": "/ships/androsynth/blazer-med-002.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-002.png",
+      "x": 341,
+      "y": 2,
+      "w": 10,
+      "h": 10,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-002.png"
+    },
+    "/ships/androsynth/blazer-med-003.png": {
+      "key": "/ships/androsynth/blazer-med-003.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-003.png",
+      "x": 353,
+      "y": 2,
+      "w": 11,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-003.png"
+    },
+    "/ships/androsynth/blazer-med-004.png": {
+      "key": "/ships/androsynth/blazer-med-004.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-004.png",
+      "x": 366,
+      "y": 2,
+      "w": 12,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-004.png"
+    },
+    "/ships/androsynth/blazer-med-005.png": {
+      "key": "/ships/androsynth/blazer-med-005.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-005.png",
+      "x": 380,
+      "y": 2,
+      "w": 11,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-005.png"
+    },
+    "/ships/androsynth/blazer-med-006.png": {
+      "key": "/ships/androsynth/blazer-med-006.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-006.png",
+      "x": 393,
+      "y": 2,
+      "w": 10,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-006.png"
+    },
+    "/ships/androsynth/blazer-med-007.png": {
+      "key": "/ships/androsynth/blazer-med-007.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-007.png",
+      "x": 405,
+      "y": 2,
+      "w": 8,
+      "h": 9,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-007.png"
+    },
+    "/ships/androsynth/blazer-med-008.png": {
+      "key": "/ships/androsynth/blazer-med-008.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-008.png",
+      "x": 415,
+      "y": 2,
+      "w": 6,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-008.png"
+    },
+    "/ships/androsynth/blazer-med-009.png": {
+      "key": "/ships/androsynth/blazer-med-009.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-009.png",
+      "x": 423,
+      "y": 2,
+      "w": 7,
+      "h": 10,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-009.png"
+    },
+    "/ships/androsynth/blazer-med-010.png": {
+      "key": "/ships/androsynth/blazer-med-010.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-010.png",
+      "x": 432,
+      "y": 2,
+      "w": 10,
+      "h": 10,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-010.png"
+    },
+    "/ships/androsynth/blazer-med-011.png": {
+      "key": "/ships/androsynth/blazer-med-011.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-011.png",
+      "x": 444,
+      "y": 2,
+      "w": 11,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-011.png"
+    },
+    "/ships/androsynth/blazer-med-012.png": {
+      "key": "/ships/androsynth/blazer-med-012.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-012.png",
+      "x": 457,
+      "y": 2,
+      "w": 12,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-012.png"
+    },
+    "/ships/androsynth/blazer-med-013.png": {
+      "key": "/ships/androsynth/blazer-med-013.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-013.png",
+      "x": 471,
+      "y": 2,
+      "w": 11,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-013.png"
+    },
+    "/ships/androsynth/blazer-med-014.png": {
+      "key": "/ships/androsynth/blazer-med-014.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-014.png",
+      "x": 484,
+      "y": 2,
+      "w": 10,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-014.png"
+    },
+    "/ships/androsynth/blazer-med-015.png": {
+      "key": "/ships/androsynth/blazer-med-015.png",
+      "sourceUrl": "/ships/androsynth/blazer-med-015.png",
+      "x": 496,
+      "y": 2,
+      "w": 8,
+      "h": 9,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-med-015.png"
+    },
+    "/ships/androsynth/blazer-sml-000.png": {
+      "key": "/ships/androsynth/blazer-sml-000.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-000.png",
+      "x": 506,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-000.png"
+    },
+    "/ships/androsynth/blazer-sml-001.png": {
+      "key": "/ships/androsynth/blazer-sml-001.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-001.png",
+      "x": 511,
+      "y": 2,
+      "w": 4,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-001.png"
+    },
+    "/ships/androsynth/blazer-sml-002.png": {
+      "key": "/ships/androsynth/blazer-sml-002.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-002.png",
+      "x": 517,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-002.png"
+    },
+    "/ships/androsynth/blazer-sml-003.png": {
+      "key": "/ships/androsynth/blazer-sml-003.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-003.png",
+      "x": 524,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-003.png"
+    },
+    "/ships/androsynth/blazer-sml-004.png": {
+      "key": "/ships/androsynth/blazer-sml-004.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-004.png",
+      "x": 533,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-004.png"
+    },
+    "/ships/androsynth/blazer-sml-005.png": {
+      "key": "/ships/androsynth/blazer-sml-005.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-005.png",
+      "x": 542,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-005.png"
+    },
+    "/ships/androsynth/blazer-sml-006.png": {
+      "key": "/ships/androsynth/blazer-sml-006.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-006.png",
+      "x": 551,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-006.png"
+    },
+    "/ships/androsynth/blazer-sml-007.png": {
+      "key": "/ships/androsynth/blazer-sml-007.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-007.png",
+      "x": 558,
+      "y": 2,
+      "w": 4,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-007.png"
+    },
+    "/ships/androsynth/blazer-sml-008.png": {
+      "key": "/ships/androsynth/blazer-sml-008.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-008.png",
+      "x": 564,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-008.png"
+    },
+    "/ships/androsynth/blazer-sml-009.png": {
+      "key": "/ships/androsynth/blazer-sml-009.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-009.png",
+      "x": 569,
+      "y": 2,
+      "w": 4,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-009.png"
+    },
+    "/ships/androsynth/blazer-sml-010.png": {
+      "key": "/ships/androsynth/blazer-sml-010.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-010.png",
+      "x": 575,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-010.png"
+    },
+    "/ships/androsynth/blazer-sml-011.png": {
+      "key": "/ships/androsynth/blazer-sml-011.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-011.png",
+      "x": 582,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-011.png"
+    },
+    "/ships/androsynth/blazer-sml-012.png": {
+      "key": "/ships/androsynth/blazer-sml-012.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-012.png",
+      "x": 591,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-012.png"
+    },
+    "/ships/androsynth/blazer-sml-013.png": {
+      "key": "/ships/androsynth/blazer-sml-013.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-013.png",
+      "x": 600,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-013.png"
+    },
+    "/ships/androsynth/blazer-sml-014.png": {
+      "key": "/ships/androsynth/blazer-sml-014.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-014.png",
+      "x": 609,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-014.png"
+    },
+    "/ships/androsynth/blazer-sml-015.png": {
+      "key": "/ships/androsynth/blazer-sml-015.png",
+      "sourceUrl": "/ships/androsynth/blazer-sml-015.png",
+      "x": 616,
+      "y": 2,
+      "w": 4,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/blazer-sml-015.png"
+    },
+    "/ships/androsynth/bubble-big-000.png": {
+      "key": "/ships/androsynth/bubble-big-000.png",
+      "sourceUrl": "/ships/androsynth/bubble-big-000.png",
+      "x": 622,
+      "y": 2,
+      "w": 6,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-big-000.png"
+    },
+    "/ships/androsynth/bubble-big-001.png": {
+      "key": "/ships/androsynth/bubble-big-001.png",
+      "sourceUrl": "/ships/androsynth/bubble-big-001.png",
+      "x": 630,
+      "y": 2,
+      "w": 8,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-big-001.png"
+    },
+    "/ships/androsynth/bubble-big-002.png": {
+      "key": "/ships/androsynth/bubble-big-002.png",
+      "sourceUrl": "/ships/androsynth/bubble-big-002.png",
+      "x": 640,
+      "y": 2,
+      "w": 8,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-big-002.png"
+    },
+    "/ships/androsynth/bubble-med-000.png": {
+      "key": "/ships/androsynth/bubble-med-000.png",
+      "sourceUrl": "/ships/androsynth/bubble-med-000.png",
+      "x": 650,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-med-000.png"
+    },
+    "/ships/androsynth/bubble-med-001.png": {
+      "key": "/ships/androsynth/bubble-med-001.png",
+      "sourceUrl": "/ships/androsynth/bubble-med-001.png",
+      "x": 655,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-med-001.png"
+    },
+    "/ships/androsynth/bubble-med-002.png": {
+      "key": "/ships/androsynth/bubble-med-002.png",
+      "sourceUrl": "/ships/androsynth/bubble-med-002.png",
+      "x": 662,
+      "y": 2,
+      "w": 5,
+      "h": 5,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-med-002.png"
+    },
+    "/ships/androsynth/bubble-sml-000.png": {
+      "key": "/ships/androsynth/bubble-sml-000.png",
+      "sourceUrl": "/ships/androsynth/bubble-sml-000.png",
+      "x": 669,
+      "y": 2,
+      "w": 2,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-sml-000.png"
+    },
+    "/ships/androsynth/bubble-sml-001.png": {
+      "key": "/ships/androsynth/bubble-sml-001.png",
+      "sourceUrl": "/ships/androsynth/bubble-sml-001.png",
+      "x": 673,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-sml-001.png"
+    },
+    "/ships/androsynth/bubble-sml-002.png": {
+      "key": "/ships/androsynth/bubble-sml-002.png",
+      "sourceUrl": "/ships/androsynth/bubble-sml-002.png",
+      "x": 678,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/androsynth/bubble-sml-002.png"
+    },
     "/ships/androsynth/guardian-big-000.png": {
       "key": "/ships/androsynth/guardian-big-000.png",
       "sourceUrl": "/ships/androsynth/guardian-big-000.png",
-      "x": 2,
+      "x": 683,
       "y": 2,
       "w": 16,
       "h": 21,
@@ -16,7 +643,7 @@
     "/ships/androsynth/guardian-big-001.png": {
       "key": "/ships/androsynth/guardian-big-001.png",
       "sourceUrl": "/ships/androsynth/guardian-big-001.png",
-      "x": 20,
+      "x": 701,
       "y": 2,
       "w": 20,
       "h": 18,
@@ -27,7 +654,7 @@
     "/ships/androsynth/guardian-big-002.png": {
       "key": "/ships/androsynth/guardian-big-002.png",
       "sourceUrl": "/ships/androsynth/guardian-big-002.png",
-      "x": 42,
+      "x": 723,
       "y": 2,
       "w": 21,
       "h": 15,
@@ -38,7 +665,7 @@
     "/ships/androsynth/guardian-big-003.png": {
       "key": "/ships/androsynth/guardian-big-003.png",
       "sourceUrl": "/ships/androsynth/guardian-big-003.png",
-      "x": 65,
+      "x": 746,
       "y": 2,
       "w": 24,
       "h": 16,
@@ -49,7 +676,7 @@
     "/ships/androsynth/guardian-big-004.png": {
       "key": "/ships/androsynth/guardian-big-004.png",
       "sourceUrl": "/ships/androsynth/guardian-big-004.png",
-      "x": 91,
+      "x": 772,
       "y": 2,
       "w": 23,
       "h": 15,
@@ -60,7 +687,7 @@
     "/ships/androsynth/guardian-big-005.png": {
       "key": "/ships/androsynth/guardian-big-005.png",
       "sourceUrl": "/ships/androsynth/guardian-big-005.png",
-      "x": 116,
+      "x": 797,
       "y": 2,
       "w": 19,
       "h": 19,
@@ -71,7 +698,7 @@
     "/ships/androsynth/guardian-big-006.png": {
       "key": "/ships/androsynth/guardian-big-006.png",
       "sourceUrl": "/ships/androsynth/guardian-big-006.png",
-      "x": 137,
+      "x": 818,
       "y": 2,
       "w": 16,
       "h": 20,
@@ -82,7 +709,7 @@
     "/ships/androsynth/guardian-big-007.png": {
       "key": "/ships/androsynth/guardian-big-007.png",
       "sourceUrl": "/ships/androsynth/guardian-big-007.png",
-      "x": 155,
+      "x": 836,
       "y": 2,
       "w": 17,
       "h": 21,
@@ -93,7 +720,7 @@
     "/ships/androsynth/guardian-big-008.png": {
       "key": "/ships/androsynth/guardian-big-008.png",
       "sourceUrl": "/ships/androsynth/guardian-big-008.png",
-      "x": 174,
+      "x": 855,
       "y": 2,
       "w": 16,
       "h": 21,
@@ -104,7 +731,7 @@
     "/ships/androsynth/guardian-big-009.png": {
       "key": "/ships/androsynth/guardian-big-009.png",
       "sourceUrl": "/ships/androsynth/guardian-big-009.png",
-      "x": 192,
+      "x": 873,
       "y": 2,
       "w": 20,
       "h": 18,
@@ -115,7 +742,7 @@
     "/ships/androsynth/guardian-big-010.png": {
       "key": "/ships/androsynth/guardian-big-010.png",
       "sourceUrl": "/ships/androsynth/guardian-big-010.png",
-      "x": 214,
+      "x": 895,
       "y": 2,
       "w": 21,
       "h": 15,
@@ -126,7 +753,7 @@
     "/ships/androsynth/guardian-big-011.png": {
       "key": "/ships/androsynth/guardian-big-011.png",
       "sourceUrl": "/ships/androsynth/guardian-big-011.png",
-      "x": 237,
+      "x": 918,
       "y": 2,
       "w": 23,
       "h": 16,
@@ -137,7 +764,7 @@
     "/ships/androsynth/guardian-big-012.png": {
       "key": "/ships/androsynth/guardian-big-012.png",
       "sourceUrl": "/ships/androsynth/guardian-big-012.png",
-      "x": 262,
+      "x": 943,
       "y": 2,
       "w": 23,
       "h": 15,
@@ -148,7 +775,7 @@
     "/ships/androsynth/guardian-big-013.png": {
       "key": "/ships/androsynth/guardian-big-013.png",
       "sourceUrl": "/ships/androsynth/guardian-big-013.png",
-      "x": 287,
+      "x": 968,
       "y": 2,
       "w": 19,
       "h": 19,
@@ -159,7 +786,7 @@
     "/ships/androsynth/guardian-big-014.png": {
       "key": "/ships/androsynth/guardian-big-014.png",
       "sourceUrl": "/ships/androsynth/guardian-big-014.png",
-      "x": 308,
+      "x": 989,
       "y": 2,
       "w": 16,
       "h": 19,
@@ -170,7 +797,7 @@
     "/ships/androsynth/guardian-big-015.png": {
       "key": "/ships/androsynth/guardian-big-015.png",
       "sourceUrl": "/ships/androsynth/guardian-big-015.png",
-      "x": 326,
+      "x": 1007,
       "y": 2,
       "w": 17,
       "h": 21,
@@ -181,7 +808,7 @@
     "/ships/androsynth/guardian-cap-000.png": {
       "key": "/ships/androsynth/guardian-cap-000.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-000.png",
-      "x": 345,
+      "x": 1026,
       "y": 2,
       "w": 55,
       "h": 30,
@@ -192,7 +819,7 @@
     "/ships/androsynth/guardian-cap-001.png": {
       "key": "/ships/androsynth/guardian-cap-001.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-001.png",
-      "x": 402,
+      "x": 1083,
       "y": 2,
       "w": 14,
       "h": 16,
@@ -203,7 +830,7 @@
     "/ships/androsynth/guardian-cap-002.png": {
       "key": "/ships/androsynth/guardian-cap-002.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-002.png",
-      "x": 418,
+      "x": 1099,
       "y": 2,
       "w": 14,
       "h": 16,
@@ -214,7 +841,7 @@
     "/ships/androsynth/guardian-cap-003.png": {
       "key": "/ships/androsynth/guardian-cap-003.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-003.png",
-      "x": 434,
+      "x": 1115,
       "y": 2,
       "w": 14,
       "h": 16,
@@ -225,7 +852,7 @@
     "/ships/androsynth/guardian-cap-004.png": {
       "key": "/ships/androsynth/guardian-cap-004.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-004.png",
-      "x": 450,
+      "x": 1131,
       "y": 2,
       "w": 14,
       "h": 16,
@@ -236,7 +863,7 @@
     "/ships/androsynth/guardian-cap-005.png": {
       "key": "/ships/androsynth/guardian-cap-005.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-005.png",
-      "x": 466,
+      "x": 1147,
       "y": 2,
       "w": 14,
       "h": 16,
@@ -247,7 +874,7 @@
     "/ships/androsynth/guardian-cap-006.png": {
       "key": "/ships/androsynth/guardian-cap-006.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-006.png",
-      "x": 482,
+      "x": 1163,
       "y": 2,
       "w": 6,
       "h": 11,
@@ -258,7 +885,7 @@
     "/ships/androsynth/guardian-cap-007.png": {
       "key": "/ships/androsynth/guardian-cap-007.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-007.png",
-      "x": 490,
+      "x": 1171,
       "y": 2,
       "w": 6,
       "h": 11,
@@ -269,7 +896,7 @@
     "/ships/androsynth/guardian-cap-008.png": {
       "key": "/ships/androsynth/guardian-cap-008.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-008.png",
-      "x": 498,
+      "x": 1179,
       "y": 2,
       "w": 6,
       "h": 11,
@@ -280,7 +907,7 @@
     "/ships/androsynth/guardian-cap-009.png": {
       "key": "/ships/androsynth/guardian-cap-009.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-009.png",
-      "x": 506,
+      "x": 1187,
       "y": 2,
       "w": 5,
       "h": 13,
@@ -291,7 +918,7 @@
     "/ships/androsynth/guardian-cap-010.png": {
       "key": "/ships/androsynth/guardian-cap-010.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-010.png",
-      "x": 513,
+      "x": 1194,
       "y": 2,
       "w": 5,
       "h": 13,
@@ -302,7 +929,7 @@
     "/ships/androsynth/guardian-cap-011.png": {
       "key": "/ships/androsynth/guardian-cap-011.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-011.png",
-      "x": 520,
+      "x": 1201,
       "y": 2,
       "w": 5,
       "h": 13,
@@ -313,7 +940,7 @@
     "/ships/androsynth/guardian-cap-012.png": {
       "key": "/ships/androsynth/guardian-cap-012.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-012.png",
-      "x": 527,
+      "x": 1208,
       "y": 2,
       "w": 5,
       "h": 12,
@@ -324,7 +951,7 @@
     "/ships/androsynth/guardian-cap-013.png": {
       "key": "/ships/androsynth/guardian-cap-013.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-013.png",
-      "x": 534,
+      "x": 1215,
       "y": 2,
       "w": 5,
       "h": 12,
@@ -335,7 +962,7 @@
     "/ships/androsynth/guardian-cap-014.png": {
       "key": "/ships/androsynth/guardian-cap-014.png",
       "sourceUrl": "/ships/androsynth/guardian-cap-014.png",
-      "x": 541,
+      "x": 1222,
       "y": 2,
       "w": 5,
       "h": 12,
@@ -346,7 +973,7 @@
     "/ships/androsynth/guardian-icons-001.png": {
       "key": "/ships/androsynth/guardian-icons-001.png",
       "sourceUrl": "/ships/androsynth/guardian-icons-001.png",
-      "x": 548,
+      "x": 1229,
       "y": 2,
       "w": 38,
       "h": 40,
@@ -357,7 +984,7 @@
     "/ships/androsynth/guardian-med-000.png": {
       "key": "/ships/androsynth/guardian-med-000.png",
       "sourceUrl": "/ships/androsynth/guardian-med-000.png",
-      "x": 588,
+      "x": 1269,
       "y": 2,
       "w": 8,
       "h": 10,
@@ -368,7 +995,7 @@
     "/ships/androsynth/guardian-med-001.png": {
       "key": "/ships/androsynth/guardian-med-001.png",
       "sourceUrl": "/ships/androsynth/guardian-med-001.png",
-      "x": 598,
+      "x": 1279,
       "y": 2,
       "w": 10,
       "h": 8,
@@ -379,7 +1006,7 @@
     "/ships/androsynth/guardian-med-002.png": {
       "key": "/ships/androsynth/guardian-med-002.png",
       "sourceUrl": "/ships/androsynth/guardian-med-002.png",
-      "x": 610,
+      "x": 1291,
       "y": 2,
       "w": 10,
       "h": 7,
@@ -390,7 +1017,7 @@
     "/ships/androsynth/guardian-med-003.png": {
       "key": "/ships/androsynth/guardian-med-003.png",
       "sourceUrl": "/ships/androsynth/guardian-med-003.png",
-      "x": 622,
+      "x": 1303,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -401,7 +1028,7 @@
     "/ships/androsynth/guardian-med-004.png": {
       "key": "/ships/androsynth/guardian-med-004.png",
       "sourceUrl": "/ships/androsynth/guardian-med-004.png",
-      "x": 635,
+      "x": 1316,
       "y": 2,
       "w": 11,
       "h": 8,
@@ -412,7 +1039,7 @@
     "/ships/androsynth/guardian-med-005.png": {
       "key": "/ships/androsynth/guardian-med-005.png",
       "sourceUrl": "/ships/androsynth/guardian-med-005.png",
-      "x": 648,
+      "x": 1329,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -423,7 +1050,7 @@
     "/ships/androsynth/guardian-med-006.png": {
       "key": "/ships/androsynth/guardian-med-006.png",
       "sourceUrl": "/ships/androsynth/guardian-med-006.png",
-      "x": 659,
+      "x": 1340,
       "y": 2,
       "w": 8,
       "h": 9,
@@ -434,7 +1061,7 @@
     "/ships/androsynth/guardian-med-007.png": {
       "key": "/ships/androsynth/guardian-med-007.png",
       "sourceUrl": "/ships/androsynth/guardian-med-007.png",
-      "x": 669,
+      "x": 1350,
       "y": 2,
       "w": 8,
       "h": 10,
@@ -445,7 +1072,7 @@
     "/ships/androsynth/guardian-med-008.png": {
       "key": "/ships/androsynth/guardian-med-008.png",
       "sourceUrl": "/ships/androsynth/guardian-med-008.png",
-      "x": 679,
+      "x": 1360,
       "y": 2,
       "w": 8,
       "h": 10,
@@ -456,7 +1083,7 @@
     "/ships/androsynth/guardian-med-009.png": {
       "key": "/ships/androsynth/guardian-med-009.png",
       "sourceUrl": "/ships/androsynth/guardian-med-009.png",
-      "x": 689,
+      "x": 1370,
       "y": 2,
       "w": 10,
       "h": 8,
@@ -467,7 +1094,7 @@
     "/ships/androsynth/guardian-med-010.png": {
       "key": "/ships/androsynth/guardian-med-010.png",
       "sourceUrl": "/ships/androsynth/guardian-med-010.png",
-      "x": 701,
+      "x": 1382,
       "y": 2,
       "w": 10,
       "h": 7,
@@ -478,7 +1105,7 @@
     "/ships/androsynth/guardian-med-011.png": {
       "key": "/ships/androsynth/guardian-med-011.png",
       "sourceUrl": "/ships/androsynth/guardian-med-011.png",
-      "x": 713,
+      "x": 1394,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -489,7 +1116,7 @@
     "/ships/androsynth/guardian-med-012.png": {
       "key": "/ships/androsynth/guardian-med-012.png",
       "sourceUrl": "/ships/androsynth/guardian-med-012.png",
-      "x": 726,
+      "x": 1407,
       "y": 2,
       "w": 11,
       "h": 8,
@@ -500,7 +1127,7 @@
     "/ships/androsynth/guardian-med-013.png": {
       "key": "/ships/androsynth/guardian-med-013.png",
       "sourceUrl": "/ships/androsynth/guardian-med-013.png",
-      "x": 739,
+      "x": 1420,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -511,7 +1138,7 @@
     "/ships/androsynth/guardian-med-014.png": {
       "key": "/ships/androsynth/guardian-med-014.png",
       "sourceUrl": "/ships/androsynth/guardian-med-014.png",
-      "x": 750,
+      "x": 1431,
       "y": 2,
       "w": 8,
       "h": 9,
@@ -522,7 +1149,7 @@
     "/ships/androsynth/guardian-med-015.png": {
       "key": "/ships/androsynth/guardian-med-015.png",
       "sourceUrl": "/ships/androsynth/guardian-med-015.png",
-      "x": 760,
+      "x": 1441,
       "y": 2,
       "w": 8,
       "h": 10,
@@ -533,7 +1160,7 @@
     "/ships/androsynth/guardian-sml-000.png": {
       "key": "/ships/androsynth/guardian-sml-000.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-000.png",
-      "x": 770,
+      "x": 1451,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -544,7 +1171,7 @@
     "/ships/androsynth/guardian-sml-001.png": {
       "key": "/ships/androsynth/guardian-sml-001.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-001.png",
-      "x": 777,
+      "x": 1458,
       "y": 2,
       "w": 6,
       "h": 6,
@@ -555,7 +1182,7 @@
     "/ships/androsynth/guardian-sml-002.png": {
       "key": "/ships/androsynth/guardian-sml-002.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-002.png",
-      "x": 785,
+      "x": 1466,
       "y": 2,
       "w": 6,
       "h": 5,
@@ -566,7 +1193,7 @@
     "/ships/androsynth/guardian-sml-003.png": {
       "key": "/ships/androsynth/guardian-sml-003.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-003.png",
-      "x": 793,
+      "x": 1474,
       "y": 2,
       "w": 7,
       "h": 4,
@@ -577,7 +1204,7 @@
     "/ships/androsynth/guardian-sml-004.png": {
       "key": "/ships/androsynth/guardian-sml-004.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-004.png",
-      "x": 802,
+      "x": 1483,
       "y": 2,
       "w": 7,
       "h": 4,
@@ -588,7 +1215,7 @@
     "/ships/androsynth/guardian-sml-005.png": {
       "key": "/ships/androsynth/guardian-sml-005.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-005.png",
-      "x": 811,
+      "x": 1492,
       "y": 2,
       "w": 7,
       "h": 5,
@@ -599,7 +1226,7 @@
     "/ships/androsynth/guardian-sml-006.png": {
       "key": "/ships/androsynth/guardian-sml-006.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-006.png",
-      "x": 820,
+      "x": 1501,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -610,7 +1237,7 @@
     "/ships/androsynth/guardian-sml-007.png": {
       "key": "/ships/androsynth/guardian-sml-007.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-007.png",
-      "x": 827,
+      "x": 1508,
       "y": 2,
       "w": 4,
       "h": 7,
@@ -621,7 +1248,7 @@
     "/ships/androsynth/guardian-sml-008.png": {
       "key": "/ships/androsynth/guardian-sml-008.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-008.png",
-      "x": 833,
+      "x": 1514,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -632,7 +1259,7 @@
     "/ships/androsynth/guardian-sml-009.png": {
       "key": "/ships/androsynth/guardian-sml-009.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-009.png",
-      "x": 840,
+      "x": 1521,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -643,7 +1270,7 @@
     "/ships/androsynth/guardian-sml-010.png": {
       "key": "/ships/androsynth/guardian-sml-010.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-010.png",
-      "x": 847,
+      "x": 1528,
       "y": 2,
       "w": 7,
       "h": 4,
@@ -654,7 +1281,7 @@
     "/ships/androsynth/guardian-sml-011.png": {
       "key": "/ships/androsynth/guardian-sml-011.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-011.png",
-      "x": 856,
+      "x": 1537,
       "y": 2,
       "w": 7,
       "h": 4,
@@ -665,7 +1292,7 @@
     "/ships/androsynth/guardian-sml-012.png": {
       "key": "/ships/androsynth/guardian-sml-012.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-012.png",
-      "x": 865,
+      "x": 1546,
       "y": 2,
       "w": 7,
       "h": 5,
@@ -676,7 +1303,7 @@
     "/ships/androsynth/guardian-sml-013.png": {
       "key": "/ships/androsynth/guardian-sml-013.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-013.png",
-      "x": 874,
+      "x": 1555,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -687,7 +1314,7 @@
     "/ships/androsynth/guardian-sml-014.png": {
       "key": "/ships/androsynth/guardian-sml-014.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-014.png",
-      "x": 881,
+      "x": 1562,
       "y": 2,
       "w": 5,
       "h": 6,
@@ -698,7 +1325,7 @@
     "/ships/androsynth/guardian-sml-015.png": {
       "key": "/ships/androsynth/guardian-sml-015.png",
       "sourceUrl": "/ships/androsynth/guardian-sml-015.png",
-      "x": 888,
+      "x": 1569,
       "y": 2,
       "w": 4,
       "h": 7,

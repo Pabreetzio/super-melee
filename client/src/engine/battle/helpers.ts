@@ -192,6 +192,8 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.canResurrect ? 1 : 0);
     h = hashStep(h, ship.arilouTeleportFrames ?? 0);
     h = hashStep(h, ship.arilouTeleportSeed ?? 0);
+    h = hashStep(h, ship.androsynthBlazer ? 1 : 0);
+    h = hashStep(h, ship.androsynthSeed ?? 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
@@ -207,7 +209,7 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, m.trackWait);
     h = hashStep(h, m.trackRate);
     h = hashStep(h, m.owner);
-    h = hashStep(h, m.weaponType === 'buzzsaw' ? 1 : m.weaponType === 'gas_cloud' ? 2 : m.weaponType === 'fighter' ? 3 : m.weaponType === 'plasmoid' ? 4 : 0);
+    h = hashStep(h, m.weaponType === 'buzzsaw' ? 1 : m.weaponType === 'gas_cloud' ? 2 : m.weaponType === 'fighter' ? 3 : m.weaponType === 'plasmoid' ? 4 : m.weaponType === 'bubble' ? 5 : 0);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

@@ -19,6 +19,7 @@ import { vuxController    } from './vux';
 import { kohrahController } from './kohrah';
 import { myconController  } from './mycon';
 import { arilouController } from './arilou';
+import { androsynthController } from './androsynth';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -66,6 +67,7 @@ function makeDefaultController(id: ShipId): ShipController {
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
+  androsynth: androsynthController,
   human:   humanController,
   spathi:  spathiController,
   urquan:  urquanController,

@@ -237,6 +237,23 @@ const LIMPETS_BIG_HOTSPOT:  [number, number][] = [[1,1],[1,1],[1,1],[0,0]];
 const LIMPETS_MED_HOTSPOT:  [number, number][] = [[0,0],[0,0],[0,0],[0,0]];
 const LIMPETS_SML_HOTSPOT:  [number, number][] = [[0,0],[0,0],[0,0],[0,0]];
 
+// Androsynth bubble / blazer
+const BUBBLE_BIG_HOTSPOTS: [number, number][] = [[3,3],[4,4],[4,4]];
+const BUBBLE_MED_HOTSPOTS: [number, number][] = [[1,1],[2,2],[2,2]];
+const BUBBLE_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1]];
+const BLAZER_BIG_HOTSPOTS: [number, number][] = [
+  [5,5],[7,5],[10,5],[10,5],[12,5],[15,7],[13,12],[9,14],
+  [5,16],[5,15],[5,12],[5,8],[5,5],[5,5],[5,5],[5,5],
+];
+const BLAZER_MED_HOTSPOTS: [number, number][] = [
+  [2,2],[4,2],[6,2],[7,2],[7,2],[7,4],[6,4],[4,5],
+  [2,7],[2,6],[2,6],[2,4],[3,2],[2,2],[2,2],[2,2],
+];
+const BLAZER_SML_HOTSPOTS: [number, number][] = [
+  [1,2],[2,1],[3,1],[5,1],[4,1],[5,1],[3,3],[2,4],
+  [1,4],[1,4],[1,3],[1,1],[2,1],[1,1],[1,1],[1,1],
+];
+
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
 // fury-big.ani — 16 rotation frames
@@ -575,6 +592,39 @@ export async function loadVuxSprites(): Promise<VuxSprites> {
   return {
     big, med, sml,
     limpets: { big: limBig, med: limMed, sml: limSml },
+  };
+}
+
+// ─── Androsynth Guardian sprites ─────────────────────────────────────────────
+
+export interface AndrosynthSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  bubble: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  blazer: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadAndrosynthSprites(): Promise<AndrosynthSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('androsynth/guardian', 'big', 16, GUARDIAN_BIG_HOTSPOTS),
+    loadSpriteSet('androsynth/guardian', 'med', 16, GUARDIAN_MED_HOTSPOTS),
+    loadSpriteSet('androsynth/guardian', 'sml', 16, GUARDIAN_SML_HOTSPOTS),
+  ]);
+  const [bubbleBig, bubbleMed, bubbleSml] = await Promise.all([
+    loadSpriteSet('androsynth/bubble', 'big', 3, BUBBLE_BIG_HOTSPOTS),
+    loadSpriteSet('androsynth/bubble', 'med', 3, BUBBLE_MED_HOTSPOTS),
+    loadSpriteSet('androsynth/bubble', 'sml', 3, BUBBLE_SML_HOTSPOTS),
+  ]);
+  const [blazerBig, blazerMed, blazerSml] = await Promise.all([
+    loadSpriteSet('androsynth/blazer', 'big', 16, BLAZER_BIG_HOTSPOTS),
+    loadSpriteSet('androsynth/blazer', 'med', 16, BLAZER_MED_HOTSPOTS),
+    loadSpriteSet('androsynth/blazer', 'sml', 16, BLAZER_SML_HOTSPOTS),
+  ]);
+  return {
+    big, med, sml,
+    bubble: { big: bubbleBig, med: bubbleMed, sml: bubbleSml },
+    blazer: { big: blazerBig, med: blazerMed, sml: blazerSml },
   };
 }
 

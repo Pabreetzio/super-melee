@@ -17,6 +17,7 @@ function missileRadius(m: BattleMissile): number {
   // Plasmoid: sprite grows from 14×13 (frame 0, ~7 px radius) to 49×41 (frame 10,
   // ~25 px radius). Use 28 px to safely cover all frames.
   if (m.weaponType === 'plasmoid') return DISPLAY_TO_WORLD(28);
+  if (m.weaponType === 'bubble') return DISPLAY_TO_WORLD(5);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
