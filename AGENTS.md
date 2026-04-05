@@ -1,4 +1,4 @@
-# CLAUDE.md — Project Context for AI Assistants
+# AGENTS.md — Project Context for AI Assistants
 
 This project is a browser-based recreation of Star Control 2's Super Melee mode with online multiplayer.
 
@@ -60,6 +60,20 @@ When working on weapons or battle behavior:
 2. Read `docs/weapon-porting.md` for the implementation checklist.
 3. Read the relevant `docs/ships/<ship>.md` file if present.
 4. Check the matching UQM ship source before changing logic.
+
+## Commits
+
+When an AI agent creates a commit, use a conventional commit message.
+
+Add a `Co-Authored-By` footer that identifies the agent and, when known, the model/tier and reasoning level.
+
+For Codex in this repo, use:
+
+```text
+Co-Authored-By: Codex GPT-5.4 (medium reasoning) <codex@openai.com>
+```
+
+If another agent is creating the commit, follow the same pattern with that agent's own name/model details and configured email rather than pretending the work was co-authored by Codex.
 
 ## Stack
 
