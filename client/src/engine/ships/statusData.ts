@@ -144,7 +144,7 @@ export const SHIP_STATUS_DATA: Partial<Record<ShipId, ShipStatusDef>> = {
     capCount: 15,
     captains: ['Thwil','Pwappy','Phwiff','Wiffy','Plibnik','Snurfel','Kwimp',
                'Pkunky','Jinkeze','Thintho','Rupatup','Nargle','Phlendo','Snelopy','Bwinkin'],
-    capOffsets: [[0,0],[-31,-9],[-31,-9],[-31,-9],[-31,-9],[-31,-9],[-24,-7],[-24,-7],[-24,-7],[0,-10],[0,-10],[0,-10],[-9,-5],[-9,-5],[-9,-5]],
+    capOffsets: [[0,0],[-31,-12],[-31,-12],[-31,-12],[-31,-12],[-31,-12],[-24,-7],[-24,-7],[-24,-7],[0,-13],[0,-13],[0,-13],[-9,-5],[-9,-5],[-9,-5]],
   },
   supox: {
     sprite: 'blade', race: 'Supox', raceShort: 'Supox',

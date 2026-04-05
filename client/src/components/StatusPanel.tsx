@@ -51,6 +51,7 @@ const COMPACT_SINGLE_H = 67 * S;  // 134 — matches doubled melee menu preview 
 
 const FONT_STARCON_PX = 7 * S;    // 14 — race name (slightly smaller than native 9px×2)
 const FONT_TINY_PX    = 12;       // 12px — captain name (sits between the gauge bars)
+const CAPTAIN_DEFEAT_FRAME_MS = 1000 / 24;
 
 // ─── Font loading ────────────────────────────────────────────────────────────
 
@@ -89,6 +90,12 @@ export interface SideStatus {
   inputs:    number;   // current input bit flags (INPUT_THRUST | INPUT_LEFT …)
   captainIdx: number;  // which captain name to show (stable per match)
   caption?:  string;   // optional override for the center status caption
+}
+
+interface CaptainDefeatState {
+  key: string | null;
+  startedAt: number | null;
+  wasAlive: boolean;
 }
 
 interface Props {
@@ -204,7 +211,7 @@ function drawSection(
   ctx: CanvasRenderingContext2D,
   sectionY: number,
   side: SideStatus,
-  options: { showCaptain: boolean; showStatLabels: boolean },
+  options: { showCaptain: boolean; showStatLabels: boolean; nowMs: number; captainDefeatStartedAt: number | null },
 ) {
   const def = SHIP_STATUS_DATA[side.shipId];
   const { sprite } = def ?? { sprite: '' };
@@ -331,6 +338,10 @@ function drawSection(
     // Captain animation overlays based on current inputs
     if (def && sprite && def.capCount > 0) {
       drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def);
+    }
+
+    if (options.captainDefeatStartedAt !== null) {
+      drawCaptainDefeat(ctx, capTop, options.nowMs - options.captainDefeatStartedAt);
     }
   }
 
@@ -490,6 +501,59 @@ function drawCaptainOverlays(
   ctx.restore();
 }
 
+function drawCaptainDefeat(
+  ctx: CanvasRenderingContext2D,
+  capTop: number,
+  elapsedMs: number,
+) {
+  const frame = Math.max(0, Math.floor(elapsedMs / CAPTAIN_DEFEAT_FRAME_MS));
+  const flashTab0 = ['#780000', '#f8c8c8', '#f88800', '#f8e000', '#f8f8f8'];
+  const flashTab1 = [
+    '#f0f890', '#f8f850', '#f8f800', '#f8e000', '#f8c000',
+    '#f8a800', '#f88800', '#f87000', '#f85000', '#f83800',
+    '#f81800', '#d80000', '#b80000', '#980000', '#780000',
+  ];
+  const flashTab2 = ['#b80000', '#780000', '#580000'];
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(CAP_X, capTop, CAP_W, CAP_H);
+  ctx.clip();
+
+  const drawFill = (x: number, y: number, w: number, h: number, color: string) => {
+    if (w <= 0 || h <= 0) return;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+
+  if (frame <= 4) {
+    drawFill(CAP_X, capTop, CAP_W, CAP_H, flashTab0[frame]);
+  } else {
+    let i = frame - 5;
+    drawFill(CAP_X, capTop, CAP_W, CAP_H, C_BLACK);
+    if (i <= 14) {
+      const inset = i * S;
+      const w = CAP_W - inset * 2;
+      let h = CAP_H - inset * 2;
+      if (h === 4) h += S;
+      drawFill(CAP_X + inset, capTop + inset, w, h, flashTab1[i]);
+    } else if ((i -= 15) <= 4) {
+      const midY = capTop + 15 * S;
+      const widths = [24, 20, 14, 6, 2];
+      const colors = ['#980000', '#380000', '#d80000', '#f80000', '#f84028'];
+      const halfWidth = widths[i];
+      drawFill(CAP_X + (CAP_W >> 1) - halfWidth, midY, halfWidth, S, colors[i]);
+      drawFill(CAP_X + (CAP_W >> 1), midY, halfWidth, S, colors[i]);
+    } else {
+      i -= 5;
+      const color = i > 2 ? C_BLACK : flashTab2[i];
+      drawFill(CAP_X + (CAP_W >> 1), capTop + ((CAP_H + S) >> 1), S, S, color);
+    }
+  }
+
+  ctx.restore();
+}
+
 // ─── Divider between player sections ────────────────────────────────────────
 
 function drawDivider(ctx: CanvasRenderingContext2D) {
@@ -512,6 +576,10 @@ export default function StatusPanel({
   // preloadShip() once per unique ShipId across frames.
   const loadedRef  = useRef(new Set<ShipId>());
   const limpetsLoadedRef = useRef(false);
+  const captainDefeatRef = useRef<[CaptainDefeatState, CaptainDefeatState]>([
+    { key: null, startedAt: null, wasAlive: true },
+    { key: null, startedAt: null, wasAlive: true },
+  ]);
 
   // Single rAF loop: reads latest data from sidesRef each frame, pre-loads
   // any new ship assets it encounters, then redraws the whole panel.
@@ -524,6 +592,7 @@ export default function StatusPanel({
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      const nowMs = performance.now();
       const [s0, s1] = sidesRef.current;
       const singleSide = singleSideIndex === 0 ? s0 : s1;
 
@@ -543,17 +612,20 @@ export default function StatusPanel({
       ctx.clearRect(0, 0, STATUS_W, totalHeight);
 
       if (layout === 'single') {
-        if (singleSide) drawSection(ctx, 0, singleSide, { showCaptain, showStatLabels });
+        const defeat = updateCaptainDefeatState(captainDefeatRef.current[singleSideIndex], singleSide, nowMs);
+        if (singleSide) drawSection(ctx, 0, singleSide, { showCaptain, showStatLabels, nowMs, captainDefeatStartedAt: defeat });
         else drawEmptySection(ctx, 0);
       } else {
         // top section = side 0 (bad-guy / enemy in UQM's convention)
-        if (s0) drawSection(ctx, 0,         s0, { showCaptain, showStatLabels });
+        const defeat0 = updateCaptainDefeatState(captainDefeatRef.current[0], s0, nowMs);
+        const defeat1 = updateCaptainDefeatState(captainDefeatRef.current[1], s1, nowMs);
+        if (s0) drawSection(ctx, 0,         s0, { showCaptain, showStatLabels, nowMs, captainDefeatStartedAt: defeat0 });
         else    drawEmptySection(ctx, 0);
 
         drawDivider(ctx);
 
         // bottom section = side 1 (good-guy / local player)
-        if (s1) drawSection(ctx, SECTION_H, s1, { showCaptain, showStatLabels });
+        if (s1) drawSection(ctx, SECTION_H, s1, { showCaptain, showStatLabels, nowMs, captainDefeatStartedAt: defeat1 });
         else    drawEmptySection(ctx, SECTION_H);
       }
     }
@@ -576,6 +648,37 @@ export default function StatusPanel({
       }}
     />
   );
+}
+
+function updateCaptainDefeatState(
+  state: CaptainDefeatState,
+  side: SideStatus | null,
+  nowMs: number,
+): number | null {
+  if (!side) {
+    state.key = null;
+    state.startedAt = null;
+    state.wasAlive = true;
+    return null;
+  }
+
+  const key = `${side.shipId}:${side.captainIdx}`;
+  const alive = side.crew > 0;
+  if (state.key !== key) {
+    state.key = key;
+    state.startedAt = alive ? null : nowMs;
+    state.wasAlive = alive;
+    return state.startedAt;
+  }
+
+  if (!alive && state.wasAlive && state.startedAt === null) {
+    state.startedAt = nowMs;
+  } else if (alive) {
+    state.startedAt = null;
+  }
+
+  state.wasAlive = alive;
+  return state.startedAt;
 }
 
 function drawEmptySection(ctx: CanvasRenderingContext2D, sectionY: number) {
