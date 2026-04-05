@@ -199,6 +199,7 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.chmmrSatellitesSpawned ? 1 : 0);
     h = hashStep(h, ship.ilwrathCloaked ? 1 : 0);
     h = hashStep(h, ship.ilwrathUncloakShot ? 1 : 0);
+    h = hashStep(h, ship.shofixtiGloryFrames ?? 0);
     h = hashStep(h, ship.melnormeCharging ? 1 : 0);
     h = hashStep(h, ship.melnormePumpLevel ?? 0);
     h = hashStep(h, ship.melnormePumpTimer ?? 0);

@@ -37,6 +37,7 @@ export interface ShipState {
   chmmrSatellitesSpawned?: boolean;
   ilwrathCloaked?: boolean;
   ilwrathUncloakShot?: boolean;
+  shofixtiGloryFrames?: number;
   melnormeCharging?: boolean;
   melnormePumpLevel?: number;
   melnormePumpTimer?: number;
@@ -102,7 +103,8 @@ export type SpawnRequest =
       damage: number;
       hits: number;
       shipVelocity: { vx: number; vy: number };
-    };
+    }
+  | { type: 'shofixti_glory'; x: number; y: number };
 
 // ─── Battle-world objects (live in BattleState) ───────────────────────────────
 

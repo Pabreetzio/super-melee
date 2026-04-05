@@ -34,7 +34,7 @@ const SHIPS: ShipDef[] = [
   { id: 'mycon',      name: 'Mycon Podship',       crew: 20, energy: 40, speed: 24, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 6, radius: 16, primaryDamage: 8, secondaryDamage: 0 },
   { id: 'orz',        name: 'Orz Nemesis',         crew: 16, energy: 20, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 7, radius: 16, primaryDamage: 5, secondaryDamage: 0 },
   { id: 'pkunk',      name: 'Pkunk Fury',          crew:  8, energy: 12, speed: 42, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 2, radius: 10, primaryDamage: 1, secondaryDamage: 0 },
-  { id: 'shofixti',   name: 'Shofixti Scout',      crew:  6, energy:  4, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 2, radius: 10, primaryDamage: 2, secondaryDamage: 0 },
+  { id: 'shofixti',   name: 'Shofixti Scout',      crew:  6, energy:  4, speed: 35, turnRate: 1, thrustDelay: 0, turnDelay: 1, mass: 1, radius: 10, primaryDamage: 1, secondaryDamage: 19 },
   { id: 'slylandro',  name: 'Slylandro Probe',     crew: 12, energy: 20, speed: 48, turnRate: 2, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 3, secondaryDamage: 0 },
   { id: 'spathi',     name: 'Spathi Eluder',       crew: 30, energy: 10, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 3, secondaryDamage: 0 },
   { id: 'supox',      name: 'Supox Blade',         crew: 12, energy: 16, speed: 36, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 14, primaryDamage: 3, secondaryDamage: 0 },
