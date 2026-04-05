@@ -14,7 +14,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
-import { drawSprite, loadGenericShipSprites, placeholderDot, type ShipSpriteSet, type SpriteFrame } from '../sprites';
+import { drawSprite, loadShofixtiSprites, placeholderDot, type ShofixtiSprites, type SpriteFrame } from '../sprites';
 import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
@@ -40,6 +40,7 @@ export const SHOFIXTI_MISSILE_DAMAGE = 1;
 export const SHOFIXTI_DESTRUCT_RANGE = 180;
 export const SHOFIXTI_MAX_DESTRUCTION = SHOFIXTI_DESTRUCT_RANGE / 10;
 export const SHOFIXTI_GLORY_FRAMES = 3;
+export const SHOFIXTI_SAFETY_STAGES = 3;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(SHOFIXTI_MAX_THRUST) ** 2;
 
@@ -73,6 +74,8 @@ export function makeShofixtiShip(x: number, y: number): ShipState {
     specialWait: 0,
     energyWait: 0,
     thrusting: false,
+    shofixtiSafetyLevel: 0,
+    shofixtiPrevSpecialHeld: false,
     shofixtiGloryFrames: 0,
   };
 }
@@ -80,6 +83,10 @@ export function makeShofixtiShip(x: number, y: number): ShipState {
 export function updateShofixtiShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
   const gloryFrames = ship.shofixtiGloryFrames ?? 0;
+  const safetyLevel = ship.shofixtiSafetyLevel ?? 0;
+  const specialHeld = (input & INPUT_FIRE2) !== 0;
+  const specialPressed = specialHeld && !ship.shofixtiPrevSpecialHeld;
+  ship.shofixtiPrevSpecialHeld = specialHeld;
 
   if (ship.turnWait > 0) {
     ship.turnWait--;
@@ -147,9 +154,16 @@ export function updateShofixtiShip(ship: ShipState, input: number): SpawnRequest
       spawns.push({ type: 'shofixti_glory', x: ship.x, y: ship.y });
       ship.crew = 0;
       ship.thrusting = false;
+      ship.shofixtiSafetyLevel = 0;
     }
-  } else if ((input & INPUT_FIRE2) && ship.crew > 0) {
-    ship.shofixtiGloryFrames = SHOFIXTI_GLORY_FRAMES;
+  } else if (specialPressed && ship.crew > 0) {
+    if (safetyLevel + 1 >= SHOFIXTI_SAFETY_STAGES) {
+      ship.shofixtiSafetyLevel = SHOFIXTI_SAFETY_STAGES;
+      ship.shofixtiGloryFrames = SHOFIXTI_GLORY_FRAMES;
+    } else {
+      ship.shofixtiSafetyLevel = safetyLevel + 1;
+      spawns.push({ type: 'sound', sound: 'secondary' });
+    }
   }
 
   return spawns;
@@ -162,18 +176,32 @@ export const shofixtiController: ShipController = {
   make: makeShofixtiShip,
   update: updateShofixtiShip,
 
-  loadSprites: () => loadGenericShipSprites('shofixti'),
+  loadSprites: () => loadShofixtiSprites(),
 
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
-    const sp = sprites as ShipSpriteSet | null;
+    const sp = sprites as ShofixtiSprites | null;
     const set = sp
       ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
       : null;
     const gloryFrames = ship.shofixtiGloryFrames ?? 0;
+    const safetyLevel = ship.shofixtiSafetyLevel ?? 0;
     if (set) {
       drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
     } else {
       placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#ffd28a', dc.reduction, dc.worldW, dc.worldH);
+    }
+
+    if (safetyLevel > 0) {
+      const sx = (((ship.x - dc.camX) % dc.worldW) + dc.worldW) % dc.worldW;
+      const sy = (((ship.y - dc.camY) % dc.worldH) + dc.worldH) % dc.worldH;
+      const px = Math.floor((sx > dc.worldW / 2 ? sx - dc.worldW : sx) / (1 << (2 + dc.reduction)));
+      const py = Math.floor((sy > dc.worldH / 2 ? sy - dc.worldH : sy) / (1 << (2 + dc.reduction)));
+      dc.ctx.save();
+      for (let i = 0; i < SHOFIXTI_SAFETY_STAGES; i++) {
+        dc.ctx.fillStyle = i < safetyLevel ? '#ffcf6a' : 'rgba(80,40,20,0.55)';
+        dc.ctx.fillRect(px - 8 + i * 6, py - 14, 4, 4);
+      }
+      dc.ctx.restore();
     }
 
     if (gloryFrames > 0) {
@@ -192,12 +220,25 @@ export const shofixtiController: ShipController = {
   },
 
   getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
-    const sp = sprites as ShipSpriteSet | null;
+    const sp = sprites as ShofixtiSprites | null;
     return sp?.big.frames[ship.facing] ?? null;
   },
 
-  drawMissile(dc: DrawContext, m: BattleMissile): void {
-    placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ffe08f', dc.reduction, dc.worldW, dc.worldH);
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as ShofixtiSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.missile.sml : dc.reduction === 1 ? sp.missile.med : sp.missile.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#ffe08f', dc.reduction, dc.worldW, dc.worldH);
+    }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as ShofixtiSprites | null;
+    return sp?.missile.big.frames[m.facing] ?? null;
   },
 
   applySpawn(
@@ -258,7 +299,7 @@ export const shofixtiController: ShipController = {
     });
 
     if (ship.crew <= (aiLevel === 'cyborg_weak' ? 1 : 2) && (distanceSq <= detonationRange * detonationRange || lethalThreat)) {
-      return input | INPUT_FIRE2;
+      return ship.shofixtiPrevSpecialHeld ? input : (input | INPUT_FIRE2);
     }
 
     if (distanceSq <= DISPLAY_TO_WORLD(140) ** 2 && (diff <= 1 || diff >= 15)) {

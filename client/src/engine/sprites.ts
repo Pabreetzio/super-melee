@@ -153,6 +153,36 @@ const SPATHI_MISSILE_MED_HOTSPOTS: [number, number][] = [
   [1,0],[0,0],[0,0],[0,0],[0,0],[0,0],[0,0],[0,0],
 ];
 const SPATHI_MISSILE_SML_HOTSPOTS: [number, number][] = Array(16).fill([0, 0]);
+const SHOFIXTI_MISSILE_BIG_HOTSPOTS: [number, number][] = [
+  [1,1],[1,0],[2,0],[2,0],[2,1],[2,1],[2,2],[1,2],
+  [1,2],[0,2],[0,2],[0,1],[1,1],[0,0],[0,0],[0,0],
+];
+const SHOFIXTI_MISSILE_MED_HOTSPOTS: [number, number][] = [
+  [0,0],[1,0],[1,0],[1,0],[0,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[0,1],[0,1],[0,0],[0,0],[0,0],[0,0],
+];
+const SHOFIXTI_MISSILE_SML_HOTSPOTS: [number, number][] = Array(16).fill([0, 0]);
+const YEHAT_MISSILE_BIG_HOTSPOTS: [number, number][] = [
+  [1,1],[1,0],[2,0],[2,0],[2,1],[2,1],[2,2],[1,2],
+  [1,2],[0,2],[0,2],[0,1],[1,1],[0,0],[0,0],[0,0],
+];
+const YEHAT_MISSILE_MED_HOTSPOTS: [number, number][] = [
+  [0,0],[1,0],[1,0],[1,0],[0,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[0,1],[0,1],[0,0],[0,0],[0,0],[0,0],
+];
+const YEHAT_MISSILE_SML_HOTSPOTS: [number, number][] = Array(16).fill([0, 0]);
+const YEHAT_SHIELD_BIG_HOTSPOTS: [number, number][] = [
+  [11,11],[10,13],[8,13],[8,12],[6,10],[8,8],[8,7],[9,6],
+  [11,6],[13,6],[14,6],[12,8],[11,10],[13,12],[15,13],[13,12],
+];
+const YEHAT_SHIELD_MED_HOTSPOTS: [number, number][] = [
+  [7,6],[5,7],[4,8],[4,8],[3,6],[4,5],[4,4],[5,4],
+  [7,4],[8,4],[9,4],[8,5],[6,6],[8,7],[9,8],[8,7],
+];
+const YEHAT_SHIELD_SML_HOTSPOTS: [number, number][] = [
+  [4,3],[4,4],[4,4],[3,4],[3,4],[4,3],[4,3],[4,3],
+  [4,3],[4,3],[4,3],[4,4],[4,4],[4,4],[4,4],[4,4],
+];
 
 // ─── Ship-specific loaders ────────────────────────────────────────────────────
 
@@ -212,6 +242,30 @@ export async function loadSpathiSprites(): Promise<SpathiSprites> {
   return {
     big, med, sml,
     butt:    { big: buttBig,    med: buttMed,    sml: buttSml },
+    missile: { big: missileBig, med: missileMed, sml: missileSml },
+  };
+}
+
+export interface ShofixtiSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  missile: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadShofixtiSprites(): Promise<ShofixtiSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('shofixti/scout', 'big', 16, SCOUT_BIG_HOTSPOTS),
+    loadSpriteSet('shofixti/scout', 'med', 16, SCOUT_MED_HOTSPOTS),
+    loadSpriteSet('shofixti/scout', 'sml', 16, SCOUT_SML_HOTSPOTS),
+  ]);
+  const [missileBig, missileMed, missileSml] = await Promise.all([
+    loadSpriteSet('shofixti/missile', 'big', 16, SHOFIXTI_MISSILE_BIG_HOTSPOTS),
+    loadSpriteSet('shofixti/missile', 'med', 16, SHOFIXTI_MISSILE_MED_HOTSPOTS),
+    loadSpriteSet('shofixti/missile', 'sml', 16, SHOFIXTI_MISSILE_SML_HOTSPOTS),
+  ]);
+  return {
+    big, med, sml,
     missile: { big: missileBig, med: missileMed, sml: missileSml },
   };
 }
@@ -821,6 +875,37 @@ export async function loadIlwrathSprites(): Promise<IlwrathSprites> {
     med,
     sml,
     fire: { big: fireBig, med: fireMed, sml: fireSml },
+  };
+}
+
+export interface YehatSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  missile: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  shield: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadYehatSprites(): Promise<YehatSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('yehat/terminator', 'big', 16, TERMINATOR_BIG_HOTSPOTS),
+    loadSpriteSet('yehat/terminator', 'med', 16, TERMINATOR_MED_HOTSPOTS),
+    loadSpriteSet('yehat/terminator', 'sml', 16, TERMINATOR_SML_HOTSPOTS),
+  ]);
+  const [missileBig, missileMed, missileSml] = await Promise.all([
+    loadSpriteSet('yehat/missile', 'big', 16, YEHAT_MISSILE_BIG_HOTSPOTS),
+    loadSpriteSet('yehat/missile', 'med', 16, YEHAT_MISSILE_MED_HOTSPOTS),
+    loadSpriteSet('yehat/missile', 'sml', 16, YEHAT_MISSILE_SML_HOTSPOTS),
+  ]);
+  const [shieldBig, shieldMed, shieldSml] = await Promise.all([
+    loadSpriteSet('yehat/shield', 'big', 16, YEHAT_SHIELD_BIG_HOTSPOTS),
+    loadSpriteSet('yehat/shield', 'med', 16, YEHAT_SHIELD_MED_HOTSPOTS),
+    loadSpriteSet('yehat/shield', 'sml', 16, YEHAT_SHIELD_SML_HOTSPOTS),
+  ]);
+  return {
+    big, med, sml,
+    missile: { big: missileBig, med: missileMed, sml: missileSml },
+    shield: { big: shieldBig, med: shieldMed, sml: shieldSml },
   };
 }
 

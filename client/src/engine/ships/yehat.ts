@@ -13,7 +13,7 @@ import {
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
-import { drawSprite, loadGenericShipSprites, placeholderDot, type ShipSpriteSet, type SpriteFrame } from '../sprites';
+import { drawSprite, loadYehatSprites, placeholderDot, type SpriteFrame, type YehatSprites } from '../sprites';
 import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
@@ -185,10 +185,10 @@ export const yehatController: ShipController = {
   make: makeYehatShip,
   update: updateYehatShip,
 
-  loadSprites: () => loadGenericShipSprites('yehat'),
+  loadSprites: () => loadYehatSprites(),
 
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
-    const sp = sprites as ShipSpriteSet | null;
+    const sp = sprites as YehatSprites | null;
     const set = sp
       ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
       : null;
@@ -200,28 +200,35 @@ export const yehatController: ShipController = {
 
     const shieldFrames = ship.yehatShieldFrames ?? 0;
     if (shieldFrames > 0) {
-      const sx = (((ship.x - dc.camX) % dc.worldW) + dc.worldW) % dc.worldW;
-      const sy = (((ship.y - dc.camY) % dc.worldH) + dc.worldH) % dc.worldH;
-      const px = Math.floor((sx > dc.worldW / 2 ? sx - dc.worldW : sx) / (1 << (2 + dc.reduction)));
-      const py = Math.floor((sy > dc.worldH / 2 ? sy - dc.worldH : sy) / (1 << (2 + dc.reduction)));
-      dc.ctx.save();
-      dc.ctx.globalAlpha = 0.45 + 0.15 * ((shieldFrames & 1) === 0 ? 1 : 0);
-      dc.ctx.strokeStyle = '#d8ffff';
-      dc.ctx.lineWidth = Math.max(1, 2 >> dc.reduction);
-      dc.ctx.beginPath();
-      dc.ctx.arc(px, py, Math.max(8, 16 >> dc.reduction), 0, Math.PI * 2);
-      dc.ctx.stroke();
-      dc.ctx.restore();
+      const shieldSet = sp
+        ? (dc.reduction >= 2 ? sp.shield.sml : dc.reduction === 1 ? sp.shield.med : sp.shield.big)
+        : null;
+      if (shieldSet) {
+        drawSprite(dc.ctx, shieldSet, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
+      }
     }
   },
 
   getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
-    const sp = sprites as ShipSpriteSet | null;
+    const sp = sprites as YehatSprites | null;
     return sp?.big.frames[ship.facing] ?? null;
   },
 
-  drawMissile(dc: DrawContext, m: BattleMissile): void {
-    placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#9fd7ff', dc.reduction, dc.worldW, dc.worldH);
+  drawMissile(dc: DrawContext, m: BattleMissile, sprites: unknown): void {
+    const sp = sprites as YehatSprites | null;
+    const set = sp
+      ? (dc.reduction >= 2 ? sp.missile.sml : dc.reduction === 1 ? sp.missile.med : sp.missile.big)
+      : null;
+    if (set) {
+      drawSprite(dc.ctx, set, m.facing, m.x, m.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
+    } else {
+      placeholderDot(dc.ctx, m.x, m.y, dc.camX, dc.camY, 3, '#9fd7ff', dc.reduction, dc.worldW, dc.worldH);
+    }
+  },
+
+  getMissileCollisionFrame(m: BattleMissile, sprites: unknown): SpriteFrame | null {
+    const sp = sprites as YehatSprites | null;
+    return sp?.missile.big.frames[m.facing] ?? null;
   },
 
   isIntangible(ship: ShipState): boolean {

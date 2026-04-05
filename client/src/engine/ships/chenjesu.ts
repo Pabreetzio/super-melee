@@ -347,10 +347,21 @@ export const chenjesuController: ShipController = {
 
     if (m.weaponType === 'dogi') {
       if (target) {
+        const awayAngle = worldAngle(target.x, target.y, m.x, m.y);
+        const push = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(2));
+        m.facing = (awayAngle >> 2) & 15;
+        setVelocityVector(m.velocity, DOGGY_SPEED, m.facing);
+        m.x += COSINE(awayAngle, DISPLAY_TO_WORLD(10));
+        m.y += SINE(awayAngle, DISPLAY_TO_WORLD(10));
         return {
           skipBlast: true,
           keepMissileAlive: true,
           drainTargetEnergy: DOGGY_ENERGY_DRAIN,
+          targetVelocityDelta: {
+            vx: COSINE(awayAngle, push),
+            vy: SINE(awayAngle, push),
+            maxSpeed: WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(18)),
+          },
           missileCooldown: COLLISION_THRUST_WAIT << 1,
           sounds: ['chenjesu_dogi_bark'],
         };

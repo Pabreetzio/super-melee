@@ -26,6 +26,7 @@ import {
   wrapWorldCoord,
 } from '../engine/battle/helpers';
 import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
+import { spriteMaskContainsWorldPoint } from '../engine/battle/maskCollision';
 import {
   advanceShipDestruction,
   beginShipDestruction,
@@ -34,7 +35,7 @@ import {
 import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
-import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../engine/sprites';
+import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites, type SpriteFrame } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
@@ -1097,7 +1098,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Update ion trail dots (cosmetic thruster exhaust; not checksummed).
     // Colors cycle from orange → red → dark red per UQM cycle_ion_trail.
-    updateIonTrails(bs.ionTrails, bs.ships, bs.warpIn);
+    updateIonTrails(bs.ionTrails, bs.ships, bs.warpIn, bs.shipTypes);
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -1187,16 +1188,25 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const med0 = STAR_COUNTS[0];
       const sml0 = STAR_COUNTS[0] + STAR_COUNTS[1];
       const total = sml0 + STAR_COUNTS[2];
-      const cloakedShips = bs.ships.flatMap((ship, side) => {
-        if (bs.shipTypes[side] !== 'ilwrath' || !ship.ilwrathCloaked) return [];
-        const radius = DISPLAY_TO_WORLD(
-          SHIP_REGISTRY[bs.shipTypes[side]].getCollisionRadius?.(ship) ?? getShipDef(bs.shipTypes[side])?.radius ?? 14,
-        );
-        return [{ ship, radiusSq: radius * radius }];
-      });
+      const cloakedShips: Array<{ ship: ShipState; frame: SpriteFrame | null; radiusSq: number }> = [];
+      for (let side = 0 as 0 | 1; side < 2; side++) {
+        const ship = bs.ships[side];
+        if (bs.shipTypes[side] !== 'ilwrath' || !ship.ilwrathCloaked) continue;
+        const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+        const frame = ctrl.getShipCollisionFrame?.(ship, shipSpritesRef.current.get(bs.shipTypes[side]) ?? null) ?? null;
+        if (frame) {
+          cloakedShips.push({ ship, frame, radiusSq: 0 });
+          continue;
+        }
+        const radius = DISPLAY_TO_WORLD(ctrl.getCollisionRadius?.(ship) ?? getShipDef(bs.shipTypes[side])?.radius ?? 14);
+        cloakedShips.push({ ship, frame: null, radiusSq: radius * radius });
+      }
       for (let i = 0; i < total; i++) {
-        if (cloakedShips.some(({ ship, radiusSq }) => {
+        if (cloakedShips.some(({ ship, frame, radiusSq }) => {
           const delta = worldDelta(stars[i].x, stars[i].y, ship.x, ship.y, WORLD_W, WORLD_H);
+          if (frame) {
+            return spriteMaskContainsWorldPoint(frame, ship.x, ship.y, stars[i].x, stars[i].y, WORLD_W, WORLD_H);
+          }
           return delta.dx * delta.dx + delta.dy * delta.dy <= radiusSq;
         })) continue;
         let sx = (stars[i].x - camX) >> (2 + r);

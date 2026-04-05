@@ -263,12 +263,17 @@ export function updateIonTrails(
   ionTrails: [IonDot[], IonDot[]],
   ships: [ShipState, ShipState],
   warpIn: [number, number],
+  shipTypes: [BattleState['shipTypes'][0], BattleState['shipTypes'][1]],
 ): void {
   for (let side = 0; side < 2; side++) {
     const ship = ships[side];
     for (const dot of ionTrails[side]) dot.age++;
     ionTrails[side] = ionTrails[side].filter(d => d.age < 12);
-    if (ship.thrusting && warpIn[side] === 0 && ship.crew > 0) {
+    if (ship.thrusting
+      && warpIn[side] === 0
+      && ship.crew > 0
+      && !(shipTypes[side] === 'ilwrath' && ship.ilwrathCloaked)
+    ) {
       const backAng = ((ship.facing * 4 + 32) & 63);
       ionTrails[side].push({
         x: ship.x + COSINE(backAng, 28),
@@ -296,6 +301,7 @@ export function processMissiles(
     m.life--;
     if (m.life <= 0) {
       if (m.weaponType === 'dogi') {
+        playEffectSound('chenjesu_dogi_die');
         const ownShip = bs.ships[m.owner];
         ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
       }
@@ -329,6 +335,7 @@ export function processMissiles(
         pushHitEffects(bs, m, hitFx, worldW, worldH);
         playMissileBlast(m, hitFx.skipBlast);
       } else if (m.weaponType === 'dogi') {
+        playEffectSound('chenjesu_dogi_die');
         ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
       }
       continue;

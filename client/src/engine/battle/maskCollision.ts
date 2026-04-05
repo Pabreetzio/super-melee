@@ -7,6 +7,21 @@ function maskAt(frame: SpriteFrame, x: number, y: number): boolean {
   return frame.mask[y * frame.width + x] !== 0;
 }
 
+export function spriteMaskContainsWorldPoint(
+  frame: SpriteFrame,
+  spriteX: number,
+  spriteY: number,
+  pointX: number,
+  pointY: number,
+  worldW: number,
+  worldH: number,
+): boolean {
+  const { dx, dy } = worldDelta(spriteX, spriteY, pointX, pointY, worldW, worldH);
+  const px = WORLD_TO_DISPLAY(dx) + frame.hotX;
+  const py = WORLD_TO_DISPLAY(dy) + frame.hotY;
+  return maskAt(frame, px, py);
+}
+
 function spriteMasksOverlapInternal(
   aFrame: SpriteFrame,
   aX: number,
