@@ -969,6 +969,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     };
     let launchSoundPlayed0 = false;
     let gasSoundPlayed0 = false;
+    let missileSoundPlayed0 = false;
     for (const s of spawns0) {
       spawnRequest(s, 0);
       // Immediate weapon effects owned by each ship's controller
@@ -992,7 +993,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (bs.shipTypes[0] === 'yehat' && missileSoundPlayed0) continue;
           s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
+          missileSoundPlayed0 = true;
         }
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
@@ -1004,6 +1007,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
     let launchSoundPlayed1 = false;
     let gasSoundPlayed1 = false;
+    let missileSoundPlayed1 = false;
     for (const s of spawns1) {
       spawnRequest(s, 1);
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(
@@ -1025,7 +1029,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (bs.shipTypes[1] === 'yehat' && missileSoundPlayed1) continue;
           s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
+          missileSoundPlayed1 = true;
         }
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);

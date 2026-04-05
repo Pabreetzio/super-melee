@@ -38,6 +38,7 @@ export interface ShipState {
   ilwrathCloaked?: boolean;
   ilwrathUncloakShot?: boolean;
   shofixtiGloryFrames?: number;
+  yehatShieldFrames?: number;
   melnormeCharging?: boolean;
   melnormePumpLevel?: number;
   melnormePumpTimer?: number;
