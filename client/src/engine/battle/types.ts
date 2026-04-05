@@ -13,6 +13,12 @@ export interface BattleExplosion {
   ey?: number;
 }
 
+export interface ShipDestructionState {
+  frame: number;
+  x: number;
+  y: number;
+}
+
 // Cosmetic ion trail dot emitted while thrusting (not checksummed)
 export interface IonDot {
   x: number;
@@ -39,11 +45,12 @@ export interface BattleState {
   missiles:  BattleMissile[];
   lasers:    LaserFlash[];
   explosions: BattleExplosion[];
+  shipDestructions: [ShipDestructionState | null, ShipDestructionState | null];
   ionTrails:  [IonDot[], IonDot[]];
   warpIn:     [number, number];
   rebirth:    [number, number];
   shipAlive:  [boolean, boolean];
   frame: number;
   inputBuf: [Map<number, number>, Map<number, number>];
-  pendingEnd: { winner: 0 | 1 | null; countdown: number } | null;
+  pendingEnd: { winner: 0 | 1 | null; countdown: number; dittyStarted: boolean } | null;
 }

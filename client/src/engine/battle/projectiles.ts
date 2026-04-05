@@ -125,7 +125,7 @@ export function advanceExplosions(
   worldH: number,
 ): BattleExplosion[] {
   return explosions.filter(e => {
-    if (e.type === 'splinter') {
+    if (e.vx !== undefined || e.vy !== undefined) {
       const vx = e.vx ?? 0;
       const vy = e.vy ?? 0;
       const fracX = Math.abs(vx) & 31;
@@ -269,6 +269,7 @@ export function processMissiles(
     }
 
     if (!hit && m.weaponType !== 'fighter' &&
+        targetShip.crew > 0 &&
         bs.warpIn[targetSide] === 0 &&
         circleOverlap(m.x, m.y, missileRadius(m), targetShip.x, targetShip.y, DISPLAY_TO_WORLD(getShipDef(bs.shipTypes[targetSide])?.radius ?? 14))) {
       const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);

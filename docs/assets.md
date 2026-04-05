@@ -1,6 +1,6 @@
 # Asset Catalog
 
-**Status: Ship sprites extracted. Planet and battle FX still needed.**
+**Status: Ship sprites, battle FX, planets, SFX, and victory ditties are extracted.**
 
 ## License
 
@@ -29,10 +29,10 @@ cruiser-big-001.png 1 12 19
 
 ### Battle FX Sprites (`assets/battle/`)
 - [x] `stars-000/001/002.png` — starfield tiles (3 layers for parallax)
-- [ ] `boom-big/med/sml-*.png` — ship explosion animation (available in content package)
-- [ ] `blast-big/med/sml-*.png` — weapon impact flash (available in content package)
+- [x] `boom-big/med/sml-*.png` — ship explosion animation
+- [x] `blast-big/med/sml-*.png` — weapon impact flash
 - [ ] `asteroid-big/med/sml-*.png` — asteroid hazards (available in content package)
-- [ ] `planet-big/med/sml-000.png` — battle planet (see Planet section below)
+- [x] Planet sprites are extracted under `assets/planets/` and packed into per-planet atlases for battle use
 
 ### Planet Sprites
 UQM renders the battle planet using a pre-rendered sprite, NOT procedurally.
@@ -68,7 +68,9 @@ planet sprites are extracted.
 - [ ] Ship destruction frames (per ship — played on death)
 - [ ] Per-ship projectile sprites (varies by ship)
 - [x] Bitmap fonts — converted to woff2 and placed in `assets/fonts/` (see Fonts section below)
-- [ ] Audio (music + SFX — format TBD, likely OGG in the content package)
+- [x] Battle and ship SFX (`assets/sounds/`)
+- [x] Victory ditties (`assets/music/ditty/*.mod`)
+- [ ] Full background music / remaining audio outside the current battle flow
 
 ## Fonts (`assets/fonts/`)
 

@@ -1,14 +1,15 @@
 // Audio manager — loads and plays UQM battle sound effects.
 // All sounds are loaded non-blockingly; missing files are silently ignored.
-// Sounds are played via HTMLAudioElement (Web Audio API's simpler cousin).
-// Multiple simultaneous instances are supported by cloning nodes.
+// Sounds are played via HTMLAudioElement. Multiple simultaneous instances
+// are supported by cloning nodes.
 import type { EffectSound } from './ships/types';
+import type { ShipId } from 'shared/types';
 
 // ─── Audio config ─────────────────────────────────────────────────────────────
 
 export interface AudioConfig {
   sfxVolume:   number; // 0.0 – 1.0
-  musicVolume: number; // 0.0 – 1.0  (reserved — no music yet)
+  musicVolume: number; // 0.0 – 1.0
   muted:       boolean;
 }
 
@@ -30,6 +31,9 @@ export function getAudioConfig(): AudioConfig { return { ..._config }; }
 
 export function setAudioConfig(patch: Partial<AudioConfig>): void {
   _config = { ..._config, ...patch };
+  if (_victoryEl) {
+    _victoryEl.volume = _config.muted ? 0 : _config.musicVolume;
+  }
   try { localStorage.setItem(AUDIO_CONFIG_KEY, JSON.stringify(_config)); } catch { /* ignore */ }
 }
 
@@ -86,6 +90,35 @@ const PKUNK_INSULT_KEYS = [
   'nerd', 'nitwit', 'stupid', 'twig', 'whimp', 'worm', 'dummy',
 ] as const;
 
+// Victory ditties — OGG files converted from original UQM MOD tracks.
+const VICTORY_DITTIES: Partial<Record<ShipId, string>> = {
+  androsynth: '/music/ditty-ogg/androsynth.ogg',
+  arilou:     '/music/ditty-ogg/arilou.ogg',
+  chenjesu:   '/music/ditty-ogg/chenjesu.ogg',
+  chmmr:      '/music/ditty-ogg/chmmr.ogg',
+  druuge:     '/music/ditty-ogg/druuge.ogg',
+  human:      '/music/ditty-ogg/human.ogg',
+  ilwrath:    '/music/ditty-ogg/ilwrath.ogg',
+  kohrah:     '/music/ditty-ogg/kohrah.ogg',
+  melnorme:   '/music/ditty-ogg/melnorme.ogg',
+  mmrnmhrm:   '/music/ditty-ogg/mmrnmhrm.ogg',
+  mycon:      '/music/ditty-ogg/mycon.ogg',
+  orz:        '/music/ditty-ogg/orz.ogg',
+  pkunk:      '/music/ditty-ogg/pkunk.ogg',
+  shofixti:   '/music/ditty-ogg/shofixti.ogg',
+  slylandro:  '/music/ditty-ogg/slylandro.ogg',
+  spathi:     '/music/ditty-ogg/spathi.ogg',
+  supox:      '/music/ditty-ogg/supox.ogg',
+  syreen:     '/music/ditty-ogg/syreen.ogg',
+  thraddash:  '/music/ditty-ogg/thraddash.ogg',
+  umgah:      '/music/ditty-ogg/umgah.ogg',
+  urquan:     '/music/ditty-ogg/urquan.ogg',
+  utwig:      '/music/ditty-ogg/utwig.ogg',
+  vux:        '/music/ditty-ogg/vux.ogg',
+  yehat:      '/music/ditty-ogg/yehat.ogg',
+  zoqfotpik:  '/music/ditty-ogg/zoqfotpik.ogg',
+};
+
 let pkunkInsultIndex = 0;
 
 // ─── Loader ───────────────────────────────────────────────────────────────────
@@ -122,6 +155,10 @@ function playUrl(url: string, volume = 1.0): void {
   }
 }
 
+// ─── Victory ditty state ──────────────────────────────────────────────────────
+
+let _victoryEl: HTMLAudioElement | null = null;
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /** Preload all battle sounds. Call once at battle start. */
@@ -135,6 +172,9 @@ export function preloadBattleSounds(shipTypes: string[]): void {
     for (const url of Object.values(sounds)) {
       if (url) load(url);
     }
+    // Preload this ship's victory ditty
+    const dittyUrl = VICTORY_DITTIES[type as ShipId];
+    if (dittyUrl) load(dittyUrl);
   }
 }
 
@@ -223,4 +263,42 @@ export function playMenuSelect(): void {
 
 export function playMenuError(): void {
   playUrl(UI_SOUNDS.menuError, 0.7);
+}
+
+export function isVictoryDittyPlaying(): boolean {
+  return _victoryEl !== null && !_victoryEl.paused && !_victoryEl.ended;
+}
+
+/** Play the winning ship's victory ditty once. No looping. */
+export async function playVictoryDitty(shipType: ShipId): Promise<void> {
+  if (_config.muted || _config.musicVolume <= 0) return;
+
+  const url = VICTORY_DITTIES[shipType];
+  if (!url) return;
+
+  stopVictoryDitty();
+
+  try {
+    const el = new Audio(url);
+    el.loop = false;
+    el.volume = Math.max(0, Math.min(1, _config.musicVolume));
+    el.onended = () => {
+      if (_victoryEl === el) _victoryEl = null;
+    };
+    _victoryEl = el;
+    await el.play();
+  } catch {
+    // Ignore autoplay policy rejections or missing files.
+    _victoryEl = null;
+  }
+}
+
+export function stopVictoryDitty(): void {
+  if (_victoryEl) {
+    try {
+      _victoryEl.pause();
+      _victoryEl.currentTime = 0;
+    } catch { /* ignore */ }
+    _victoryEl = null;
+  }
 }

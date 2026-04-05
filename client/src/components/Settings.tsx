@@ -461,7 +461,7 @@ function AudioPanel({ audio, onChange }: {
         label="Music"
         value={audio.musicVolume}
         disabled={audio.muted}
-        note="(no music yet)"
+        note="(victory ditties)"
         onChange={v => onChange({ musicVolume: v })}
       />
     </div>

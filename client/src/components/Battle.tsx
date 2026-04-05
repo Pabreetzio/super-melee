@@ -26,6 +26,11 @@ import {
   wrapWorldCoord,
 } from '../engine/battle/helpers';
 import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
+import {
+  advanceShipDestruction,
+  beginShipDestruction,
+  shouldRenderExplodingShip,
+} from '../engine/battle/destruction';
 import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
@@ -33,7 +38,7 @@ import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, playPkunkRebirth, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -60,7 +65,7 @@ const PLANET_RADIUS_W = 160;
 const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
 const HYPERJUMP_LIFE = 15;
 const TRANSITION_SPEED_W = DISPLAY_TO_WORLD(40);
-const POST_BATTLE_PAUSE_FRAMES = 72;
+const POST_BATTLE_PAUSE_FRAMES = 144; // safety cap (~12.5s); real end is gated on ditty completion
 const SPAWN_CONFLICT_RADIUS_W = DISPLAY_TO_WORLD(24);
 const VUX_AGGRESSIVE_ENTRY_DIST_W = DISPLAY_TO_WORLD((150 + 12 + 46) << 1);
 
@@ -204,6 +209,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
   const starsRef = useRef<{ x: number; y: number }[]>([]);
   const rngRef   = useRef<RNG | null>(null);
+  const visualRngRef = useRef<RNG | null>(null);
 
   // ─── Desync diagnostics ──────────────────────────────────────────────────
   // Ring buffer: last 64 frames of full game state + inputs used.
@@ -315,6 +321,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   // Initialize battle state
   useEffect(() => {
+    void stopVictoryDitty();
     assetsReadyRef.current = false;
     // Determine each player's active ship type from their fleet.
     // fleet0 = host (ship 0), fleet1 = opponent (ship 1) — always absolute,
@@ -327,6 +334,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     const rng = new RNG(_seed || 1);
     rngRef.current = rng;
+    visualRngRef.current = new RNG((_seed || 1) ^ 0x5f3759df);
     // Generate star field using seed for determinism.
     {
       const stars: { x: number; y: number }[] = [];
@@ -415,6 +423,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       missiles: initMissiles,
       lasers: [],
       explosions: [],
+      shipDestructions: [null, null],
       ionTrails: [[], []],
       warpIn: [warpIn0, warpIn1],
       rebirth: [0, 0],
@@ -488,7 +497,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const bs = stateRef.current;
         if (bs) {
           if (!bs.pendingEnd) {
-            bs.pendingEnd = { winner: msg.winner, countdown: 10 };
+            bs.pendingEnd = {
+              winner: msg.winner,
+              countdown: msg.winner === null ? 1 : POST_BATTLE_PAUSE_FRAMES,
+              dittyStarted: false,
+            };
           } else {
             bs.pendingEnd.winner = msg.winner; // server's winner is authoritative
           }
@@ -574,6 +587,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup',   onUp);
+      void stopVictoryDitty();
       unsub();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -705,6 +719,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           if (resurrected) {
             bs.rebirth[side] = bs.shipTypes[side] === 'pkunk' ? 12 : 0;
             bs.shipAlive[side] = true;
+            bs.shipDestructions[side] = null;
             if (bs.shipTypes[side] === 'pkunk') playPkunkRebirth();
           }
         }
@@ -719,14 +734,38 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const s1dead = bs.ships[1].crew <= 0;
     if ((s0dead || s1dead) && !bs.pendingEnd) {
       const winner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : 0;
-      bs.pendingEnd = { winner, countdown: POST_BATTLE_PAUSE_FRAMES };
+      bs.pendingEnd = {
+        winner,
+        countdown: winner === null ? 1 : POST_BATTLE_PAUSE_FRAMES,
+        dittyStarted: false,
+      };
       if (!isAI && !isLocal2P) {
         client.send({ type: 'battle_over_ack', winner });
       }
     }
     if (bs.pendingEnd) {
-      bs.pendingEnd.countdown--;
-      if (bs.pendingEnd.countdown <= 0) {
+      const deadSides: (0 | 1)[] = [];
+      if (s0dead) deadSides.push(0);
+      if (s1dead) deadSides.push(1);
+      const explosionsFinished = deadSides.every(side => bs.shipDestructions[side] === null);
+
+      if (explosionsFinished && !bs.pendingEnd.dittyStarted) {
+        bs.pendingEnd.dittyStarted = true;
+        if (bs.pendingEnd.winner !== null && bs.ships[bs.pendingEnd.winner].crew > 0) {
+          void playVictoryDitty(bs.shipTypes[bs.pendingEnd.winner]);
+        } else {
+          bs.pendingEnd.countdown = Math.min(bs.pendingEnd.countdown, 1);
+        }
+      }
+
+      if (explosionsFinished && bs.pendingEnd.dittyStarted) {
+        bs.pendingEnd.countdown--;
+      }
+
+      // Wait for both the minimum frame countdown AND the ditty to finish.
+      // If audio never starts (autoplay blocked, file missing), the countdown
+      // alone will end the battle via POST_BATTLE_PAUSE_FRAMES.
+      if (explosionsFinished && bs.pendingEnd.dittyStarted && bs.pendingEnd.countdown <= 0 && !isVictoryDittyPlaying()) {
         const w = bs.pendingEnd.winner;
         let ws: WinnerShipState | undefined;
         if (w !== null) {
@@ -751,6 +790,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           }
         }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        void stopVictoryDitty();
         onBattleEnd(w, ws);
         return;
       }
@@ -784,16 +824,13 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
 
-    // UQM keeps physics running during the inter-round pause, but ships do not
-    // accept steering/weapon input while waiting for the next entrant.
-    if (bs.pendingEnd) {
-      input0 = 0;
-      input1 = 0;
+    // Apply gravity to ships still actively flying around the arena.
+    if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0) {
+      applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
     }
-
-    // Apply gravity to both ships
-    applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
-    applyGravity(bs.ships[1], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
+    if (bs.shipDestructions[1] === null && bs.ships[1].crew > 0) {
+      applyGravity(bs.ships[1], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
+    }
 
     // Decrement warp-in countdown (ship is invisible and nonsolid during this)
     if (bs.warpIn[0] > 0) bs.warpIn[0]--;
@@ -803,14 +840,16 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Update ships — dispatch through registry.
     // Ships still warping in cannot act (no weapons, no steering).
-    const updateShip = (ship: ShipState, input: number, type: ShipId, warping: boolean): SpawnRequest[] => {
-      if (warping) return [];
+    const updateShip = (ship: ShipState, input: number, type: ShipId, inactive: boolean): SpawnRequest[] => {
+      if (inactive || ship.crew <= 0) return [];
       return SHIP_REGISTRY[type].update(ship, input);
     };
     const preShip0 = { facing: bs.ships[0].facing, vx: bs.ships[0].velocity.vx, vy: bs.ships[0].velocity.vy };
     const preShip1 = { facing: bs.ships[1].facing, vx: bs.ships[1].velocity.vx, vy: bs.ships[1].velocity.vy };
-    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], bs.warpIn[0] > 0 || bs.rebirth[0] > 0);
-    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], bs.warpIn[1] > 0 || bs.rebirth[1] > 0);
+    const inactive0 = bs.warpIn[0] > 0 || bs.rebirth[0] > 0 || bs.shipDestructions[0] !== null;
+    const inactive1 = bs.warpIn[1] > 0 || bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null;
+    const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], inactive0);
+    const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], inactive1);
     applyAttachedLimpetPenalty(bs.ships[0], preShip0);
     applyAttachedLimpetPenalty(bs.ships[1], preShip1);
 
@@ -952,8 +991,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     handleShipShipCollision(
       bs.ships,
       [
-        bs.warpIn[0] + (bs.rebirth[0] > 0 ? 1 : 0),
-        bs.warpIn[1] + (bs.rebirth[1] > 0 ? 1 : 0),
+        bs.warpIn[0] + (bs.rebirth[0] > 0 ? 1 : 0) + (bs.shipDestructions[0] !== null || bs.ships[0].crew <= 0 ? 1 : 0),
+        bs.warpIn[1] + (bs.rebirth[1] > 0 ? 1 : 0) + (bs.shipDestructions[1] !== null || bs.ships[1].crew <= 0 ? 1 : 0),
       ],
       bs.shipTypes,
       shipSpritesRef.current,
@@ -969,17 +1008,31 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       PLANET_X,
       PLANET_Y,
       PLANET_RADIUS_W,
-      [bs.rebirth[0] > 0, bs.rebirth[1] > 0],
+      [
+        bs.rebirth[0] > 0 || bs.shipDestructions[0] !== null || bs.ships[0].crew <= 0,
+        bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null || bs.ships[1].crew <= 0,
+      ],
     );
 
-    // Spawn boom explosion when a ship transitions alive→dead
+    // Start the UQM-style destruction sequence when a ship transitions alive→dead.
     for (let side = 0; side < 2; side++) {
       const alive = bs.ships[side].crew > 0;
       if (bs.shipAlive[side] && !alive) {
-        bs.explosions.push({ type: 'boom', x: bs.ships[side].x, y: bs.ships[side].y, frame: 0 });
+        bs.shipDestructions[side] = beginShipDestruction(bs.ships[side].x, bs.ships[side].y);
+        bs.ships[side].velocity.vx = 0;
+        bs.ships[side].velocity.vy = 0;
+        bs.ships[side].velocity.ex = 0;
+        bs.ships[side].velocity.ey = 0;
+        bs.ships[side].thrusting = false;
         playShipDies();
       }
       bs.shipAlive[side] = alive;
+    }
+
+    const visualRand = visualRngRef.current;
+    if (visualRand) {
+      bs.shipDestructions[0] = advanceShipDestruction(bs.shipDestructions[0], bs.explosions, (n) => visualRand.rand(n), WORLD_W, WORLD_H);
+      bs.shipDestructions[1] = advanceShipDestruction(bs.shipDestructions[1], bs.explosions, (n) => visualRand.rand(n), WORLD_W, WORLD_H);
     }
 
     // Update ion trail dots (cosmetic thruster exhaust; not checksummed).
@@ -1152,6 +1205,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const dc: DrawContext = { ctx, camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H };
       for (let side = 0; side < 2; side++) {
         const ship = bs.ships[side];
+        const destruction = bs.shipDestructions[side];
 
         // Warp-in: tint the actual ship sprite into the UQM-style orange/red
         // silhouette and slide it in from the facing direction.
@@ -1185,6 +1239,10 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             bs.rebirth[side],
             { camX, camY, canvasW: CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
           );
+          continue;
+        }
+
+        if ((ship.crew <= 0 && destruction === null) || !shouldRenderExplodingShip(destruction)) {
           continue;
         }
 
@@ -1358,7 +1416,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
                   </button>
                 </div>
                 <PauseVolumeSlider label="Sound Effects" value={pauseAudio.sfxVolume} disabled={pauseAudio.muted} onChange={v => patchPauseAudio({ sfxVolume: v })} />
-                <PauseVolumeSlider label="Music" value={pauseAudio.musicVolume} disabled={pauseAudio.muted} note="(no music yet)" onChange={v => patchPauseAudio({ musicVolume: v })} />
+                <PauseVolumeSlider label="Music" value={pauseAudio.musicVolume} disabled={pauseAudio.muted} note="(victory ditties)" onChange={v => patchPauseAudio({ musicVolume: v })} />
               </>}
 
               {/* Controls tab */}

@@ -8,6 +8,9 @@
     "start": "node server/dist/server/src/server.js"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "concurrently": "^8.2.2",
+    "ffmpeg-static": "^5.3.0",
+    "fluent-ffmpeg": "^2.1.3"
   }
 }

@@ -281,9 +281,13 @@ export const urquanController: ShipController = {
   processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
     if (m.weaponType !== 'fighter') return {};
 
+    if (ownShip.crew <= 0) {
+      return { destroy: true };
+    }
+
     // ── Fighter AI (ported from Battle.tsx fighter update block) ─────────────
     // Phase: if life is low enough to return, track mothership; else track enemy
-    const returning = m.life < ONE_WAY_FLIGHT && ownShip.crew > 0;
+    const returning = enemyShip.crew <= 0 || m.life < ONE_WAY_FLIGHT;
     const navTarget = returning ? ownShip : enemyShip;
 
     // Turn toward nav target and set velocity
@@ -302,7 +306,7 @@ export const urquanController: ShipController = {
     }
 
     // Fighter laser: fire when enemy within 3/4 of laser range
-    if (!returning && (m.weaponWait ?? 0) === 0) {
+    if (!returning && enemyShip.crew > 0 && (m.weaponWait ?? 0) === 0) {
       const dx = enemyShip.x - m.x;
       const dy = enemyShip.y - m.y;
       const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
