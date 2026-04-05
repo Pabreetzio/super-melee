@@ -48,6 +48,7 @@ export interface ShipState {
   melnormeConfusionInput?: number;
   melnormeSeed?: number;
   thraddashPrevSpecialHeld?: boolean;
+  zoqTongueFrames?: number;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -67,7 +68,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm';
+      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
@@ -108,6 +109,7 @@ export type SpawnRequest =
       hits: number;
       shipVelocity: { vx: number; vy: number };
     }
+  | { type: 'zoqfotpik_tongue' }
   | { type: 'shofixti_glory'; x: number; y: number };
 
 // ─── Battle-world objects (live in BattleState) ───────────────────────────────
@@ -129,7 +131,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot

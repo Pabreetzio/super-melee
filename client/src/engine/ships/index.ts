@@ -45,7 +45,7 @@ const SHIPS: ShipDef[] = [
   { id: 'utwig',      name: 'Utwig Jugger',        crew: 20, energy: 20, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 7, radius: 16, primaryDamage: 6, secondaryDamage: 0 },
   { id: 'vux',        name: 'VUX Intruder',        crew: 20, energy: 40, speed: 18, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 6, radius: 16, primaryDamage: 5, secondaryDamage: 0 },
   { id: 'yehat',      name: 'Yehat Terminator',    crew: 20, energy: 10, speed: 30, turnRate: 1, thrustDelay: 2, turnDelay: 2, mass: 3, radius: 14, primaryDamage: 2, secondaryDamage: 0 },
-  { id: 'zoqfotpik',  name: 'Zoq-Fot-Pik Stinger', crew: 10, energy: 10, speed: 42, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 2, radius: 10, primaryDamage: 2, secondaryDamage: 0 },
+  { id: 'zoqfotpik',  name: 'Zoq-Fot-Pik Stinger', crew: 10, energy: 10, speed: 40, turnRate: 1, thrustDelay: 0, turnDelay: 1, mass: 5, radius: 10, primaryDamage: 1, secondaryDamage: 12 },
   { id: 'kohrah',     name: 'Kohr-Ah Marauder',    crew: 42, energy: 42, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 7, radius: 18, primaryDamage: 7, secondaryDamage: 0 },
   { id: 'samatra',    name: 'Sa-Matra',            crew:  1, energy: 42, speed:  0, turnRate: 0, thrustDelay: 0, turnDelay: 0, mass:15, radius: 40, primaryDamage: 0, secondaryDamage: 0 },
 ];

@@ -296,6 +296,32 @@ export async function loadThraddashSprites(): Promise<ThraddashSprites> {
   };
 }
 
+export interface ZoqfotpikSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  spit: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  proboscis: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadZoqfotpikSprites(): Promise<ZoqfotpikSprites> {
+  const body = await loadGenericShipSprites('zoqfotpik');
+  if (!body) throw new Error('Missing zoqfotpik body sprites');
+  const [spitBig, spitMed, spitSml, proboscisBig, proboscisMed, proboscisSml] = await Promise.all([
+    loadSpriteSet('zoqfotpik/spit', 'big', 13, SPIT_BIG_HOTSPOTS),
+    loadSpriteSet('zoqfotpik/spit', 'med', 13, SPIT_MED_HOTSPOTS),
+    loadSpriteSet('zoqfotpik/spit', 'sml', 13, SPIT_SML_HOTSPOTS),
+    loadSpriteSet('zoqfotpik/proboscis', 'big', 16, PROBOSCIS_BIG_HOTSPOTS),
+    loadSpriteSet('zoqfotpik/proboscis', 'med', 16, PROBOSCIS_MED_HOTSPOTS),
+    loadSpriteSet('zoqfotpik/proboscis', 'sml', 16, PROBOSCIS_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    spit: { big: spitBig, med: spitMed, sml: spitSml },
+    proboscis: { big: proboscisBig, med: proboscisMed, sml: proboscisSml },
+  };
+}
+
 // ─── VUX Intruder hotspot tables ─────────────────────────────────────────────
 
 // intruder-big.ani — 16 rotation frames
@@ -396,6 +422,21 @@ const HORN_SML_HOTSPOTS: [number, number][] = Array.from({ length: 16 }, () => [
 const NAPALM_BIG_HOTSPOTS: [number, number][] = [[4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9]];
 const NAPALM_MED_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4]];
 const NAPALM_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2]];
+const SPIT_BIG_HOTSPOTS: [number, number][] = Array.from({ length: 13 }, () => [0, 0]);
+const SPIT_MED_HOTSPOTS: [number, number][] = Array.from({ length: 13 }, () => [0, 0]);
+const SPIT_SML_HOTSPOTS: [number, number][] = Array.from({ length: 13 }, () => [0, 0]);
+const PROBOSCIS_BIG_HOTSPOTS: [number, number][] = [
+  [1,13],[-2,11],[-3,9],[-4,3],[-5,1],[-4,-2],[-2,-2],[-2,-4],
+  [1,-4],[2,-4],[10,-3],[11,-2],[15,1],[10,3],[9,9],[3,11],
+];
+const PROBOSCIS_MED_HOTSPOTS: [number, number][] = [
+  [0,7],[-1,7],[-2,6],[-3,2],[-3,0],[-3,-1],[-2,-2],[-1,-3],
+  [0,-3],[2,-3],[6,-2],[7,-1],[8,0],[7,2],[6,6],[3,7],
+];
+const PROBOSCIS_SML_HOTSPOTS: [number, number][] = [
+  [0,4],[-1,3],[-1,3],[-1,2],[-2,0],[-1,-1],[-1,-1],[-1,-1],
+  [0,-2],[2,-1],[3,-1],[3,-1],[5,0],[3,2],[3,3],[2,3],
+];
 const PUMPUP_BIG_HOTSPOTS: [number, number][] = [
   [5,5],[4,4],[3,3],[3,3],[4,4],[6,6],[5,5],[4,4],[4,4],[5,5],
   [8,8],[7,7],[5,5],[5,5],[7,7],[12,12],[10,10],[8,8],[7,7],[10,10],
