@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FleetSlot, ShipId } from 'shared/types';
-import ShipPicker, { getShipPickerOptions } from './ShipPicker';
+import ShipPicker, { canSelectShipPickerOption, getShipPickerOptions } from './ShipPicker';
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import StarfieldBG from './StarfieldBG';
 import { loadConfig } from '../lib/starfield';
@@ -18,13 +18,13 @@ function fleetValue(fleet: FleetSlot[]): number {
 }
 
 export const BALANCED_TEAM_1: FleetSlot[] = [
-  'androsynth', 'chmmr', 'druuge', 'urquan', 'melnorme', 'orz', 'spathi', 'syreen', 'utwig',
-  null, null, null, null, null,
+  'human', 'spathi', 'urquan', 'pkunk', 'vux', 'kohrah', 'mycon',
+  null, null, null, null, null, null, null,
 ];
 
 export const BALANCED_TEAM_2: FleetSlot[] = [
-  'arilou', 'chenjesu', 'human', 'kohrah', 'mycon', 'yehat', 'pkunk', 'supox', 'thraddash', 'zoqfotpik', 'shofixti',
-  null, null, null,
+  'human', 'spathi', 'urquan', 'pkunk', 'vux', 'kohrah', 'mycon',
+  null, null, null, null, null, null, null,
 ];
 
 export type ControlType = 'cyborg_weak' | 'cyborg_good' | 'cyborg_awesome' | 'human';
@@ -328,6 +328,10 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
         }
         if (isConfirm) {
           const chosen = pickerOptions[picker.activeIndex] ?? null;
+          if (!canSelectShipPickerOption(chosen, e.ctrlKey)) {
+            playMenuError();
+            return;
+          }
           if (picker.fleet === 1) {
             setFleet1(prev => {
               const next = [...prev];
@@ -822,7 +826,6 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
             playMenuSelect();
           }}
           onClose={() => closePicker()}
-          currentFleet={picker.fleet === 1 ? fleet1 : fleet2}
           activeIndex={picker.activeIndex}
           onActiveIndexChange={index => {
             setActiveRegion('picker');

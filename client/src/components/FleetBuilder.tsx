@@ -317,7 +317,6 @@ export default function FleetBuilder({
         <ShipPicker
           onPick={pickShip}
           onClose={() => setPickerTarget(null)}
-          currentFleet={pickerTarget.p2 ? localFleet1 : localFleet0}
         />
       )}
     </div>

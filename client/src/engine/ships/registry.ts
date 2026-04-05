@@ -74,6 +74,8 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   mycon:   myconController,
 };
 
+export const IMPLEMENTED_SHIP_IDS = new Set<ShipId>(Object.keys(EXPLICIT) as ShipId[]);
+
 // Build the full registry, filling every ShipId with either the explicit
 // controller or a generated default.  Computed once at module load.
 const _registry: Partial<Record<ShipId, ShipController>> = {};
@@ -85,4 +87,8 @@ export const SHIP_REGISTRY = _registry as Record<ShipId, ShipController>;
 
 export function getController(id: ShipId): ShipController {
   return SHIP_REGISTRY[id] ?? humanController;
+}
+
+export function isShipImplemented(id: ShipId): boolean {
+  return IMPLEMENTED_SHIP_IDS.has(id);
 }
