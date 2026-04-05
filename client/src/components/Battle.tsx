@@ -38,8 +38,9 @@ import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playShipSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
 import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
+import { getShipDef } from '../engine/ships/index';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -986,7 +987,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         if (s.sound === 'primary') playPrimary(bs.shipTypes[0]);
         else if (s.sound === 'secondary') playSecondary(bs.shipTypes[0]);
         else if (s.sound === 'cloak') playSecondary(bs.shipTypes[0]);
-        else if (s.sound === 'uncloak') playPrimary(bs.shipTypes[0]);
+        else if (s.sound === 'uncloak') playShipSound(bs.shipTypes[0], 'uncloak');
       }
       else
       if (s.type === 'missile') {
@@ -1019,7 +1020,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         if (s.sound === 'primary') playPrimary(bs.shipTypes[1]);
         else if (s.sound === 'secondary') playSecondary(bs.shipTypes[1]);
         else if (s.sound === 'cloak') playSecondary(bs.shipTypes[1]);
-        else if (s.sound === 'uncloak') playPrimary(bs.shipTypes[1]);
+        else if (s.sound === 'uncloak') playShipSound(bs.shipTypes[1], 'uncloak');
       }
       else
       if (s.type === 'missile') {
@@ -1180,7 +1181,18 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const med0 = STAR_COUNTS[0];
       const sml0 = STAR_COUNTS[0] + STAR_COUNTS[1];
       const total = sml0 + STAR_COUNTS[2];
+      const cloakedShips = bs.ships.flatMap((ship, side) => {
+        if (bs.shipTypes[side] !== 'ilwrath' || !ship.ilwrathCloaked) return [];
+        const radius = DISPLAY_TO_WORLD(
+          SHIP_REGISTRY[bs.shipTypes[side]].getCollisionRadius?.(ship) ?? getShipDef(bs.shipTypes[side])?.radius ?? 14,
+        );
+        return [{ ship, radiusSq: radius * radius }];
+      });
       for (let i = 0; i < total; i++) {
+        if (cloakedShips.some(({ ship, radiusSq }) => {
+          const delta = worldDelta(stars[i].x, stars[i].y, ship.x, ship.y, WORLD_W, WORLD_H);
+          return delta.dx * delta.dx + delta.dy * delta.dy <= radiusSq;
+        })) continue;
         let sx = (stars[i].x - camX) >> (2 + r);
         let sy = (stars[i].y - camY) >> (2 + r);
         // Wrap single step — world is always >= screen width at any zoom

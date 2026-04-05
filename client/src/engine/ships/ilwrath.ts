@@ -23,6 +23,7 @@ import {
 import type {
   BattleMissile,
   DrawContext,
+  LaserFlash,
   ShipController,
   ShipState,
   SpawnRequest,
@@ -84,11 +85,13 @@ export function makeIlwrathShip(x: number, y: number): ShipState {
     energyWait: 0,
     thrusting: false,
     ilwrathCloaked: false,
+    ilwrathUncloakShot: false,
   };
 }
 
 export function updateIlwrathShip(ship: ShipState, input: number): SpawnRequest[] {
   const spawns: SpawnRequest[] = [];
+  ship.ilwrathUncloakShot = false;
 
   if (ship.turnWait > 0) {
     ship.turnWait--;
@@ -132,6 +135,7 @@ export function updateIlwrathShip(ship: ShipState, input: number): SpawnRequest[
   } else if ((input & INPUT_FIRE1) && ship.energy >= ILWRATH_WEAPON_ENERGY_COST) {
     if (ship.ilwrathCloaked) {
       ship.ilwrathCloaked = false;
+      ship.ilwrathUncloakShot = true;
       spawns.push({ type: 'sound', sound: 'uncloak' });
     }
     ship.energy -= ILWRATH_WEAPON_ENERGY_COST;
@@ -175,21 +179,16 @@ export const ilwrathController: ShipController = {
   loadSprites: () => loadIlwrathSprites(),
 
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
+    if (ship.ilwrathCloaked) return;
     const sp = sprites as IlwrathSprites | null;
     const set = sp
       ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
       : null;
     if (!set) {
-      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, ship.ilwrathCloaked ? '#0b1133' : '#7aa0ff', dc.reduction, dc.worldW, dc.worldH);
+      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#7aa0ff', dc.reduction, dc.worldW, dc.worldH);
       return;
     }
-    dc.ctx.save();
-    if (ship.ilwrathCloaked) {
-      dc.ctx.globalAlpha = 0.18;
-      dc.ctx.filter = 'brightness(0.45)';
-    }
     drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
-    dc.ctx.restore();
   },
 
   getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
@@ -214,6 +213,36 @@ export const ilwrathController: ShipController = {
     const sp = sprites as IlwrathSprites | null;
     const frame = Math.min(7, ILWRATH_MISSILE_LIFE - m.life);
     return sp?.fire.big.frames[frame] ?? null;
+  },
+
+  applySpawn(
+    s: SpawnRequest,
+    ownShip: ShipState,
+    enemyShip: ShipState,
+    ownSide: 0 | 1,
+    missiles: BattleMissile[],
+    _addLaser: (l: LaserFlash) => void,
+  ): void {
+    if (s.type !== 'missile' || !ownShip.ilwrathUncloakShot) return;
+    const missile = [...missiles].reverse().find(m => m.owner === ownSide && m.life === ILWRATH_MISSILE_LIFE && m.damage === ILWRATH_MISSILE_DAMAGE);
+    if (!missile) return;
+
+    const aimAngle = worldAngle(ownShip.x, ownShip.y, enemyShip.x, enemyShip.y);
+    const aimFacing = (aimAngle >> 2) & 15;
+    const offsetX = COSINE(aimAngle, ILWRATH_OFFSET);
+    const offsetY = SINE(aimAngle, ILWRATH_OFFSET);
+    const { dx: shipDx, dy: shipDy } = getCurrentVelocityComponents(ownShip.velocity);
+
+    ownShip.facing = aimFacing;
+    missile.facing = aimFacing;
+    setVelocityVector(missile.velocity, ILWRATH_MISSILE_SPEED, aimFacing);
+    missile.velocity.vx += shipDx;
+    missile.velocity.vy += shipDy;
+    missile.prevX = ownShip.x + offsetX;
+    missile.prevY = ownShip.y + offsetY;
+    missile.x = missile.prevX - VELOCITY_TO_WORLD(shipDx);
+    missile.y = missile.prevY - VELOCITY_TO_WORLD(shipDy);
+    ownShip.ilwrathUncloakShot = false;
   },
 
   computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, _aiLevel: AIDifficulty): number {

@@ -36,6 +36,7 @@ export interface ShipState {
   chmmrLaserCycle?: number;
   chmmrSatellitesSpawned?: boolean;
   ilwrathCloaked?: boolean;
+  ilwrathUncloakShot?: boolean;
   melnormeCharging?: boolean;
   melnormePumpLevel?: number;
   melnormePumpTimer?: number;

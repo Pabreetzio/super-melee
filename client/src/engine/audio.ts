@@ -214,6 +214,11 @@ export function playSecondary(shipType: string): void {
   if (url) playUrl(url, 0.7);
 }
 
+export function playShipSound(shipType: string, key: string, volume = 0.7): void {
+  const url = SHIP_SOUNDS[shipType]?.[key];
+  if (url) playUrl(url, volume);
+}
+
 export function playPkunkRebirth(): void {
   const url = SHIP_SOUNDS.pkunk?.rebirth;
   if (url) playUrl(url, 0.8);
