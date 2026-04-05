@@ -90,6 +90,23 @@ function pushHitEffects(
   }
 }
 
+export function applyDirectMissileDamage(
+  bs: BattleState,
+  m: BattleMissile,
+  damage: number,
+): boolean {
+  if (damage <= 0) return false;
+
+  m.hitPoints = Math.max(0, m.hitPoints - damage);
+  if (m.hitPoints > 0) return false;
+
+  const ownerCtrl = SHIP_REGISTRY[bs.shipTypes[m.owner]];
+  const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
+  pushHitEffects(bs, m, hitFx);
+  if (!hitFx.skipBlast) playBlast(Math.max(1, m.damage));
+  return true;
+}
+
 function resolveWeaponCollisionPair(a: BattleMissile, b: BattleMissile): { aDestroyed: boolean; bDestroyed: boolean } {
   let aDestroyed = false;
   let bDestroyed = false;

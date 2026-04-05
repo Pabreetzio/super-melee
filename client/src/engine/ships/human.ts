@@ -2,7 +2,7 @@
 // and the common ship movement in uqm-0.8.0/src/uqm/ship.c (inertial_thrust).
 
 import {
-  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
+  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY,
   setVelocityVector, velocitySquared,
   setVelocityComponents, getCurrentVelocityComponents,
   type VelocityDesc,
@@ -11,6 +11,7 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadCruiserSprites, drawSprite, placeholderDot, type CruiserSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, LaserFlash } from './types';
+import { worldDelta } from '../battle/helpers';
 
 // ─── Ship constants (from human.c) ───────────────────────────────────────────
 
@@ -286,49 +287,54 @@ export const humanController: ShipController = {
     ownSide: 0 | 1,
     missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    damageMissile: (m: BattleMissile, damage: number) => boolean,
+    emitSound: (sound: 'primary' | 'secondary') => void,
   ): void {
     if (s.type !== 'point_defense') return;
 
     // Faithful port of UQM spawn_point_defense (human.c).
     //
     // Fires at every collidable object within LASER_RANGE display px:
-    //   • enemy missiles (destroyed on hit)
+    //   • enemy missiles (1 laser damage each, using their normal HP rules)
     //   • enemy ship (1 crew damage on hit)
     //
     // Energy and cooldown use a PaidFor flag — deducted only on the FIRST hit.
     // If nothing is in range: no energy spent, no cooldown set (free to spam).
-    const rangeWSq = DISPLAY_TO_WORLD(LASER_RANGE) ** 2;
     let paidFor = false;
 
     function payOnce() {
       if (paidFor) return;
       ownShip.energy -= SPECIAL_ENERGY_COST;
       ownShip.specialWait = SPECIAL_WAIT;
+      emitSound('secondary');
       paidFor = true;
+    }
+
+    function inRange(targetX: number, targetY: number): boolean {
+      const { dx, dy } = worldDelta(ownShip.x, ownShip.y, targetX, targetY);
+      const dxDisplay = Math.abs(WORLD_TO_DISPLAY(dx));
+      const dyDisplay = Math.abs(WORLD_TO_DISPLAY(dy));
+      return dxDisplay <= LASER_RANGE
+        && dyDisplay <= LASER_RANGE
+        && dxDisplay * dxDisplay + dyDisplay * dyDisplay <= LASER_RANGE * LASER_RANGE;
     }
 
     // Enemy missiles
     for (let i = missiles.length - 1; i >= 0; i--) {
       const m = missiles[i];
       if (m.owner === ownSide) continue; // never fire at own missiles
-      const dx = m.x - ownShip.x;
-      const dy = m.y - ownShip.y;
-      if (dx * dx + dy * dy <= rangeWSq) {
+      if (inRange(m.x, m.y)) {
         payOnce();
         addLaser({ x1: ownShip.x, y1: ownShip.y, x2: m.x, y2: m.y });
-        missiles.splice(i, 1);
+        damageMissile(m, 1);
       }
     }
 
     // Enemy ship
-    {
-      const dx = enemyShip.x - ownShip.x;
-      const dy = enemyShip.y - ownShip.y;
-      if (dx * dx + dy * dy <= rangeWSq) {
-        payOnce();
-        addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y });
-        enemyShip.crew = Math.max(0, enemyShip.crew - 1);
-      }
+    if (inRange(enemyShip.x, enemyShip.y)) {
+      payOnce();
+      addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y });
+      enemyShip.crew = Math.max(0, enemyShip.crew - 1);
     }
   },
 };

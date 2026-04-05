@@ -31,7 +31,7 @@ import {
   beginShipDestruction,
   shouldRenderExplodingShip,
 } from '../engine/battle/destruction';
-import { advanceExplosions, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
+import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
 import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../engine/sprites';
@@ -947,17 +947,31 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       }
     };
     const addLaser = (l: LaserFlash) => bs.lasers.push(l);
+    const damageMissile = (m: BattleMissile, damage: number): boolean => {
+      if (!applyDirectMissileDamage(bs, m, damage)) return false;
+      const idx = bs.missiles.indexOf(m);
+      if (idx !== -1) bs.missiles.splice(idx, 1);
+      return true;
+    };
     let launchSoundPlayed0 = false;
     let gasSoundPlayed0 = false;
     for (const s of spawns0) {
       spawnRequest(s, 0);
       // Immediate weapon effects owned by each ship's controller
-      SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(s, bs.ships[0], bs.ships[1], 0, bs.missiles, addLaser);
+      SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(
+        s,
+        bs.ships[0],
+        bs.ships[1],
+        0,
+        bs.missiles,
+        addLaser,
+        damageMissile,
+        sound => sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]),
+      );
       // Sound dispatch (keyed on spawn type, independent of ship identity)
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]);
       else
-      if (s.type === 'point_defense')  playSecondary(bs.shipTypes[0]);
-      else if (s.type === 'missile') {
+      if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
@@ -969,11 +983,19 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     let gasSoundPlayed1 = false;
     for (const s of spawns1) {
       spawnRequest(s, 1);
-      SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(s, bs.ships[1], bs.ships[0], 1, bs.missiles, addLaser);
+      SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(
+        s,
+        bs.ships[1],
+        bs.ships[0],
+        1,
+        bs.missiles,
+        addLaser,
+        damageMissile,
+        sound => sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]),
+      );
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]);
       else
-      if (s.type === 'point_defense')  playSecondary(bs.shipTypes[1]);
-      else if (s.type === 'missile') {
+      if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);

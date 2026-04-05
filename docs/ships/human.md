@@ -117,8 +117,8 @@ facing direction, computed via `COSINE/SINE(launchAngle, DISPLAY_TO_WORLD(42))`.
 ### Point-defense laser (`spawn_point_defense`)
 
 Implemented as a deferred two-stage spawn in UQM (sentinel element → death_func fires actual
-lasers). In our port, `applyPointDefense` in `Battle.tsx` runs after `updateHumanShip` each
-frame and handles range checks, energy deduction, and laser flash recording directly.
+lasers). In our port, `humanController.applySpawn` resolves the effect after `updateHumanShip`
+each frame, using the shared battle helpers to apply 1 point of laser damage to enemy weapons.
 
 ### Plasmoid interaction (for future Mycon implementation)
 

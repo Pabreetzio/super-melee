@@ -255,5 +255,7 @@ export interface ShipController {
     ownSide: 0 | 1,
     missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    damageMissile: (m: BattleMissile, damage: number) => boolean,
+    emitSound: (sound: 'primary' | 'secondary') => void,
   ): void;
 }

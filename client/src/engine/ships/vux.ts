@@ -249,6 +249,8 @@ export const vuxController: ShipController = {
     _ownSide: 0 | 1,
     _missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    _damageMissile: (m: BattleMissile, damage: number) => boolean,
+    _emitSound: (sound: 'primary' | 'secondary') => void,
   ): void {
     if (s.type !== 'vux_laser') return;
 
