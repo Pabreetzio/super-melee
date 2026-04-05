@@ -12,6 +12,8 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadSpathiSprites, drawSprite, placeholderDot, type SpathiSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
+import type { AIDifficulty } from 'shared/types';
+import { worldAngle, worldDelta } from '../battle/helpers';
 
 // Backward-compat alias
 export type { ShipState as HumanShipState };
@@ -243,5 +245,36 @@ export const spathiController: ShipController = {
     const sp = sprites as SpathiSprites | null;
     const group = m.tracks ? sp?.butt.big : sp?.missile.big;
     return group?.frames[m.facing] ?? null;
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const angleToTarget = worldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((angleToTarget + 2) >> 2) & 15;
+    const awayFacing = (targetFacing + 8) & 15;
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    const tooClose = distanceSq <= DISPLAY_TO_WORLD(96) ** 2;
+
+    const desiredFacing = tooClose ? awayFacing : ((awayFacing + (aiLevel === 'cyborg_awesome' ? 1 : 0)) & 15);
+    const diff = (desiredFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+    input |= INPUT_THRUST;
+
+    const buttFacing = (ship.facing + 8) & 15;
+    const buttDiff = (targetFacing - buttFacing + 16) % 16;
+    const buttWindow = aiLevel === 'cyborg_awesome' ? 2 : 1;
+    if (ship.energy >= SPATHI_SPECIAL_ENERGY_COST && (buttDiff <= buttWindow || buttDiff >= 16 - buttWindow)) {
+      input |= INPUT_FIRE2;
+    }
+
+    const frontDiff = (targetFacing - ship.facing + 16) % 16;
+    const missileRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 150 : aiLevel === 'cyborg_good' ? 120 : 90);
+    if (distanceSq <= missileRange * missileRange && !tooClose && (frontDiff === 0 || (aiLevel !== 'cyborg_weak' && (frontDiff <= 1 || frontDiff >= 15)))) {
+      input |= INPUT_FIRE1;
+    }
+
+    return input;
   },
 };

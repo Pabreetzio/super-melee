@@ -15,6 +15,7 @@ import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from 
 import { loadGenericShipSprites, drawSprite, placeholderDot, type ShipSpriteSet, type SpriteFrame } from '../sprites';
 import type { BattleMissile, DrawContext, LaserFlash, ShipController, ShipState, SpawnRequest } from './types';
 import { toroidalDelta, worldAngle, worldDelta, wrapWorldCoord } from '../battle/helpers';
+import type { AIDifficulty } from 'shared/types';
 
 // ─── Constants (from arilou.c) ───────────────────────────────────────────────
 
@@ -310,7 +311,7 @@ export const arilouController: ShipController = {
     return (ship.arilouTeleportFrames ?? 0) > 0;
   },
 
-  computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1): number {
+  computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
     let input = INPUT_THRUST;
     const delta = worldDelta(ship.x, ship.y, target.x, target.y, WORLD_W, WORLD_H);
     const distanceSq = delta.dx * delta.dx + delta.dy * delta.dy;
@@ -330,14 +331,16 @@ export const arilouController: ShipController = {
 
     const enemyMissiles = missiles.filter(m => m.owner !== aiSide);
     const imminentThreat = enemyMissiles.some(m => isThreateningMissile(m, ship));
-    if ((ship.arilouTeleportFrames ?? 0) === 0 && ship.specialWait === 0 && ship.energy >= (ARILOU_SPECIAL_ENERGY_COST << 1) && imminentThreat) {
+    const reserve = aiLevel === 'cyborg_awesome' ? ARILOU_SPECIAL_ENERGY_COST : ARILOU_SPECIAL_ENERGY_COST << 1;
+    if ((ship.arilouTeleportFrames ?? 0) === 0 && ship.specialWait === 0 && ship.energy >= reserve && imminentThreat) {
       return INPUT_FIRE2;
     }
 
     const fireFacing = autoAimFacing(ship, target);
     const fireDiff = (fireFacing - ship.facing + 16) % 16;
     const fireRange = DISPLAY_TO_WORLD(112);
-    if (ship.energy > (ARILOU_SPECIAL_ENERGY_COST << 1) && distanceSq <= fireRange * fireRange && (fireDiff <= 1 || fireDiff >= 15)) {
+    const fireWindow = aiLevel === 'cyborg_weak' ? 0 : 1;
+    if (ship.energy > reserve && distanceSq <= fireRange * fireRange && (fireDiff <= fireWindow || fireDiff >= 16 - fireWindow)) {
       input |= INPUT_FIRE1;
     }
 

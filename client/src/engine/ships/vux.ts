@@ -12,6 +12,8 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileHitEffect, LaserFlash } from './types';
+import type { AIDifficulty } from 'shared/types';
+import { worldAngle, worldDelta } from '../battle/helpers';
 
 export type { ShipState as HumanShipState };
 
@@ -277,5 +279,31 @@ export const vuxController: ShipController = {
     }
     // Always show flash, hit or miss
     addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey, color: VUX_LASER_COLOR });
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const targetAngle = worldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((targetAngle + 2) >> 2) & 15;
+    const diff = (targetFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq > DISPLAY_TO_WORLD(70) ** 2 || aiLevel !== 'cyborg_weak') input |= INPUT_THRUST;
+
+    const laserWindow = aiLevel === 'cyborg_awesome' ? 1 : 0;
+    if (distanceSq <= VUX_LASER_RANGE * VUX_LASER_RANGE && (diff <= laserWindow || diff >= 16 - laserWindow)) {
+      input |= INPUT_FIRE1;
+    }
+
+    if (ship.energy >= (VUX_MAX_ENERGY >> 1) && ship.specialWait === 0 && distanceSq <= DISPLAY_TO_WORLD(180) ** 2 && (diff >= 1 && diff <= 8)) {
+      if (aiLevel !== 'cyborg_weak' || distanceSq <= DISPLAY_TO_WORLD(120) ** 2) {
+        input |= INPUT_FIRE2;
+      }
+    }
+
+    return input;
   },
 };

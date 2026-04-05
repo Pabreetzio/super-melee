@@ -13,7 +13,8 @@ import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from 
 import { loadMyconSprites, drawSprite, placeholderDot, type MyconSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect, MissileHitEffect } from './types';
 import { trackFacing } from './human';
-import { worldAngle as battleWorldAngle } from '../battle/helpers';
+import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
+import type { AIDifficulty } from 'shared/types';
 
 export type { ShipState as HumanShipState };
 
@@ -269,5 +270,34 @@ export const myconController: ShipController = {
   onMissileHit(m: BattleMissile, _target: ShipState | null): MissileHitEffect {
     if (m.weaponType === 'plasmoid') return { explosionType: 'mycon_plasma' };
     return {};
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const targetAngle = battleWorldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((targetAngle + 2) >> 2) & 15;
+    const diff = (targetFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+
+    const seekerThreat = missiles.some(m => {
+      if (m.owner === aiSide) return false;
+      const delta = worldDelta(ship.x, ship.y, m.x, m.y);
+      return delta.dx * delta.dx + delta.dy * delta.dy <= DISPLAY_TO_WORLD(110) ** 2 && (m.tracks || m.weaponType === 'fighter');
+    });
+    if (!seekerThreat) input |= INPUT_THRUST;
+
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    const fireWindow = aiLevel === 'cyborg_weak' ? 0 : 1;
+    if (ship.energy >= MYCON_WEAPON_ENERGY_COST && (distanceSq <= DISPLAY_TO_WORLD(220) ** 2 || ship.crew === MYCON_MAX_CREW)) {
+      if (diff <= fireWindow || diff >= 16 - fireWindow) input |= INPUT_FIRE1;
+    }
+
+    if (ship.specialWait === 0 && ship.crew < MYCON_MAX_CREW && ship.energy >= MYCON_SPECIAL_ENERGY_COST && !(input & INPUT_FIRE1)) {
+      if (ship.crew <= (aiLevel === 'cyborg_awesome' ? 16 : aiLevel === 'cyborg_good' ? 14 : 12)) input |= INPUT_FIRE2;
+    }
+
+    return input;
   },
 };

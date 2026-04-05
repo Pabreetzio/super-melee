@@ -13,6 +13,7 @@ import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from 
 import { loadKohrahSprites, drawSprite, placeholderDot, type KohrahSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect, MissileHitEffect } from './types';
 import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
+import type { AIDifficulty } from 'shared/types';
 
 export type { ShipState as HumanShipState };
 
@@ -348,5 +349,41 @@ export const kohrahController: ShipController = {
     }
     // Ship collision: blast (default) + splinter
     return { splinter: { vx: m.velocity.vx, vy: m.velocity.vy } };
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const targetAngle = battleWorldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((targetAngle + 2) >> 2) & 15;
+    const diff = (targetFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+    input |= INPUT_THRUST;
+
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    const activeSaw = missiles.find(m => m.owner === aiSide && m.weaponType === 'buzzsaw' && m.life > BUZZSAW_LIFE * 3 / 4);
+
+    const fireWindow = aiLevel === 'cyborg_awesome' ? 1 : 0;
+    if (distanceSq <= DISPLAY_TO_WORLD(240) ** 2) {
+      if (activeSaw) {
+        input |= INPUT_FIRE1;
+      } else if (diff <= fireWindow || diff >= 16 - fireWindow) {
+        input |= INPUT_FIRE1;
+      }
+    }
+
+    const closeMissileThreat = missiles.some(m => {
+      if (m.owner === aiSide || m.weaponType === 'gas_cloud') return false;
+      const delta = worldDelta(ship.x, ship.y, m.x, m.y);
+      return delta.dx * delta.dx + delta.dy * delta.dy <= DISPLAY_TO_WORLD(80) ** 2;
+    });
+    if (!closeMissileThreat && ship.specialWait === 0 && ship.energy >= FRIED_ENERGY_COST) {
+      if (!(input & INPUT_FIRE1) && distanceSq <= DISPLAY_TO_WORLD(aiLevel === 'cyborg_weak' ? 100 : 140) ** 2 && (input & (INPUT_LEFT | INPUT_RIGHT))) {
+        input |= INPUT_FIRE2;
+      }
+    }
+
+    return input;
   },
 };

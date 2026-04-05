@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { FleetSlot, ShipId } from 'shared/types';
+import type { AIDifficulty, FleetSlot, ShipId } from 'shared/types';
 import ShipPicker, { canSelectShipPickerOption, getShipPickerOptions } from './ShipPicker';
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import StarfieldBG from './StarfieldBG';
@@ -27,7 +27,7 @@ export const BALANCED_TEAM_2: FleetSlot[] = [
   null, null, null, null, null, null, null,
 ];
 
-export type ControlType = 'cyborg_weak' | 'cyborg_good' | 'cyborg_awesome' | 'human';
+export type ControlType = AIDifficulty | 'human';
 const CONTROL_CYCLE: ControlType[] = ['cyborg_weak', 'cyborg_good', 'cyborg_awesome', 'human'];
 const CONTROL_LABEL: Record<ControlType, string> = {
   cyborg_weak:    'WEAK CYBORG',

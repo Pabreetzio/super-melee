@@ -13,6 +13,8 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadPkunkSprites, drawSprite, placeholderDot, type PkunkSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
+import type { AIDifficulty } from 'shared/types';
+import { worldAngle, worldDelta } from '../battle/helpers';
 
 // ─── Constants (from pkunk.c) ─────────────────────────────────────────────────
 
@@ -248,5 +250,29 @@ export const pkunkController: ShipController = {
     ship.thrusting = false;
     ship.limpetCount = 0;
     return true;
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = INPUT_THRUST;
+    const targetAngle = worldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((targetAngle + 2) >> 2) & 15;
+    const diff = (targetFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    const fireWindow = aiLevel === 'cyborg_weak' ? 1 : 2;
+    if (distanceSq <= DISPLAY_TO_WORLD(140) ** 2 && (diff <= fireWindow || diff >= 16 - fireWindow)) {
+      input |= INPUT_FIRE1;
+    }
+
+    if (ship.energy < PKUNK_MAX_ENERGY && ship.specialWait === 0) {
+      const tauntChance = aiLevel === 'cyborg_awesome' ? 0.1 : aiLevel === 'cyborg_good' ? 0.2 : 0.35;
+      const shouldTaunt = ship.energy <= (aiLevel === 'cyborg_weak' ? 8 : 10) && ((ship.x + ship.y + ship.energy + ship.crew) % 10) / 10 < tauntChance;
+      if (shouldTaunt || ship.energy <= 3) input |= INPUT_FIRE2;
+    }
+
+    return input;
   },
 };

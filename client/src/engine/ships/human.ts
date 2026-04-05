@@ -11,7 +11,8 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadCruiserSprites, drawSprite, placeholderDot, type CruiserSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, LaserFlash } from './types';
-import { worldDelta } from '../battle/helpers';
+import { worldAngle, worldDelta } from '../battle/helpers';
+import type { AIDifficulty } from 'shared/types';
 
 // ─── Ship constants (from human.c) ───────────────────────────────────────────
 
@@ -336,5 +337,36 @@ export const humanController: ShipController = {
       addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y });
       enemyShip.crew = Math.max(0, enemyShip.crew - 1);
     }
+  },
+
+  computeAIInput(ai: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const rawAngle = worldAngle(ai.x, ai.y, target.x, target.y);
+    const targetFacing = Math.round(rawAngle / 4) & 15;
+    const facingDiff = (targetFacing - ai.facing + 16) % 16;
+
+    if (facingDiff >= 1 && facingDiff <= 8) input |= INPUT_RIGHT;
+    else if (facingDiff > 8) input |= INPUT_LEFT;
+
+    const thrustWindow = aiLevel === 'cyborg_awesome' ? 4 : aiLevel === 'cyborg_good' ? 3 : 2;
+    if (facingDiff <= thrustWindow || facingDiff >= 16 - thrustWindow) input |= INPUT_THRUST;
+
+    const fireWindow = aiLevel === 'cyborg_weak' ? 0 : 1;
+    if (facingDiff <= fireWindow || facingDiff >= 16 - fireWindow) input |= INPUT_FIRE1;
+
+    const defenseRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 96 : aiLevel === 'cyborg_good' ? 84 : 72);
+    const urgentRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 128 : 96);
+    const hasThreat = missiles.some(m => {
+      if (m.owner === aiSide) return false;
+      const { dx, dy } = worldDelta(ai.x, ai.y, m.x, m.y);
+      return dx * dx + dy * dy <= defenseRange * defenseRange;
+    });
+    const targetClose = (() => {
+      const { dx, dy } = worldDelta(ai.x, ai.y, target.x, target.y);
+      return dx * dx + dy * dy <= urgentRange * urgentRange;
+    })();
+    if (hasThreat || (aiLevel !== 'cyborg_weak' && targetClose)) input |= INPUT_FIRE2;
+
+    return input;
   },
 };

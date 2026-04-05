@@ -13,6 +13,7 @@ import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from 
 import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect } from './types';
 import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
+import type { AIDifficulty } from 'shared/types';
 
 export type { ShipState as HumanShipState };
 
@@ -344,5 +345,35 @@ export const urquanController: ShipController = {
     }
 
     return effect;
+  },
+
+  computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
+    let input = 0;
+    const targetAngle = battleWorldAngle(ship.x, ship.y, target.x, target.y);
+    const targetFacing = ((targetAngle + 2) >> 2) & 15;
+    const diff = (targetFacing - ship.facing + 16) % 16;
+    if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
+    else if (diff > 8) input |= INPUT_LEFT;
+    input |= INPUT_THRUST;
+
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
+    const fireWindow = aiLevel === 'cyborg_awesome' ? 1 : 0;
+    if (distanceSq <= DISPLAY_TO_WORLD(220) ** 2 && (diff <= fireWindow || diff >= 16 - fireWindow)) {
+      input |= INPUT_FIRE1;
+    }
+
+    const hostileMissileClose = missiles.some(m => {
+      if (m.owner === aiSide || m.weaponType === 'fighter') return false;
+      const delta = worldDelta(ship.x, ship.y, m.x, m.y);
+      return delta.dx * delta.dx + delta.dy * delta.dy <= DISPLAY_TO_WORLD(90) ** 2;
+    });
+    if (!hostileMissileClose && ship.specialWait === 0 && ship.energy >= (URQUAN_MAX_ENERGY >> 1) && ship.crew > (URQUAN_MAX_CREW >> 2)) {
+      if (distanceSq <= DISPLAY_TO_WORLD(aiLevel === 'cyborg_weak' ? 96 : 144) ** 2 || (input & (INPUT_LEFT | INPUT_RIGHT))) {
+        input |= INPUT_FIRE2;
+      }
+    }
+
+    return input;
   },
 };

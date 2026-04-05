@@ -6,6 +6,7 @@
 
 import type { VelocityDesc } from '../velocity';
 import type { SpriteFrame } from '../sprites';
+import type { AIDifficulty } from 'shared/types';
 
 // ─── Common ship state (all ships use this) ───────────────────────────────────
 
@@ -274,5 +275,6 @@ export interface ShipController {
     target: ShipState,
     missiles: BattleMissile[],
     aiSide: 0 | 1,
+    aiLevel: AIDifficulty,
   ): number;
 }

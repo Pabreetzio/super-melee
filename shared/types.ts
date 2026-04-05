@@ -3,6 +3,8 @@
 
 export const FLEET_SIZE = 14; // 2 rows × 7 columns
 
+export type AIDifficulty = 'cyborg_weak' | 'cyborg_good' | 'cyborg_awesome';
+
 export type ShipId =
   | 'androsynth' | 'arilou'   | 'chenjesu' | 'chmmr'     | 'druuge'
   | 'human'      | 'ilwrath'  | 'melnorme' | 'mmrnmhrm'  | 'mycon'

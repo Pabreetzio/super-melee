@@ -4,7 +4,7 @@
 // and register it; Battle.tsx needs no changes.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { FullRoomState } from 'shared/types';
+import type { AIDifficulty, FullRoomState } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
 import {
@@ -164,6 +164,7 @@ interface Props {
   planetType:  string;
   inputDelay:  number;
   isAI?:       boolean;
+  aiDifficulty?: AIDifficulty;
   isLocal2P?:  boolean;
   winnerState?: WinnerShipState | null;
   // Active fleet slot for each side (offline modes). null = use first non-null fallback.
@@ -174,7 +175,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, isAI = false, isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, isAI = false, aiDifficulty = 'cyborg_weak', isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
@@ -674,8 +675,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
       const aiCtrl = SHIP_REGISTRY[bs.shipTypes[opSide]];
-      const aiInput = aiCtrl.computeAIInput?.(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide)
-        ?? computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
+      const aiInput = aiCtrl.computeAIInput?.(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide, aiDifficulty)
+        ?? computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide, aiDifficulty);
       i0 = mySide === 0 ? myInput : aiInput;
       i1 = mySide === 1 ? myInput : aiInput;
     } else {
@@ -1677,7 +1678,13 @@ function renderPkunkRebirth(
  * 3. Fire nuke when well-aligned
  * 4. Fire point defense when enemy nuke is close
  */
-function computeAIInput(ai: ShipState, target: ShipState, nukes: BattleMissile[], aiSide: 0 | 1): number {
+function computeAIInput(
+  ai: ShipState,
+  target: ShipState,
+  nukes: BattleMissile[],
+  aiSide: 0 | 1,
+  aiDifficulty: AIDifficulty,
+): number {
   let input = 0;
 
   // Angle to target (0–63 UQM system)
@@ -1690,14 +1697,13 @@ function computeAIInput(ai: ShipState, target: ShipState, nukes: BattleMissile[]
   if (facingDiff >= 1 && facingDiff <= 8)  input |= INPUT_RIGHT;
   else if (facingDiff > 8)                  input |= INPUT_LEFT;
 
-  // Thrust when within ±3 facings of the target
-  if (facingDiff <= 3 || facingDiff >= 13) input |= INPUT_THRUST;
+  const thrustWindow = aiDifficulty === 'cyborg_awesome' ? 4 : aiDifficulty === 'cyborg_good' ? 3 : 2;
+  if (facingDiff <= thrustWindow || facingDiff >= 16 - thrustWindow) input |= INPUT_THRUST;
 
-  // Fire nuke when well-aligned (±1 facing)
-  if (facingDiff <= 1 || facingDiff >= 15) input |= INPUT_FIRE1;
+  const fireWindow = aiDifficulty === 'cyborg_awesome' ? 1 : aiDifficulty === 'cyborg_good' ? 1 : 0;
+  if (facingDiff <= fireWindow || facingDiff >= 16 - fireWindow) input |= INPUT_FIRE1;
 
-  // Point defense: if any enemy nuke is within 80 display pixels
-  const aiRangeW = DISPLAY_TO_WORLD(80);
+  const aiRangeW = DISPLAY_TO_WORLD(aiDifficulty === 'cyborg_awesome' ? 96 : aiDifficulty === 'cyborg_good' ? 84 : 72);
   const hasIncomingNuke = nukes.some(n => {
     if (n.owner === aiSide) return false; // own nuke, not a threat
     const dx = n.x - ai.x; const dy = n.y - ai.y;

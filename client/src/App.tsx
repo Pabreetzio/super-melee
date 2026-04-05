@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { client } from './net/client';
-import type { FullRoomState, FleetSlot, RoomSummary, ServerMsg } from 'shared/types';
+import type { AIDifficulty, FullRoomState, FleetSlot, RoomSummary, ServerMsg } from 'shared/types';
 import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
@@ -48,6 +48,7 @@ interface AppState {
   battleSeed:    number;
   planetType:    string; // chosen once per game, stable across ship fights within same game
   inputDelay:    number;
+  aiDifficulty:  AIDifficulty;
   winner:        0 | 1 | null | undefined; // undefined = not yet
   joinError:     string;
   shipSelectSide: 0 | 1 | null;
@@ -102,6 +103,7 @@ function init(): AppState {
     battleSeed:    1,
     planetType:    randomPlanetType(),
     inputDelay:    2,
+    aiDifficulty:  'cyborg_weak',
     winner:        undefined,
     joinError:     '',
     shipSelectSide: null,
@@ -350,6 +352,7 @@ function reducer(state: AppState, action: Action): AppState {
         battleSeed:       seed,
         planetType:       randomPlanetType(),
         inputDelay:       0,
+        aiDifficulty:     params.p2Control === 'human' ? 'cyborg_weak' : params.p2Control,
         yourSide:         0,
         winner:           undefined,
         winnerState:      null,
@@ -749,6 +752,7 @@ export default function App() {
           planetType={state.planetType}
           inputDelay={state.inputDelay}
           isAI={battleRoom.code === 'SOLO'}
+          aiDifficulty={state.aiDifficulty}
           isLocal2P={battleRoom.code === 'LOCAL2P'}
           winnerState={state.winnerState}
           activeSlot0={state.activeSlot0}
