@@ -23,7 +23,7 @@ export interface ShipDef {
 // prettier-ignore
 const SHIPS: ShipDef[] = [
   { id: 'androsynth', name: 'Androsynth Guardian', crew: 20, energy: 24, speed: 36, turnRate: 2, thrustDelay: 0, turnDelay: 1, mass: 5, radius: 15, primaryDamage: 3, secondaryDamage: 0 },
-  { id: 'arilou',     name: 'Arilou Skiff',        crew:  6, energy: 20, speed: 48, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 2, radius: 10, primaryDamage: 2, secondaryDamage: 0 },
+  { id: 'arilou',     name: 'Arilou Skiff',        crew:  6, energy: 20, speed: 40, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 1, radius: 10, primaryDamage: 2, secondaryDamage: 0 },
   { id: 'chenjesu',   name: 'Chenjesu Broodhome',  crew: 36, energy: 30, speed: 18, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 9, radius: 20, primaryDamage: 6, secondaryDamage: 0 },
   { id: 'chmmr',      name: 'Chmmr Avatar',        crew: 42, energy: 42, speed: 18, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 9, radius: 22, primaryDamage: 9, secondaryDamage: 0 },
   { id: 'druuge',     name: 'Druuge Mauler',        crew: 14, energy: 32, speed: 36, turnRate: 3, thrustDelay: 1, turnDelay: 1, mass: 4, radius: 14, primaryDamage: 9, secondaryDamage: 0 },

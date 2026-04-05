@@ -673,7 +673,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       i1 = computeInput(keyMapP2Ref.current, gamepadP2Ref.current);
     } else if (isAI) {
       // AI mode: no network — compute both inputs locally, no delay
-      const aiInput = computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
+      const aiCtrl = SHIP_REGISTRY[bs.shipTypes[opSide]];
+      const aiInput = aiCtrl.computeAIInput?.(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide)
+        ?? computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide);
       i0 = mySide === 0 ? myInput : aiInput;
       i1 = mySide === 1 ? myInput : aiInput;
     } else {
@@ -825,10 +827,10 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.lasers = []; // clear previous frame's laser flashes
 
     // Apply gravity to ships still actively flying around the arena.
-    if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0) {
+    if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[0]].isIntangible?.(bs.ships[0])) {
       applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
     }
-    if (bs.shipDestructions[1] === null && bs.ships[1].crew > 0) {
+    if (bs.shipDestructions[1] === null && bs.ships[1].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[1]].isIntangible?.(bs.ships[1])) {
       applyGravity(bs.ships[1], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
     }
 

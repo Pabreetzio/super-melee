@@ -323,6 +323,7 @@ export function processMissiles(
     if (!hit &&
         targetShip.crew > 0 &&
         bs.warpIn[targetSide] === 0 &&
+        !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
         m.weaponType !== 'fighter' &&
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
       targetShip.crew = Math.max(0, targetShip.crew - m.damage);
@@ -343,6 +344,7 @@ export function processMissiles(
         m.weaponType === 'fighter' &&
         targetShip.crew > 0 &&
         bs.warpIn[targetSide] === 0 &&
+        !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
       const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
       pushHitEffects(bs, m, hitFx);

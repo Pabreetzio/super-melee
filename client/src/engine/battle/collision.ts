@@ -24,6 +24,9 @@ export function handleShipShipCollision(
   shipTypes: [ShipId, ShipId],
   shipSprites: Map<string, unknown>,
 ): void {
+  if (SHIP_REGISTRY[shipTypes[0]].isIntangible?.(ships[0]) || SHIP_REGISTRY[shipTypes[1]].isIntangible?.(ships[1])) {
+    return;
+  }
   const def0 = getShipDef(shipTypes[0]);
   const def1 = getShipDef(shipTypes[1]);
   const r0 = DISPLAY_TO_WORLD(def0?.radius ?? 14);
@@ -68,6 +71,7 @@ export function handleShipPlanetCollisions(
   for (let side = 0; side < 2; side++) {
     if (inactive[side]) continue;
     const ship = ships[side];
+    if (SHIP_REGISTRY[shipTypes[side]].isIntangible?.(ship)) continue;
     const shipRadiusW = DISPLAY_TO_WORLD(getShipDef(shipTypes[side])?.radius ?? 14);
     const minDist = shipRadiusW + planetRadiusW;
     const minDistSq = minDist * minDist;

@@ -18,6 +18,7 @@ import { pkunkController  } from './pkunk';
 import { vuxController    } from './vux';
 import { kohrahController } from './kohrah';
 import { myconController  } from './mycon';
+import { arilouController } from './arilou';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -72,6 +73,7 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   vux:     vuxController,
   kohrah:  kohrahController,
   mycon:   myconController,
+  arilou:  arilouController,
 };
 
 export const IMPLEMENTED_SHIP_IDS = new Set<ShipId>(Object.keys(EXPLICIT) as ShipId[]);

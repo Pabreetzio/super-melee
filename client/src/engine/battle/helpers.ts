@@ -188,6 +188,10 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.crew);
     h = hashStep(h, ship.energy);
     h = hashStep(h, ship.facing);
+    h = hashStep(h, ship.limpetCount ?? 0);
+    h = hashStep(h, ship.canResurrect ? 1 : 0);
+    h = hashStep(h, ship.arilouTeleportFrames ?? 0);
+    h = hashStep(h, ship.arilouTeleportSeed ?? 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {

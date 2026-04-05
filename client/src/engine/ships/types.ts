@@ -27,6 +27,8 @@ export interface ShipState {
   limpetCount?:  number;
   prevFireHeld?: boolean;   // edge-trigger for weapons like Kohr-Ah buzzsaw
   canResurrect?: boolean;   // Pkunk passive: 50% chance to reincarnate on this life
+  arilouTeleportFrames?: number;
+  arilouTeleportSeed?: number;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -62,6 +64,7 @@ export type SpawnRequest =
       orbitDir: -1 | 1;
     }
   | { type: 'vux_laser'; x: number; y: number; facing: number }
+  | { type: 'arilou_laser'; x: number; y: number; facing: number }
   | {
       type: 'buzzsaw';
       x: number; y: number; facing: number;
@@ -261,4 +264,15 @@ export interface ShipController {
     damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
   ): void;
+
+  /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
+  isIntangible?(ship: ShipState): boolean;
+
+  /** Optional ship-specific AI override for offline cyborg battles. */
+  computeAIInput?(
+    ship: ShipState,
+    target: ShipState,
+    missiles: BattleMissile[],
+    aiSide: 0 | 1,
+  ): number;
 }
