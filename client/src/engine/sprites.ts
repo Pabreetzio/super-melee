@@ -304,6 +304,33 @@ const CANNON_SML_HOTSPOTS: [number, number][] = [
 const FIRE_BIG_HOTSPOTS: [number, number][] = [[4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9]];
 const FIRE_MED_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4]];
 const FIRE_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2]];
+const PUMPUP_BIG_HOTSPOTS: [number, number][] = [
+  [5,5],[4,4],[3,3],[3,3],[4,4],[6,6],[5,5],[4,4],[4,4],[5,5],
+  [8,8],[7,7],[5,5],[5,5],[7,7],[12,12],[10,10],[8,8],[7,7],[10,10],
+  [1,1],[2,2],[4,4],[6,6],[8,8],[10,10],
+];
+const PUMPUP_MED_HOTSPOTS: [number, number][] = [
+  [2,2],[2,2],[1,1],[1,1],[2,2],[3,3],[3,3],[2,2],[2,2],[3,3],
+  [5,5],[4,4],[3,3],[3,3],[4,4],[6,6],[5,5],[4,4],[4,4],[5,5],
+  [1,1],[1,1],[2,2],[3,3],[4,4],[5,5],
+];
+const PUMPUP_SML_HOTSPOTS: [number, number][] = [
+  [0,0],[0,0],[0,0],[0,0],[0,0],[1,1],[1,1],[1,1],[1,1],[1,1],
+  [2,2],[2,2],[1,1],[1,1],[2,2],[3,3],[3,3],[2,2],[2,2],[3,3],
+  [0,0],[1,1],[1,1],[1,1],[2,2],[2,2],
+];
+const CONFUSE_BIG_HOTSPOTS: [number, number][] = [
+  [5,5],[6,6],[7,7],[7,7],[7,7],[7,7],[7,7],[7,7],
+  [16,14],[11,16],[11,16],[13,16],[13,16],[16,15],[16,14],[16,14],
+];
+const CONFUSE_MED_HOTSPOTS: [number, number][] = [
+  [3,3],[4,4],[4,4],[4,4],[4,4],[4,4],[4,4],[4,4],
+  [8,6],[5,7],[5,7],[6,7],[6,7],[8,7],[8,6],[8,6],
+];
+const CONFUSE_SML_HOTSPOTS: [number, number][] = [
+  [1,1],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],
+  [4,4],[4,4],[4,3],[3,4],[2,4],[2,4],[2,4],[4,4],
+];
 
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
@@ -794,6 +821,39 @@ export async function loadIlwrathSprites(): Promise<IlwrathSprites> {
     med,
     sml,
     fire: { big: fireBig, med: fireMed, sml: fireSml },
+  };
+}
+
+export interface MelnormeSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  pump: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  confuse: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadMelnormeSprites(): Promise<MelnormeSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('melnorme/trader', 'big', 16, TRADER_BIG_HOTSPOTS),
+    loadSpriteSet('melnorme/trader', 'med', 16, TRADER_MED_HOTSPOTS),
+    loadSpriteSet('melnorme/trader', 'sml', 16, TRADER_SML_HOTSPOTS),
+  ]);
+  const [pumpBig, pumpMed, pumpSml] = await Promise.all([
+    loadSpriteSet('melnorme/pumpup', 'big', 26, PUMPUP_BIG_HOTSPOTS),
+    loadSpriteSet('melnorme/pumpup', 'med', 26, PUMPUP_MED_HOTSPOTS),
+    loadSpriteSet('melnorme/pumpup', 'sml', 26, PUMPUP_SML_HOTSPOTS),
+  ]);
+  const [confuseBig, confuseMed, confuseSml] = await Promise.all([
+    loadSpriteSet('melnorme/confuse', 'big', 16, CONFUSE_BIG_HOTSPOTS),
+    loadSpriteSet('melnorme/confuse', 'med', 16, CONFUSE_MED_HOTSPOTS),
+    loadSpriteSet('melnorme/confuse', 'sml', 16, CONFUSE_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    pump: { big: pumpBig, med: pumpMed, sml: pumpSml },
+    confuse: { big: confuseBig, med: confuseMed, sml: confuseSml },
   };
 }
 

@@ -827,6 +827,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
 
+    if ((bs.ships[0].melnormeConfusionFrames ?? 0) > 0) {
+      bs.ships[0].melnormeConfusionFrames!--;
+      input0 = (input0 & ~(INPUT_LEFT | INPUT_RIGHT | INPUT_FIRE2)) | (bs.ships[0].melnormeConfusionInput ?? 0);
+    }
+    if ((bs.ships[1].melnormeConfusionFrames ?? 0) > 0) {
+      bs.ships[1].melnormeConfusionFrames!--;
+      input1 = (input1 & ~(INPUT_LEFT | INPUT_RIGHT | INPUT_FIRE2)) | (bs.ships[1].melnormeConfusionInput ?? 0);
+    }
+
     // Apply gravity to ships still actively flying around the arena.
     if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[0]].isIntangible?.(bs.ships[0])) {
       applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);

@@ -24,6 +24,7 @@ import { chenjesuController } from './chenjesu';
 import { chmmrController } from './chmmr';
 import { druugeController } from './druuge';
 import { ilwrathController } from './ilwrath';
+import { melnormeController } from './melnorme';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -76,6 +77,7 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   chmmr: chmmrController,
   druuge: druugeController,
   ilwrath: ilwrathController,
+  melnorme: melnormeController,
   human:   humanController,
   spathi:  spathiController,
   urquan:  urquanController,

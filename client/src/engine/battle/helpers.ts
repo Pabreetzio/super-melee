@@ -197,6 +197,13 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.chenjesuDogiCount ?? 0);
     h = hashStep(h, ship.chmmrLaserCycle ?? 0);
     h = hashStep(h, ship.chmmrSatellitesSpawned ? 1 : 0);
+    h = hashStep(h, ship.ilwrathCloaked ? 1 : 0);
+    h = hashStep(h, ship.melnormeCharging ? 1 : 0);
+    h = hashStep(h, ship.melnormePumpLevel ?? 0);
+    h = hashStep(h, ship.melnormePumpTimer ?? 0);
+    h = hashStep(h, ship.melnormeConfusionFrames ?? 0);
+    h = hashStep(h, ship.melnormeConfusionInput ?? 0);
+    h = hashStep(h, ship.melnormeSeed ?? 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
@@ -223,6 +230,8 @@ export function computeChecksum(bs: BattleState): number {
         : m.weaponType === 'chenjesu_shard' ? 7
         : m.weaponType === 'dogi' ? 8
         : m.weaponType === 'chmmr_satellite' ? 9
+        : m.weaponType === 'melnorme_pump' ? 10
+        : m.weaponType === 'melnorme_confuse' ? 11
         : 0,
     );
     h = hashStep(h, m.satelliteAngle ?? 0);
