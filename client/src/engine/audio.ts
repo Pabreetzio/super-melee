@@ -63,7 +63,7 @@ const SHIP_SOUNDS: Record<string, Record<string, string | undefined>> = {
   druuge:     { primary: '/sounds/ships/druuge/primary.wav',    secondary: '/sounds/ships/druuge/secondary.wav' },
   flagship:   { primary: '/sounds/ships/flagship/primary.wav', secondary: '/sounds/ships/flagship/secondary.wav' },
   human:      { primary: '/sounds/ships/human/primary.wav',    secondary: '/sounds/ships/human/secondary.wav' },
-  ilwrath:    { primary: '/sounds/ships/ilwrath/primary.wav', cloak: '/sounds/ships/ilwrath/cloak.wav', uncloak: '/sounds/ships/ilwrath/uncloak.wav' },
+  ilwrath:    { primary: '/sounds/ships/ilwrath/primary.wav', secondary: '/sounds/ships/ilwrath/cloak.wav', cloak: '/sounds/ships/ilwrath/cloak.wav', uncloak: '/sounds/ships/ilwrath/uncloak.wav' },
   kohrah:     { primary: '/sounds/ships/kohrah/primary.wav',    secondary: '/sounds/ships/kohrah/secondary.wav' },
   melnorme:   { primary: '/sounds/ships/melnorme/primary.wav',  secondary: '/sounds/ships/melnorme/secondary.wav' },
   mmrnmhrm:   { primaryX: '/sounds/ships/mmrnmhrm/primaryx.wav', secondaryX: '/sounds/ships/mmrnmhrm/secondary.wav', primaryY: '/sounds/ships/mmrnmhrm/primaryy.wav', secondaryY: '/sounds/ships/mmrnmhrm/secondaryy.wav' },

@@ -35,6 +35,7 @@ export interface ShipState {
   chenjesuDogiCount?: number;
   chmmrLaserCycle?: number;
   chmmrSatellitesSpawned?: boolean;
+  ilwrathCloaked?: boolean;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -57,7 +58,7 @@ export type SpawnRequest =
       weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite';
       initialTrackWait?: number;
     }
-  | { type: 'sound'; sound: 'primary' | 'secondary' }
+  | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
   | { type: 'point_defense'; x: number; y: number }
   | { type: 'chmmr_laser'; x: number; y: number; facing: number }
   | { type: 'chmmr_tractor'; x: number; y: number; facing: number }

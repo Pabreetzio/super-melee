@@ -973,7 +973,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]),
       );
       // Sound dispatch (keyed on spawn type, independent of ship identity)
-      if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]);
+      if (s.type === 'sound') {
+        if (s.sound === 'primary') playPrimary(bs.shipTypes[0]);
+        else if (s.sound === 'secondary') playSecondary(bs.shipTypes[0]);
+        else if (s.sound === 'cloak') playSecondary(bs.shipTypes[0]);
+        else if (s.sound === 'uncloak') playPrimary(bs.shipTypes[0]);
+      }
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
@@ -1001,7 +1006,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         damageMissile,
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]),
       );
-      if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]);
+      if (s.type === 'sound') {
+        if (s.sound === 'primary') playPrimary(bs.shipTypes[1]);
+        else if (s.sound === 'secondary') playSecondary(bs.shipTypes[1]);
+        else if (s.sound === 'cloak') playSecondary(bs.shipTypes[1]);
+        else if (s.sound === 'uncloak') playPrimary(bs.shipTypes[1]);
+      }
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {

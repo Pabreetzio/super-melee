@@ -28,7 +28,7 @@ const SHIPS: ShipDef[] = [
   { id: 'chmmr',      name: 'Chmmr Avatar',        crew: 42, energy: 42, speed: 35, turnRate: 1, thrustDelay: 5, turnDelay: 3, mass: 10, radius: 22, primaryDamage: 2, secondaryDamage: 1 },
   { id: 'druuge',     name: 'Druuge Mauler',        crew: 14, energy: 32, speed: 20, turnRate: 1, thrustDelay: 1, turnDelay: 4, mass: 5, radius: 14, primaryDamage: 6, secondaryDamage: 0 },
   { id: 'human',      name: 'Earthling Cruiser',   crew: 18, energy: 18, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 6, radius: 16, primaryDamage: 4, secondaryDamage: 0 },
-  { id: 'ilwrath',    name: 'Ilwrath Avenger',     crew: 22, energy: 16, speed: 30, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 12, primaryDamage: 3, secondaryDamage: 0 },
+  { id: 'ilwrath',    name: 'Ilwrath Avenger',     crew: 22, energy: 16, speed: 25, turnRate: 1, thrustDelay: 0, turnDelay: 2, mass: 7, radius: 12, primaryDamage: 1, secondaryDamage: 0 },
   { id: 'melnorme',   name: 'Melnorme Trader',     crew: 20, energy: 42, speed: 24, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 6, radius: 16, primaryDamage: 5, secondaryDamage: 0 },
   { id: 'mmrnmhrm',   name: 'Mmrnmhrm X-Form',    crew: 20, energy: 10, speed: 40, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 12, primaryDamage: 3, secondaryDamage: 0 },
   { id: 'mycon',      name: 'Mycon Podship',       crew: 20, energy: 40, speed: 24, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 6, radius: 16, primaryDamage: 8, secondaryDamage: 0 },

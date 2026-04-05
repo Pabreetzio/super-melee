@@ -301,6 +301,9 @@ const CANNON_SML_HOTSPOTS: [number, number][] = [
   [0,1],[0,1],[0,1],[1,1],[1,0],[1,1],[0,0],[0,1],
   [0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[0,1],
 ];
+const FIRE_BIG_HOTSPOTS: [number, number][] = [[4,3],[4,4],[5,5],[5,5],[6,6],[7,6],[9,8],[10,9]];
+const FIRE_MED_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[3,2],[3,3],[4,4],[5,4]];
+const FIRE_SML_HOTSPOTS: [number, number][] = [[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[2,2],[2,2]];
 
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
@@ -765,6 +768,32 @@ export async function loadDruugeSprites(): Promise<DruugeSprites> {
     med,
     sml,
     cannon: { big: cannonBig, med: cannonMed, sml: cannonSml },
+  };
+}
+
+export interface IlwrathSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  fire: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadIlwrathSprites(): Promise<IlwrathSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('ilwrath/avenger', 'big', 16, AVENGER_BIG_HOTSPOTS),
+    loadSpriteSet('ilwrath/avenger', 'med', 16, AVENGER_MED_HOTSPOTS),
+    loadSpriteSet('ilwrath/avenger', 'sml', 16, AVENGER_SML_HOTSPOTS),
+  ]);
+  const [fireBig, fireMed, fireSml] = await Promise.all([
+    loadSpriteSet('ilwrath/fire', 'big', 8, FIRE_BIG_HOTSPOTS),
+    loadSpriteSet('ilwrath/fire', 'med', 8, FIRE_MED_HOTSPOTS),
+    loadSpriteSet('ilwrath/fire', 'sml', 8, FIRE_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    fire: { big: fireBig, med: fireMed, sml: fireSml },
   };
 }
 
