@@ -46,6 +46,7 @@ const CAP_W       = 55 * S;       // 110 — portrait width
 const CAP_H       = 30 * S;       //  60 — portrait height
 const ICON_CY     = 31 * S;       //  62 — ship icon center Y within section
 const NAME_Y      = (7 + 3) * S;  //  20 — race name baseline Y within section
+const COMPACT_SINGLE_H = 67 * S;  // 134 — matches doubled melee menu preview art
 // ─── UQM Font sizes (native UQM pixels × S for canvas) ──────────────────────
 
 const FONT_STARCON_PX = 7 * S;    // 14 — race name (slightly smaller than native 9px×2)
@@ -87,6 +88,7 @@ export interface SideStatus {
   limpetCount?: number;
   inputs:    number;   // current input bit flags (INPUT_THRUST | INPUT_LEFT …)
   captainIdx: number;  // which captain name to show (stable per match)
+  caption?:  string;   // optional override for the center status caption
 }
 
 interface Props {
@@ -96,6 +98,11 @@ interface Props {
    * side 0 = top section (bad guy / enemy), side 1 = bottom (good guy / you).
    */
   sidesRef: React.MutableRefObject<[SideStatus | null, SideStatus | null]>;
+  layout?: 'dual' | 'single';
+  singleSideIndex?: 0 | 1;
+  showCaptain?: boolean;
+  showStatLabels?: boolean;
+  compactSingle?: boolean;
 }
 
 // ─── Image cache ────────────────────────────────────────────────────────────
@@ -197,6 +204,7 @@ function drawSection(
   ctx: CanvasRenderingContext2D,
   sectionY: number,
   side: SideStatus,
+  options: { showCaptain: boolean; showStatLabels: boolean },
 ) {
   const def = SHIP_STATUS_DATA[side.shipId];
   const { sprite } = def ?? { sprite: '' };
@@ -270,13 +278,15 @@ function drawSection(
   drawGauge(ctx, sectionY, ENERGY_X, side.energy, side.maxEnergy, C_ENERGY_ON, C_ENERGY_OFF);
 
   // ── CREW / BATT labels ────────────────────────────────────────────────────
-  ctx.font = `${5*S}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = C_LABEL;
-  // UQM: CREW label x = CREW_X + (STAT_W/2) centered; BATT = ENERGY_X + (STAT_W/2)
-  ctx.fillText('CREW', CREW_X   + STAT_W / 2, sectionY + GAUGE_Y + 2 * S);
-  ctx.fillText('BATT', ENERGY_X + STAT_W / 2, sectionY + GAUGE_Y + 2 * S);
+  if (options.showStatLabels) {
+    ctx.font = `${5*S}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = C_LABEL;
+    // UQM: CREW label x = CREW_X + (STAT_W/2) centered; BATT = ENERGY_X + (STAT_W/2)
+    ctx.fillText('CREW', CREW_X   + STAT_W / 2, sectionY + GAUGE_Y + 2 * S);
+    ctx.fillText('BATT', ENERGY_X + STAT_W / 2, sectionY + GAUGE_Y + 2 * S);
+  }
 
   // ── Captain section border ─────────────────────────────────────────────────
   const capSecY = sectionY + SHIP_INFO_H;
@@ -300,33 +310,35 @@ function drawSection(
   // ── Captain portrait ──────────────────────────────────────────────────────
   const capTop = sectionY + CAP_Y_OFF;
 
-  // Portrait border: dark right+bottom, light top+left (around the portrait box)
-  ctx.fillStyle = C_DARK;
-  ctx.fillRect(CAP_X + CAP_W - S, capTop,          S,   CAP_H);   // right
-  ctx.fillRect(CAP_X,             capTop + CAP_H,  CAP_W - S, S); // bottom
-  ctx.fillStyle = C_LIGHT;
-  ctx.fillRect(CAP_X,     capTop - S,    CAP_W - S, S);            // top
-  ctx.fillRect(CAP_X,     capTop,        S,         CAP_H);        // left
+  if (options.showCaptain) {
+    // Portrait border: dark right+bottom, light top+left (around the portrait box)
+    ctx.fillStyle = C_DARK;
+    ctx.fillRect(CAP_X + CAP_W - S, capTop,          S,   CAP_H);   // right
+    ctx.fillRect(CAP_X,             capTop + CAP_H,  CAP_W - S, S); // bottom
+    ctx.fillStyle = C_LIGHT;
+    ctx.fillRect(CAP_X,     capTop - S,    CAP_W - S, S);            // top
+    ctx.fillRect(CAP_X,     capTop,        S,         CAP_H);        // left
 
-  // Portrait background (frame 0)
-  if (def && sprite) {
-    const bg = getImg(`${shipBase}/${sprite}-cap-000.png`);
-    if (bg) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(bg.source, CAP_X, capTop, CAP_W, CAP_H);
+    // Portrait background (frame 0)
+    if (def && sprite) {
+      const bg = getImg(`${shipBase}/${sprite}-cap-000.png`);
+      if (bg) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bg.source, CAP_X, capTop, CAP_W, CAP_H);
+      }
     }
-  }
 
-  // Captain animation overlays based on current inputs
-  if (def && sprite && def.capCount > 0) {
-    drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def);
+    // Captain animation overlays based on current inputs
+    if (def && sprite && def.capCount > 0) {
+      drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def);
+    }
   }
 
   // ── Captain name — centered horizontally between the two gauge columns,
   //    baseline at the bottom edge of the bars (GAUGE_Y). Most of the text
   //    sits between the bars; a small descender hangs just below.
-  const capName = def ? pickCaptain(side.shipId, side.captainIdx) : '';
-  if (capName) {
+  const caption = side.caption ?? (def ? pickCaptain(side.shipId, side.captainIdx) : '');
+  if (caption) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
     // Max width = gap between the right edge of the crew column and the
@@ -334,7 +346,7 @@ function drawSection(
     const capNameMaxW = ENERGY_X - (CREW_X + STAT_W) - 2 * S;  // ~78px
     if (uqmFontsReady) {
       ctx.font = `${FONT_TINY_PX}px "UQMTiny"`;
-      const measured = ctx.measureText(capName).width;
+      const measured = ctx.measureText(caption).width;
       const sizePx = measured > capNameMaxW
         ? Math.floor(FONT_TINY_PX * capNameMaxW / measured)
         : FONT_TINY_PX;
@@ -345,7 +357,7 @@ function drawSection(
     ctx.fillStyle = C_BLACK;
     // Sit the baseline slightly below GAUGE_Y so the text straddles the
     // bottom line of the bars — most glyphs above, descenders just below.
-    ctx.fillText(capName, STATUS_W / 2, sectionY + GAUGE_Y + S);
+    ctx.fillText(caption, STATUS_W / 2, sectionY + GAUGE_Y + S);
   }
 }
 
@@ -487,7 +499,14 @@ function drawDivider(ctx: CanvasRenderingContext2D) {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export default function StatusPanel({ sidesRef }: Props) {
+export default function StatusPanel({
+  sidesRef,
+  layout = 'dual',
+  singleSideIndex = 0,
+  showCaptain = true,
+  showStatLabels = true,
+  compactSingle = false,
+}: Props) {
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   // Track which ship types we've already started loading so we only call
   // preloadShip() once per unique ShipId across frames.
@@ -506,9 +525,10 @@ export default function StatusPanel({ sidesRef }: Props) {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       const [s0, s1] = sidesRef.current;
+      const singleSide = singleSideIndex === 0 ? s0 : s1;
 
       // Kick off asset loading for any ship we haven't seen yet
-      for (const side of [s0, s1]) {
+      for (const side of layout === 'dual' ? [s0, s1] : [singleSide]) {
         if (side && !loadedRef.current.has(side.shipId)) {
           loadedRef.current.add(side.shipId);
           preloadShip(side.shipId).catch(() => {});
@@ -519,17 +539,23 @@ export default function StatusPanel({ sidesRef }: Props) {
         }
       }
 
-      ctx.clearRect(0, 0, STATUS_W, SECTION_H * 2);
+      const totalHeight = layout === 'dual' ? SECTION_H * 2 : compactSingle ? COMPACT_SINGLE_H : SECTION_H;
+      ctx.clearRect(0, 0, STATUS_W, totalHeight);
 
-      // top section = side 0 (bad-guy / enemy in UQM's convention)
-      if (s0) drawSection(ctx, 0,         s0);
-      else    drawEmptySection(ctx, 0);
+      if (layout === 'single') {
+        if (singleSide) drawSection(ctx, 0, singleSide, { showCaptain, showStatLabels });
+        else drawEmptySection(ctx, 0);
+      } else {
+        // top section = side 0 (bad-guy / enemy in UQM's convention)
+        if (s0) drawSection(ctx, 0,         s0, { showCaptain, showStatLabels });
+        else    drawEmptySection(ctx, 0);
 
-      drawDivider(ctx);
+        drawDivider(ctx);
 
-      // bottom section = side 1 (good-guy / local player)
-      if (s1) drawSection(ctx, SECTION_H, s1);
-      else    drawEmptySection(ctx, SECTION_H);
+        // bottom section = side 1 (good-guy / local player)
+        if (s1) drawSection(ctx, SECTION_H, s1, { showCaptain, showStatLabels });
+        else    drawEmptySection(ctx, SECTION_H);
+      }
     }
 
     rafId = requestAnimationFrame(draw);
@@ -541,7 +567,7 @@ export default function StatusPanel({ sidesRef }: Props) {
     <canvas
       ref={canvasRef}
       width={STATUS_W}
-      height={SECTION_H * 2}
+      height={layout === 'dual' ? SECTION_H * 2 : compactSingle ? COMPACT_SINGLE_H : SECTION_H}
       style={{
         display: 'block',
         width: '100%',

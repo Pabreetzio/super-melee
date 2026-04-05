@@ -3,7 +3,8 @@ import type { FullRoomState, FleetSlot, ShipId } from 'shared/types';
 import { client } from '../net/client';
 import { SHIP_NAMES } from '../engine/ships';
 import ShipPicker from './ShipPicker';
-import { SHIP_ICON } from './ShipPicker';
+import { SHIP_ICON, SHIP_COSTS } from './shipSelectionData';
+import { PreloadedImage } from '../lib/preloadedImage';
 
 const FLEET_SIZE = 14;
 const COLS = 7;
@@ -79,15 +80,7 @@ export default function FleetBuilder({
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function fleetValue(fleet: FleetSlot[]): number {
-    const costs: Partial<Record<ShipId, number>> = {
-      androsynth: 22, arilou: 18, chenjesu: 24, chmmr: 26, druuge: 14,
-      human: 16, ilwrath: 14, melnorme: 20, mmrnmhrm: 20, mycon: 18,
-      orz: 22, pkunk: 12, shofixti: 8, slylandro: 14, spathi: 16,
-      supox: 18, syreen: 18, thraddash: 16, umgah: 14, urquan: 28,
-      utwig: 22, vux: 20, yehat: 20, zoqfotpik: 16,
-      kohrah: 28, samatra: 0,
-    };
-    return fleet.reduce((sum, s) => sum + (s ? (costs[s] ?? 0) : 0), 0);
+    return fleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
   }
 
   function renderFleetGrid(fleet: FleetSlot[], editable: boolean, p2 = false) {
@@ -117,7 +110,7 @@ export default function FleetBuilder({
             {ship ? (
               <>
                 {icon && (
-                  <img
+                  <PreloadedImage
                     src={icon}
                     alt={ship}
                     style={{ width: 32, height: 32, objectFit: 'contain', imageRendering: 'pixelated' }}

@@ -44,6 +44,12 @@ const BATTLE_SOUNDS = {
   boom67:   '/sounds/battle/boom67.wav',
 } as const;
 
+const UI_SOUNDS = {
+  menuMove:   '/sounds/ui/menusnd01.wav',
+  menuSelect: '/sounds/ui/menusnd02.wav',
+  menuError:  '/sounds/ui/menusnd03.wav',
+} as const;
+
 // Per-ship weapon sounds (in /sounds/ships/<species>/)
 const SHIP_SOUNDS: Record<string, Record<string, string | undefined>> = {
   androsynth: { primary: '/sounds/ships/androsynth/primary.wav', secondary: '/sounds/ships/androsynth/secondary.wav' },
@@ -99,13 +105,16 @@ function load(url: string): HTMLAudioElement | null {
   return el;
 }
 
-/** Play a preloaded sound URL. Creates a fresh Audio element so the same
- *  sound can overlap itself and avoids issues with errored cloneNode state. */
+/** Play a preloaded sound URL by cloning the already-loaded template audio
+ *  element. This keeps overlap support without constructing a fresh
+ *  URL-backed Audio object on every play. */
 function playUrl(url: string, volume = 1.0): void {
   if (_config.muted) return;
-  if (!cache.has(url)) return;
+  const template = cache.get(url) ?? load(url);
+  if (!template) return;
   try {
-    const el = new Audio(url);
+    const el = template.cloneNode(true) as HTMLAudioElement;
+    el.preload = 'auto';
     el.volume = Math.max(0, Math.min(1, volume * _config.sfxVolume));
     el.play().catch(() => {}); // ignore autoplay policy rejections
   } catch {
@@ -127,6 +136,10 @@ export function preloadBattleSounds(shipTypes: string[]): void {
       if (url) load(url);
     }
   }
+}
+
+export function preloadUISounds(): void {
+  for (const url of Object.values(UI_SOUNDS)) load(url);
 }
 
 /** Ship destruction boom (big explosion). */
@@ -198,4 +211,16 @@ export function playEffectSound(cue: EffectSound): void {
 /** Small blast key by battle sound name. */
 export function playBattleSound(key: SoundKey, volume = 0.7): void {
   playUrl(BATTLE_SOUNDS[key], volume);
+}
+
+export function playMenuMove(): void {
+  playUrl(UI_SOUNDS.menuMove, 0.55);
+}
+
+export function playMenuSelect(): void {
+  playUrl(UI_SOUNDS.menuSelect, 0.7);
+}
+
+export function playMenuError(): void {
+  playUrl(UI_SOUNDS.menuError, 0.7);
 }

@@ -1,26 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FleetSlot, ShipId } from 'shared/types';
-import { SHIP_ICON } from './ShipPicker';
-import ShipPicker from './ShipPicker';
+import ShipPicker, { getShipPickerOptions } from './ShipPicker';
+import StatusPanel, { type SideStatus } from './StatusPanel';
 import StarfieldBG from './StarfieldBG';
 import { loadConfig } from '../lib/starfield';
+import { getControls, type KeyBindings } from '../lib/controls';
+import { preloadUISounds, playMenuError, playMenuMove, playMenuSelect } from '../engine/audio';
+import { SHIP_COSTS, SHIP_ICON, getShipSelectionPreview } from './shipSelectionData';
+import { PreloadedImage, prefetchImages } from '../lib/preloadedImage';
 
-// ─── Ship cost table ──────────────────────────────────────────────────────────
-
-export const SHIP_COSTS: Partial<Record<ShipId, number>> = {
-  androsynth: 22, arilou: 18, chenjesu: 24, chmmr: 26, druuge: 14,
-  human: 16, ilwrath: 14, melnorme: 20, mmrnmhrm: 20, mycon: 18,
-  orz: 22, pkunk: 12, shofixti: 8, slylandro: 14, spathi: 16,
-  supox: 18, syreen: 18, thraddash: 16, umgah: 14, urquan: 28,
-  utwig: 22, vux: 20, yehat: 20, zoqfotpik: 16,
-  kohrah: 28, samatra: 0,
-};
+const BATTLE_MENU_FRAMES = ['/meleemenu-025.png', '/meleemenu-026.png'] as const;
+const BATTLE_SLOT_W = 128;
+const BATTLE_SLOT_H = 134;
 
 function fleetValue(fleet: FleetSlot[]): number {
   return fleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
 }
-
-// ─── Balanced team presets (from UQM src/uqm/supermelee/loadmele.c) ──────────
 
 export const BALANCED_TEAM_1: FleetSlot[] = [
   'androsynth', 'chmmr', 'druuge', 'urquan', 'melnorme', 'orz', 'spathi', 'syreen', 'utwig',
@@ -32,8 +27,6 @@ export const BALANCED_TEAM_2: FleetSlot[] = [
   null, null, null,
 ];
 
-// ─── Control types ────────────────────────────────────────────────────────────
-
 export type ControlType = 'cyborg_weak' | 'cyborg_good' | 'cyborg_awesome' | 'human';
 const CONTROL_CYCLE: ControlType[] = ['cyborg_weak', 'cyborg_good', 'cyborg_awesome', 'human'];
 const CONTROL_LABEL: Record<ControlType, string> = {
@@ -43,12 +36,9 @@ const CONTROL_LABEL: Record<ControlType, string> = {
   human:          'HUMAN CONTROL',
 };
 
-// ─── Menu ─────────────────────────────────────────────────────────────────────
-
 const MENU = ['NET_P1', 'CONTROL_P1', 'SAVE', 'LOAD', 'BATTLE', 'CONTROL_P2', 'SETTINGS', 'QUIT'] as const;
 type MenuItem = typeof MENU[number];
-
-// ─── LocalStorage persistence ─────────────────────────────────────────────────
+type ActiveRegion = 'menu' | 'fleet' | 'picker';
 
 interface SaveSlot {
   id: string;
@@ -70,38 +60,87 @@ function loadLastState(): LastState | null {
     return raw ? (JSON.parse(raw) as LastState) : null;
   } catch { return null; }
 }
+
 function writeLastState(s: LastState) {
   try { localStorage.setItem('sm_last', JSON.stringify(s)); } catch {}
 }
+
 function loadSaves(): SaveSlot[] {
   try {
     const raw = localStorage.getItem('sm_saves');
     return raw ? (JSON.parse(raw) as SaveSlot[]) : [];
   } catch { return []; }
 }
+
 function writeSavesLS(saves: SaveSlot[]) {
   try { localStorage.setItem('sm_saves', JSON.stringify(saves)); } catch {}
 }
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export interface BattleStartParams {
-  fleet1: FleetSlot[];
-  fleet2: FleetSlot[];
-  teamName1: string;
-  teamName2: string;
-  p1Control: ControlType;
-  p2Control: ControlType;
+function menuLabel(item: MenuItem, p1Control: ControlType, p2Control: ControlType): string {
+  switch (item) {
+    case 'NET_P1': return 'NET ...';
+    case 'SETTINGS': return 'SETTINGS';
+    case 'CONTROL_P1': return CONTROL_LABEL[p1Control];
+    case 'CONTROL_P2': return CONTROL_LABEL[p2Control];
+    case 'BATTLE': return 'BATTLE';
+    default: return item;
+  }
 }
 
-interface Props {
-  onBattle:    (params: BattleStartParams) => void;
-  onNet:       () => void;
-  onBGBuilder: () => void;
-  onSettings:  () => void;
+function fleetToRowCol(fleet: 1 | 2, slot: number): [number, number] {
+  const localRow = slot < 7 ? 0 : 1;
+  return [fleet === 1 ? localRow : localRow + 2, slot % 7];
 }
 
-// ─── Small Modal wrapper ──────────────────────────────────────────────────────
+function rowColToFleet(row: number, col: number): { fleet: 1 | 2; slot: number } {
+  const fleet = row < 2 ? 1 : 2;
+  const localRow = row % 2;
+  return { fleet, slot: localRow * 7 + col };
+}
+
+function navigateFleetCell(
+  fleet: 1 | 2,
+  slot: number,
+  dir: 'left' | 'right' | 'up' | 'down',
+): { fleet: 1 | 2; slot: number; toMenu: boolean } {
+  let [row, col] = fleetToRowCol(fleet, slot);
+  if (dir === 'right') {
+    if (col === 6) return { fleet, slot, toMenu: true };
+    col += 1;
+  } else if (dir === 'left') {
+    col = Math.max(0, col - 1);
+  } else if (dir === 'up') {
+    row = Math.max(0, row - 1);
+  } else {
+    row = Math.min(3, row + 1);
+  }
+  const next = rowColToFleet(row, col);
+  return { ...next, toMenu: false };
+}
+
+function navigatePickerIndex(index: number, dir: 'left' | 'right' | 'up' | 'down', total: number): number {
+  const cols = 5;
+  let row = Math.floor(index / cols);
+  let col = index % cols;
+  if (dir === 'left') col = Math.max(0, col - 1);
+  else if (dir === 'right') col = Math.min(cols - 1, col + 1);
+  else if (dir === 'up') row = Math.max(0, row - 1);
+  else row = Math.min(Math.floor((total - 1) / cols), row + 1);
+
+  const next = row * cols + col;
+  return Math.min(next, total - 1);
+}
+
+function bindingCodes(bindings: KeyBindings, key: 'left' | 'right' | 'up' | 'down' | 'confirm' | 'cancel'): string[] {
+  switch (key) {
+    case 'left': return [bindings.turnLeft].filter(Boolean);
+    case 'right': return [bindings.turnRight].filter(Boolean);
+    case 'up': return [bindings.thrust].filter(Boolean);
+    case 'down': return [bindings.down].filter(Boolean);
+    case 'confirm': return [bindings.weapon, bindings.weaponAlt].filter(Boolean);
+    case 'cancel': return [bindings.special, bindings.specialAlt].filter(Boolean);
+  }
+}
 
 function Modal({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
   return (
@@ -130,126 +169,316 @@ function Modal({ children, title, onClose }: { children: React.ReactNode; title:
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+export interface BattleStartParams {
+  fleet1: FleetSlot[];
+  fleet2: FleetSlot[];
+  teamName1: string;
+  teamName2: string;
+  p1Control: ControlType;
+  p2Control: ControlType;
+}
+
+interface Props {
+  onBattle:    (params: BattleStartParams) => void;
+  onNet:       () => void;
+  onBGBuilder: () => void;
+  onSettings:  () => void;
+}
 
 export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }: Props) {
   const last = loadLastState();
 
-  const [fleet1, setFleet1]       = useState<FleetSlot[]>(last?.fleet1    ?? [...BALANCED_TEAM_1]);
-  const [fleet2, setFleet2]       = useState<FleetSlot[]>(last?.fleet2    ?? [...BALANCED_TEAM_2]);
+  const [fleet1, setFleet1]       = useState<FleetSlot[]>(last?.fleet1 ?? [...BALANCED_TEAM_1]);
+  const [fleet2, setFleet2]       = useState<FleetSlot[]>(last?.fleet2 ?? [...BALANCED_TEAM_2]);
   const [teamName1, setTeamName1] = useState(last?.teamName1 ?? 'Balanced Team 1');
   const [teamName2, setTeamName2] = useState(last?.teamName2 ?? 'Balanced Team 2');
   const [p1Control, setP1Control] = useState<ControlType>('human');
   const [p2Control, setP2Control] = useState<ControlType>('cyborg_weak');
+  const [bgConfig]                = useState(loadConfig);
+  const [blink, setBlink]         = useState(false);
 
-  // Load background config from localStorage (shared with BGBuilder)
-  const [bgConfig] = useState(loadConfig);
-
-  const [selectedIdx, setSelectedIdx] = useState(4); // BATTLE! pre-selected
-  const [blink, setBlink]             = useState(false);
-
-  const [picker, setPicker]         = useState<{ fleet: 1 | 2; slot: number } | null>(null);
-  const [saveModal, setSaveModal]   = useState<{ mode: 'save' | 'load' } | null>(null);
+  const [menuIndex, setMenuIndex]     = useState(4);
+  const [activeRegion, setActiveRegion] = useState<ActiveRegion>('menu');
+  const [fleetFocus, setFleetFocus]   = useState<{ fleet: 1 | 2; slot: number }>({ fleet: 1, slot: 13 });
+  const [picker, setPicker]           = useState<{ fleet: 1 | 2; slot: number; activeIndex: number } | null>(null);
+  const [saveModal, setSaveModal]     = useState<{ mode: 'save' | 'load' } | null>(null);
   const [editingTeam, setEditingTeam] = useState<1 | 2 | null>(null);
-  const [teamDraft, setTeamDraft]   = useState('');
+  const [teamDraft, setTeamDraft]     = useState('');
+  const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
 
-  // Auto-save fleet state
+  const pickerOptions = getShipPickerOptions();
+  const blockingModal = saveModal !== null || editingTeam !== null;
+
   useEffect(() => {
     writeLastState({ fleet1, fleet2, teamName1, teamName2 });
   }, [fleet1, fleet2, teamName1, teamName2]);
 
-  // Blink timer for the selected menu item
   useEffect(() => {
+    preloadUISounds();
+    prefetchImages(BATTLE_MENU_FRAMES);
+    prefetchImages(Object.values(SHIP_ICON).filter((value): value is string => Boolean(value)));
     const t = setInterval(() => setBlink(b => !b), 440);
     return () => clearInterval(t);
   }, []);
-
-  const hasModal = picker !== null || saveModal !== null || editingTeam !== null;
 
   function cycleControl(c: ControlType): ControlType {
     return CONTROL_CYCLE[(CONTROL_CYCLE.indexOf(c) + 1) % CONTROL_CYCLE.length];
   }
 
-  // Use ref so the keyboard handler always sees current values
-  const activateRef = useRef<(idx: number) => void>(null!);
-  activateRef.current = (idx: number) => {
+  function setRegionMenu(nextIdx?: number, withSound = false) {
+    if (typeof nextIdx === 'number') setMenuIndex(nextIdx);
+    setActiveRegion('menu');
+    if (withSound) playMenuMove();
+  }
+
+  function setRegionFleet(next: { fleet: 1 | 2; slot: number }, withSound = false) {
+    setFleetFocus(next);
+    setActiveRegion('fleet');
+    if (withSound) playMenuMove();
+  }
+
+  function openPicker(fleet: 1 | 2, slot: number) {
+    const currentShip = (fleet === 1 ? fleet1 : fleet2)[slot] ?? null;
+    const currentIndex = Math.max(0, pickerOptions.findIndex(option => option === currentShip));
+    setFleetFocus({ fleet, slot });
+    setActiveRegion('picker');
+    setPicker({ fleet, slot, activeIndex: currentIndex });
+    playMenuSelect();
+  }
+
+  function closePicker(playSound = true) {
+    setPicker(null);
+    setActiveRegion('fleet');
+    if (playSound) playMenuSelect();
+  }
+
+  function setPickerActiveIndex(nextIndex: number, playSound = false) {
+    setPicker(prev => prev ? { ...prev, activeIndex: nextIndex } : prev);
+    if (playSound) playMenuMove();
+  }
+
+  function activateMenu(idx: number) {
+    const battleEnabled = fleet1.some(Boolean) && fleet2.some(Boolean);
     switch (MENU[idx]) {
       case 'NET_P1':
+        playMenuSelect();
         onNet();
         break;
       case 'SETTINGS':
+        playMenuSelect();
         onSettings();
         break;
       case 'CONTROL_P1':
+        playMenuSelect();
         setP1Control(c => cycleControl(c));
         break;
       case 'CONTROL_P2':
+        playMenuSelect();
         setP2Control(c => cycleControl(c));
         break;
       case 'SAVE':
+        playMenuSelect();
         setSaveModal({ mode: 'save' });
         break;
       case 'LOAD':
+        playMenuSelect();
         setSaveModal({ mode: 'load' });
         break;
       case 'BATTLE':
+        if (!battleEnabled) {
+          playMenuError();
+          return;
+        }
+        playMenuSelect();
         onBattle({ fleet1, fleet2, teamName1, teamName2, p1Control, p2Control });
         break;
       case 'QUIT':
+        playMenuSelect();
         window.location.reload();
         break;
     }
-  };
+  }
 
-  // Keyboard navigation
   useEffect(() => {
-    if (hasModal) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIdx(i => (i - 1 + MENU.length) % MENU.length);
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIdx(i => (i + 1) % MENU.length);
-      } else if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        setSelectedIdx(i => { activateRef.current(i); return i; });
+    if (blockingModal) return;
+
+    const controls = getControls();
+    const p1 = controls.p1.bindings;
+    const p2 = controls.p2.bindings;
+
+    const matchAction = (code: string, action: Parameters<typeof bindingCodes>[1]) =>
+      bindingCodes(p1, action).includes(code) || bindingCodes(p2, action).includes(code);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const code = e.code;
+      const isUp = matchAction(code, 'up');
+      const isDown = matchAction(code, 'down');
+      const isLeft = matchAction(code, 'left');
+      const isRight = matchAction(code, 'right');
+      const isConfirm = matchAction(code, 'confirm');
+      const isCancel = matchAction(code, 'cancel') || code === 'Escape';
+
+      if (!isUp && !isDown && !isLeft && !isRight && !isConfirm && !isCancel) return;
+      e.preventDefault();
+
+      if (picker && activeRegion === 'picker') {
+        if (isCancel) {
+          closePicker();
+          return;
+        }
+        if (isConfirm) {
+          const chosen = pickerOptions[picker.activeIndex] ?? null;
+          if (picker.fleet === 1) {
+            setFleet1(prev => {
+              const next = [...prev];
+              next[picker.slot] = chosen;
+              return next;
+            });
+          } else {
+            setFleet2(prev => {
+              const next = [...prev];
+              next[picker.slot] = chosen;
+              return next;
+            });
+          }
+          setPicker(null);
+          setActiveRegion('fleet');
+          playMenuSelect();
+          return;
+        }
+
+        const dir = isLeft ? 'left' : isRight ? 'right' : isUp ? 'up' : 'down';
+        const nextIndex = navigatePickerIndex(picker.activeIndex, dir, pickerOptions.length);
+        if (nextIndex !== picker.activeIndex) setPickerActiveIndex(nextIndex, true);
+        return;
+      }
+
+      if (activeRegion === 'menu') {
+        if (isUp) {
+          setMenuIndex(i => {
+            const next = (i - 1 + MENU.length) % MENU.length;
+            if (next !== i) playMenuMove();
+            return next;
+          });
+          return;
+        }
+        if (isDown) {
+          setMenuIndex(i => {
+            const next = (i + 1) % MENU.length;
+            if (next !== i) playMenuMove();
+            return next;
+          });
+          return;
+        }
+        if (isLeft) {
+          setRegionFleet({ fleet: 1, slot: 13 }, true);
+          return;
+        }
+        if (isConfirm) {
+          activateMenu(menuIndex);
+          return;
+        }
+        if (isCancel) {
+          playMenuError();
+        }
+        return;
+      }
+
+      if (activeRegion === 'fleet') {
+        if (isConfirm) {
+          openPicker(fleetFocus.fleet, fleetFocus.slot);
+          return;
+        }
+        if (isCancel) {
+          setRegionMenu(menuIndex, true);
+          return;
+        }
+
+        const dir = isLeft ? 'left' : isRight ? 'right' : isUp ? 'up' : 'down';
+        const next = navigateFleetCell(fleetFocus.fleet, fleetFocus.slot, dir);
+        if (next.toMenu) {
+          setRegionMenu(menuIndex, true);
+          return;
+        }
+        if (next.fleet !== fleetFocus.fleet || next.slot !== fleetFocus.slot) {
+          setRegionFleet({ fleet: next.fleet, slot: next.slot }, true);
+        }
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [hasModal]);
 
-  // ─── Fleet grid ──────────────────────────────────────────────────────────────
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeRegion, blockingModal, fleet1, fleet2, fleetFocus, menuIndex, onBattle, onNet, onSettings, p1Control, p2Control, picker, pickerOptions, teamName1, teamName2]);
+
+  const focusedShip: ShipId | null =
+    activeRegion === 'picker' && picker
+      ? (pickerOptions[picker.activeIndex] ?? null)
+      : activeRegion === 'fleet'
+      ? ((fleetFocus.fleet === 1 ? fleet1 : fleet2)[fleetFocus.slot] ?? null)
+      : null;
+
+  const preview = getShipSelectionPreview(focusedShip);
+  statusRef.current = preview
+    ? [{
+        shipId: preview.shipId,
+        crew: preview.currentCrew,
+        maxCrew: preview.maxCrew,
+        energy: preview.currentEnergy,
+        maxEnergy: preview.maxEnergy,
+        inputs: 0,
+        captainIdx: 0,
+        caption: `${preview.cost}`,
+      }, null]
+    : [null, null];
+
+  const showPreviewInBattleSlot = activeRegion === 'fleet' || activeRegion === 'picker';
+  const battleImageSrc = blink ? BATTLE_MENU_FRAMES[0] : BATTLE_MENU_FRAMES[1];
 
   function renderFleetGrid(fleet: FleetSlot[], fleetNum: 1 | 2) {
     const cells = Array.from({ length: 14 }, (_, i) => {
       const ship = fleet[i] ?? null;
       const icon = ship ? SHIP_ICON[ship] : null;
+      const isFocused = activeRegion === 'fleet' && fleetFocus.fleet === fleetNum && fleetFocus.slot === i;
+
       return (
         <div
           key={i}
-          onClick={() => setPicker({ fleet: fleetNum, slot: i })}
+          onClick={() => openPicker(fleetNum, i)}
+          onMouseEnter={() => {
+            setActiveRegion('fleet');
+            setFleetFocus({ fleet: fleetNum, slot: i });
+          }}
           title={ship ?? 'Empty Slot'}
           style={{
-            width: 72, height: 60,
-            background: '#03030d',
-            border: '1px solid #181836',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 72,
+            height: 60,
+            background: isFocused ? 'rgba(90, 0, 180, 0.22)' : '#03030d',
+            border: isFocused ? '2px solid #dd55ff' : '1px solid #181836',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             cursor: 'pointer',
             boxSizing: 'border-box',
             flexShrink: 0,
+            color: '#7c7ca4',
+            fontSize: 11,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
           }}
         >
-          {icon && (
-            <img
-              src={icon} alt={ship!}
+          {icon ? (
+            <PreloadedImage
+              src={icon}
+              alt={ship!}
               style={{ width: 44, height: 44, imageRendering: 'pixelated', objectFit: 'contain' }}
             />
+          ) : (
+            <span>Empty</span>
           )}
         </div>
       );
     });
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', gap: 2 }}>{cells.slice(0, 7)}</div>
@@ -258,87 +487,130 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
     );
   }
 
-  // ─── Right panel button ───────────────────────────────────────────────────────
-
   function renderMenuItem(item: MenuItem, idx: number) {
-    const sel    = selectedIdx === idx;
-    const isBattle   = item === 'BATTLE';
-    const isControl  = item === 'CONTROL_P1' || item === 'CONTROL_P2';
-    const isSettings = item === 'SETTINGS';
-
-    const label =
-      item === 'NET_P1'    ? 'NET ...' :
-      item === 'SETTINGS'  ? 'SETTINGS' :
-      item === 'CONTROL_P1' ? CONTROL_LABEL[p1Control] :
-      item === 'CONTROL_P2' ? CONTROL_LABEL[p2Control] :
-      item === 'BATTLE'    ? 'BATTLE!' : item;
-
-    // Blink when selected: alternate between two dark backgrounds
-    const selBg  = blink ? '#0d2878' : '#06061a';
-    const idleBg = isBattle ? '#060616' : '#09091e';
-    const bg     = sel ? selBg : idleBg;
-
-    const textColor =
-      isBattle   ? (sel ? '#ff99ff' : '#8844aa') :
-      isControl  ? '#77ccff' :
-      isSettings ? '#aaaacc' :
-      '#9090b8';
-
-    const fontSize = isBattle ? 22 : isControl ? 14 : 13;
-    const paddingV = isBattle ? 22 : isControl ? 13 : 9;
+    const sel = activeRegion === 'menu' && menuIndex === idx;
+    const isBattle = item === 'BATTLE';
+    const label = menuLabel(item, p1Control, p2Control);
 
     return (
       <div
         key={item + idx}
-        onClick={() => { setSelectedIdx(idx); activateRef.current(idx); }}
-        onMouseEnter={() => setSelectedIdx(idx)}
+        onClick={() => {
+          setMenuIndex(idx);
+          setActiveRegion('menu');
+          activateMenu(idx);
+        }}
+        onMouseEnter={() => {
+          setMenuIndex(idx);
+          setActiveRegion('menu');
+        }}
         style={{
-          background: bg,
-          border: `1px solid ${sel ? '#335' : '#171730'}`,
-          color: textColor,
-          fontSize, fontWeight: isBattle || isControl ? 'bold' : 'normal',
-          padding: `${paddingV}px 12px`,
-          cursor: 'pointer', textAlign: 'center',
-          fontFamily: 'var(--font)', letterSpacing: '0.08em',
-          textTransform: 'uppercase', userSelect: 'none',
-          boxSizing: 'border-box', width: '100%',
-          transition: 'none',
+          background: sel ? '#6f6f6f' : '#525252',
+          borderTop: '1px solid #838383',
+          borderLeft: '1px solid #838383',
+          borderRight: '1px solid #414141',
+          borderBottom: '1px solid #414141',
+          color: '#000',
+          padding: isBattle ? '0' : item.startsWith('CONTROL') ? '13px 12px' : '9px 12px',
+          cursor: 'pointer',
+          textAlign: 'center',
+          fontFamily: 'var(--font)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          userSelect: 'none',
+          boxSizing: 'border-box',
+          width: '100%',
+          minHeight: isBattle ? BATTLE_SLOT_H : undefined,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {label}
+        {isBattle ? (
+          <div style={{ width: BATTLE_SLOT_W, height: BATTLE_SLOT_H, position: 'relative' }}>
+            <PreloadedImage
+              src={battleImageSrc}
+              alt="Battle"
+              style={{
+                width: BATTLE_SLOT_W,
+                height: BATTLE_SLOT_H,
+                imageRendering: 'pixelated',
+                objectFit: 'contain',
+                display: 'block',
+                position: 'absolute',
+                inset: 0,
+                visibility: showPreviewInBattleSlot ? 'hidden' : 'visible',
+              }}
+            />
+            <div
+              style={{
+                width: BATTLE_SLOT_W,
+                height: BATTLE_SLOT_H,
+                position: 'absolute',
+                inset: 0,
+                visibility: showPreviewInBattleSlot ? 'visible' : 'hidden',
+              }}
+            >
+              <StatusPanel
+                sidesRef={statusRef}
+                layout="single"
+                singleSideIndex={0}
+                showCaptain={false}
+                showStatLabels={true}
+                compactSingle
+              />
+            </div>
+          </div>
+        ) : (
+          <span style={{
+            color: '#000',
+            fontSize: item.startsWith('CONTROL') ? 14 : 13,
+            fontWeight: item.startsWith('CONTROL') ? 'bold' : 'normal',
+          }}>
+            {label}
+          </span>
+        )}
       </div>
     );
   }
-
-  // ─── Team name label (click to edit inline) ───────────────────────────────────
 
   function TeamLabel({ name, pts, side }: { name: string; pts: number; side: 1 | 2 }) {
     function startEdit() {
       setTeamDraft(name);
       setEditingTeam(side);
     }
+
     function commit() {
       if (side === 1) setTeamName1(teamDraft.trim() || name);
       else setTeamName2(teamDraft.trim() || name);
       setEditingTeam(null);
     }
+
     return (
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '5px 4px',
-        borderTop: side === 1 ? 'none' : 'none',
       }}>
         {editingTeam === side ? (
           <input
             value={teamDraft}
             onChange={e => setTeamDraft(e.target.value)}
-            autoFocus maxLength={20}
+            autoFocus
+            maxLength={20}
             onBlur={commit}
-            onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingTeam(null); }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') commit();
+              if (e.key === 'Escape') setEditingTeam(null);
+            }}
             style={{
-              width: 260, background: '#000', color: '#fff',
-              border: '1px solid #446', fontFamily: 'var(--font)',
-              fontSize: 16, padding: '2px 6px', letterSpacing: '0.05em',
+              width: 260,
+              background: '#000',
+              color: '#fff',
+              border: '1px solid #446',
+              fontFamily: 'var(--font)',
+              fontSize: 16,
+              padding: '2px 6px',
+              letterSpacing: '0.05em',
             }}
           />
         ) : (
@@ -356,8 +628,6 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
       </div>
     );
   }
-
-  // ─── Save / Load modal ────────────────────────────────────────────────────────
 
   function SaveLoadModal() {
     const [saves, setSaves] = useState<SaveSlot[]>(loadSaves);
@@ -394,8 +664,13 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
             <input
               value={draftName}
               onChange={e => setDraftName(e.target.value)}
-              autoFocus maxLength={20} placeholder="Fleet name"
-              onKeyDown={e => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setSaveModal(null); }}
+              autoFocus
+              maxLength={20}
+              placeholder="Fleet name"
+              onKeyDown={e => {
+                if (e.key === 'Enter') doSave();
+                if (e.key === 'Escape') setSaveModal(null);
+              }}
               style={{ width: '100%' }}
             />
             <div style={{ display: 'flex', gap: 8 }}>
@@ -420,7 +695,6 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
       );
     }
 
-    // Load modal
     return (
       <Modal title="LOAD FLEET" onClose={() => setSaveModal(null)}>
         {saves.length === 0 ? (
@@ -442,114 +716,118 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
-
   const val1 = fleetValue(fleet1);
   const val2 = fleetValue(fleet2);
 
   return (
     <div style={{
-      width: '100vw', height: '100vh',
+      width: '100vw',
+      height: '100vh',
       position: 'relative',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'flex-start',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
       paddingTop: 18,
       overflow: 'hidden',
       userSelect: 'none',
     }}>
-      {/* Starfield background layer */}
       <StarfieldBG config={bgConfig} />
 
-      {/* All content above the starfield */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-
-      {/* ── SUPER-MELEE title ── */}
-      <div style={{
-        fontSize: 50,
-        fontWeight: 'bold',
-        letterSpacing: '0.25em',
-        color: '#ff44ff',
-        textShadow: '0 0 18px #ff00ff60, 0 2px 0 #660066, 2px 2px 0 #330033',
-        fontFamily: 'var(--font)',
-        marginBottom: 14,
-        textTransform: 'uppercase',
-      }}>
-        SUPER-MELEE
-      </div>
-
-      {/* ── Main row: fleet area + right panel ── */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-
-        {/* Fleet area */}
         <div style={{
-          background: 'rgba(1, 2, 18, 0.93)',
-          border: '2px solid #181836',
-          padding: 6,
-          display: 'flex', flexDirection: 'column', gap: 0,
+          fontSize: 50,
+          fontWeight: 'bold',
+          letterSpacing: '0.25em',
+          color: '#ff44ff',
+          textShadow: '0 0 18px #ff00ff60, 0 2px 0 #660066, 2px 2px 0 #330033',
+          fontFamily: 'var(--font)',
+          marginBottom: 14,
+          textTransform: 'uppercase',
         }}>
-          {renderFleetGrid(fleet1, 1)}
-          <TeamLabel name={teamName1} pts={val1} side={1} />
-
-          {/* Divider between the two fleets */}
-          <div style={{ height: 10, background: 'rgba(0,0,20,0.7)', margin: '0 -6px', borderTop: '1px solid #111128', borderBottom: '1px solid #111128' }} />
-
-          {renderFleetGrid(fleet2, 2)}
-          <TeamLabel name={teamName2} pts={val2} side={2} />
+          SUPER-MELEE
         </div>
 
-        {/* Right panel */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{
+            background: 'rgba(1, 2, 18, 0.93)',
+            border: '2px solid #181836',
+            padding: 6,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+          }}>
+            {renderFleetGrid(fleet1, 1)}
+            <TeamLabel name={teamName1} pts={val1} side={1} />
+
+            <div style={{ height: 10, background: 'rgba(0,0,20,0.7)', margin: '0 -6px', borderTop: '1px solid #111128', borderBottom: '1px solid #111128' }} />
+
+            {renderFleetGrid(fleet2, 2)}
+            <TeamLabel name={teamName2} pts={val2} side={2} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 128, minWidth: 128 }}>
+            {MENU.map((item, idx) => renderMenuItem(item, idx))}
+          </div>
+        </div>
+
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 3,
-          width: 186, minWidth: 186,
+          marginTop: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 20,
+          fontFamily: 'var(--font)',
         }}>
-          {MENU.map((item, idx) => renderMenuItem(item, idx))}
+          <span style={{ color: '#2a2a44', fontSize: 11, letterSpacing: '0.1em' }}>
+            P1 OR P2 CONTROLS NAVIGATE · LEFT FROM MENU ENTERS FLEET · RIGHT EDGE RETURNS
+          </span>
+          <button
+            onClick={onBGBuilder}
+            title="Open background builder"
+            style={{
+              fontSize: 10,
+              padding: '3px 10px',
+              background: 'rgba(0,0,30,0.6)',
+              color: '#3a3a60',
+              border: '1px solid #1e1e3c',
+              fontFamily: 'var(--font)',
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            BG Builder ▸
+          </button>
         </div>
       </div>
-
-      {/* Footer row: nav hint + BG cycle button */}
-      <div style={{
-        marginTop: 10,
-        display: 'flex', alignItems: 'center', gap: 20,
-        fontFamily: 'var(--font)',
-      }}>
-        <span style={{ color: '#2a2a44', fontSize: 11, letterSpacing: '0.1em' }}>
-          ↑↓ NAVIGATE &nbsp;·&nbsp; ENTER SELECT &nbsp;·&nbsp; CLICK SLOT TO CHANGE SHIP
-        </span>
-        <button
-          onClick={onBGBuilder}
-          title="Open background builder"
-          style={{
-            fontSize: 10,
-            padding: '3px 10px',
-            background: 'rgba(0,0,30,0.6)',
-            color: '#3a3a60',
-            border: '1px solid #1e1e3c',
-            fontFamily: 'var(--font)',
-            letterSpacing: '0.08em',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-          }}
-        >
-          BG Builder ▸
-        </button>
-      </div>
-
-      </div>{/* end content wrapper */}
-
-      {/* ── Modals ── */}
 
       {picker && (
         <ShipPicker
           onPick={ship => {
             if (picker.fleet === 1) {
-              setFleet1(prev => { const f = [...prev]; f[picker.slot] = ship; return f; });
+              setFleet1(prev => {
+                const next = [...prev];
+                next[picker.slot] = ship;
+                return next;
+              });
             } else {
-              setFleet2(prev => { const f = [...prev]; f[picker.slot] = ship; return f; });
+              setFleet2(prev => {
+                const next = [...prev];
+                next[picker.slot] = ship;
+                return next;
+              });
             }
             setPicker(null);
+            setActiveRegion('fleet');
+            playMenuSelect();
           }}
-          onClose={() => setPicker(null)}
+          onClose={() => closePicker()}
           currentFleet={picker.fleet === 1 ? fleet1 : fleet2}
+          activeIndex={picker.activeIndex}
+          onActiveIndexChange={index => {
+            setActiveRegion('picker');
+            setPickerActiveIndex(index);
+          }}
         />
       )}
 

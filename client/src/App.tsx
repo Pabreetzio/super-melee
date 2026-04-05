@@ -6,13 +6,14 @@ import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
 import Battle from './components/Battle';
 import type { WinnerShipState } from './engine/battle/types';
-import { SHIP_ICON } from './components/ShipPicker';
+import { SHIP_ICON } from './components/shipSelectionData';
 import SuperMelee from './components/SuperMelee';
 import type { BattleStartParams } from './components/SuperMelee';
-import { SHIP_COSTS } from './components/SuperMelee';
+import { SHIP_COSTS } from './components/shipSelectionData';
 import BGBuilder from './components/BGBuilder';
 import SettingsScreen from './components/Settings';
 import { getControls, codeDisplay } from './lib/controls';
+import { PreloadedImage } from './lib/preloadedImage';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
@@ -1021,7 +1022,7 @@ function ShipSelectorPane({
         }}
       >
         {!isEmpty && icon && (
-          <img src={icon} alt={orig!} style={{ width: 40, height: 40, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <PreloadedImage src={icon} alt={orig!} style={{ width: 40, height: 40, objectFit: 'contain', imageRendering: 'pixelated' }} />
         )}
         {!isEmpty && !icon && orig && (
           <span style={{ fontSize: 8, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1 }}>{orig.slice(0, 4)}</span>

@@ -1,54 +1,33 @@
 import type { ShipId } from 'shared/types';
 import { getAllShips } from '../engine/ships';
+import { SHIP_ICON } from './shipSelectionData';
+import { PreloadedImage } from '../lib/preloadedImage';
 
 interface Props {
   onPick: (ship: ShipId | null) => void;
   onClose: () => void;
   currentFleet: (ShipId | null)[];
+  activeIndex?: number;
+  onActiveIndexChange?: (index: number) => void;
 }
 
-// Maps each ShipId to the path of its portrait sprite (first rotation frame).
-// Exported so FleetBuilder can show the same icons in the fleet grid.
-// Served from /ships/<folder>/<name>-big-000.png via Vite's publicDir → ../assets.
-export const SHIP_ICON: Partial<Record<ShipId, string>> = {
-  androsynth: '/ships/androsynth/guardian-big-000.png',
-  arilou:     '/ships/arilou/skiff-big-000.png',
-  chenjesu:   '/ships/chenjesu/broodhome-big-000.png',
-  chmmr:      '/ships/chmmr/avatar-big-000.png',
-  druuge:     '/ships/druuge/mauler-big-000.png',
-  human:      '/ships/human/cruiser-big-000.png',
-  ilwrath:    '/ships/ilwrath/avenger-big-000.png',
-  kohrah:     '/ships/kohrah/marauder-big-000.png',
-  melnorme:   '/ships/melnorme/trader-big-000.png',
-  mmrnmhrm:   '/ships/mmrnmhrm/xform-big-000.png',
-  mycon:      '/ships/mycon/podship-big-000.png',
-  orz:        '/ships/orz/nemesis-big-000.png',
-  pkunk:      '/ships/pkunk/fury-big-000.png',
-  shofixti:   '/ships/shofixti/scout-big-000.png',
-  slylandro:  '/ships/slylandro/probe-big-000.png',
-  spathi:     '/ships/spathi/eluder-big-000.png',
-  supox:      '/ships/supox/blade-big-000.png',
-  syreen:     '/ships/syreen/penetrator-big-000.png',
-  thraddash:  '/ships/thraddash/torch-big-000.png',
-  umgah:      '/ships/umgah/drone-big-000.png',
-  urquan:     '/ships/urquan/dreadnought-big-000.png',
-  utwig:      '/ships/utwig/jugger-big-000.png',
-  vux:        '/ships/vux/intruder-big-000.png',
-  yehat:      '/ships/yehat/terminator-big-000.png',
-  zoqfotpik:  '/ships/zoqfotpik/stinger-big-000.png',
-};
+const SHIP_PICKER_OPTIONS: (ShipId | null)[] = [null, ...getAllShips().filter(s => s.id !== 'samatra').map(s => s.id)];
 
-export default function ShipPicker({ onPick, onClose, currentFleet }: Props) {
+export function getShipPickerOptions(): (ShipId | null)[] {
+  return SHIP_PICKER_OPTIONS;
+}
+
+export default function ShipPicker({ onPick, onClose, currentFleet, activeIndex, onActiveIndexChange }: Props) {
   const ships = getAllShips().filter(s => s.id !== 'samatra'); // Sa-Matra not selectable
 
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.85)',
+      background: 'rgba(0,0,0,0.28)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 100,
     }}>
-      <div className="panel col" style={{ width: 700, maxHeight: '85vh', overflow: 'auto', gap: 16 }}>
+      <div className="panel col" style={{ width: 520, maxHeight: '72vh', overflow: 'auto', gap: 12, padding: 14 }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h3>Select Ship</h3>
           <button onClick={onClose}>✕ Close</button>
@@ -57,50 +36,60 @@ export default function ShipPicker({ onPick, onClose, currentFleet }: Props) {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: 8,
+          gap: 6,
         }}>
           {/* Clear slot option */}
           <button
             onClick={() => onPick(null)}
-            style={{ padding: 10, textAlign: 'center', background: 'var(--bg)', color: 'var(--text-dim)', minHeight: 90 }}
+            onMouseEnter={() => onActiveIndexChange?.(0)}
+            style={{
+              padding: 8,
+              textAlign: 'center',
+              background: activeIndex === 0 ? 'rgba(90, 0, 180, 0.3)' : 'var(--bg)',
+              border: activeIndex === 0 ? '1px solid #dd55ff' : '1px solid transparent',
+              color: 'var(--text-dim)',
+              minHeight: 74,
+            }}
           >
-            (Empty slot)
+            Empty Slot
           </button>
 
-          {ships.map(ship => {
+          {ships.map((ship, shipIdx) => {
             const count = currentFleet.filter(s => s === ship.id).length;
             const iconUrl = SHIP_ICON[ship.id];
+            const optionIdx = shipIdx + 1;
             return (
               <button
                 key={ship.id}
                 onClick={() => onPick(ship.id)}
+                onMouseEnter={() => onActiveIndexChange?.(optionIdx)}
                 style={{
-                  padding: '8px 6px',
+                  padding: '6px 5px',
                   textAlign: 'center',
                   flexDirection: 'column',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 4,
+                  gap: 3,
                   opacity: count >= 1 ? 0.5 : 1,
-                  minHeight: 90,
+                  minHeight: 74,
                   background: 'var(--bg2)',
+                  border: activeIndex === optionIdx ? '1px solid #dd55ff' : '1px solid transparent',
                 }}
-                title={`Crew: ${ship.crew}  Speed: ${ship.speed}  Turn: ${ship.turnRate}`}
               >
                 {iconUrl ? (
-                  <img
+                  <PreloadedImage
                     src={iconUrl}
                     alt={ship.name}
                     style={{
-                      width: 48, height: 48,
+                      width: 40, height: 40,
                       objectFit: 'contain',
                       imageRendering: 'pixelated',
                     }}
                   />
                 ) : (
-                  <div style={{ width: 48, height: 48, background: 'var(--bg)', borderRadius: 4 }} />
+                  <div style={{ width: 40, height: 40, background: 'var(--bg)', borderRadius: 4 }} />
                 )}
-                <span style={{ fontSize: 10, color: 'var(--text-hi)', textTransform: 'none', lineHeight: 1.2 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-hi)', textTransform: 'none', lineHeight: 1.15 }}>
                   {ship.name}
                 </span>
                 {count > 0 && (
@@ -112,7 +101,7 @@ export default function ShipPicker({ onPick, onClose, currentFleet }: Props) {
         </div>
 
         <p style={{ color: 'var(--text-dim)', fontSize: 11 }}>
-          Hover for stats. No point cap — field whatever you'd like, Commander.
+          Choose a ship or clear the slot. Preview remains visible while browsing.
         </p>
       </div>
     </div>

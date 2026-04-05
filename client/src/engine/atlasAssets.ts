@@ -1,5 +1,6 @@
 import type { ShipId } from 'shared/types';
 import { preloadBattleSounds } from './audio';
+import { preloadImage } from '../lib/preloadedImage';
 
 export interface AtlasRuntimeFrame {
   img: HTMLImageElement;
@@ -54,6 +55,7 @@ const atlasPromises = new Map<string, Promise<LoadedAtlas>>();
 const subImagePromises = new Map<string, Promise<AtlasImageAsset | null>>();
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
+  await preloadImage(url);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = async () => {
