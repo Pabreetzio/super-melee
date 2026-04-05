@@ -12,7 +12,7 @@ import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect } from './types';
-import { worldAngle as battleWorldAngle } from '../battle/helpers';
+import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
 
 export type { ShipState as HumanShipState };
 
@@ -43,6 +43,7 @@ export const URQUAN_SPECIAL_WAIT        = 9;
 export const FIGHTER_SPEED              = DISPLAY_TO_WORLD(8);  // 32 world units
 export const FIGHTER_OFFSET             = DISPLAY_TO_WORLD(14); // 56 world units (spawn offset behind ship)
 export const ONE_WAY_FLIGHT             = 125;  // frames before returning to mothership
+export const FIGHTER_TRACK_THRESHOLD    = 6;
 export const FIGHTER_LIFE               = ONE_WAY_FLIGHT + ONE_WAY_FLIGHT + 150; // 400 frames
 export const FIGHTER_LASER_RANGE        = DISPLAY_TO_WORLD(44); // 176 world units
 export const FIGHTER_WEAPON_WAIT        = 8;
@@ -193,6 +194,7 @@ export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[]
       facing: f1Facing,
       speed: FIGHTER_SPEED,
       life: FIGHTER_LIFE,
+      orbitDir: -1,
     });
     spawns.push({
       type: 'fighter',
@@ -201,6 +203,7 @@ export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[]
       facing: f2Facing,
       speed: FIGHTER_SPEED,
       life: FIGHTER_LIFE,
+      orbitDir: 1,
     });
   }
 
@@ -288,27 +291,46 @@ export const urquanController: ShipController = {
     // ── Fighter AI (ported from Battle.tsx fighter update block) ─────────────
     // Phase: if life is low enough to return, track mothership; else track enemy
     const returning = enemyShip.crew <= 0 || m.life < ONE_WAY_FLIGHT;
-    const navTarget = returning ? ownShip : enemyShip;
-
-    // Turn toward nav target and set velocity
-    const targetAngle = battleWorldAngle(m.x, m.y, navTarget.x, navTarget.y);
-    m.facing = trackFacing(m.facing, targetAngle);
-    setVelocityVector(m.velocity, FIGHTER_SPEED, m.facing);
-
     const effect: MissileEffect = {
       skipDefaultTracking: true,
       skipVelocityUpdate:  true,  // fighter manages its own velocity above
     };
+
+    const elapsed = FIGHTER_LIFE - m.life;
+    if (elapsed <= FIGHTER_TRACK_THRESHOLD) {
+      return effect;
+    }
 
     // Weapon cooldown tick
     if ((m.weaponWait ?? 0) > 0) {
       m.weaponWait = (m.weaponWait ?? 0) - 1;
     }
 
+    // Returning fighter: dock if it reaches mothership (restores 1 crew)
+    if (returning) {
+      const targetAngle = battleWorldAngle(m.x, m.y, ownShip.x, ownShip.y);
+      m.facing = trackFacing(m.facing, targetAngle);
+      setVelocityVector(m.velocity, FIGHTER_SPEED, m.facing);
+      const { dx, dy } = worldDelta(m.x, m.y, ownShip.x, ownShip.y);
+      if (dx * dx + dy * dy < DISPLAY_TO_WORLD(14) ** 2) { // SHIP_RADIUS = 14 px
+        effect.destroy = true;
+        effect.healOwn = 1;
+        effect.sounds  = ['fighter_dock'];
+      }
+      return effect;
+    }
+
+    const enemyAngle = (enemyShip.facing * 4) & 63;
+    const orbitAngle = (enemyAngle + (m.orbitDir === -1 ? -16 : 16) + 64) & 63;
+    const orbitX = enemyShip.x + COSINE(orbitAngle, DISPLAY_TO_WORLD(30));
+    const orbitY = enemyShip.y + SINE(orbitAngle, DISPLAY_TO_WORLD(30));
+    const attackAngle = battleWorldAngle(m.x, m.y, orbitX, orbitY);
+    m.facing = trackFacing(m.facing, attackAngle);
+    setVelocityVector(m.velocity, FIGHTER_SPEED, m.facing);
+
     // Fighter laser: fire when enemy within 3/4 of laser range
-    if (!returning && enemyShip.crew > 0 && (m.weaponWait ?? 0) === 0) {
-      const dx = enemyShip.x - m.x;
-      const dy = enemyShip.y - m.y;
+    if (enemyShip.crew > 0 && (m.weaponWait ?? 0) === 0) {
+      const { dx, dy } = worldDelta(m.x, m.y, enemyShip.x, enemyShip.y);
       const laserRangeSq = (FIGHTER_LASER_RANGE * 3 / 4) ** 2;
       if (dx * dx + dy * dy < laserRangeSq) {
         const laserAngle = battleWorldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
@@ -318,17 +340,6 @@ export const urquanController: ShipController = {
         effect.damageEnemy = 1;
         effect.sounds      = ['fighter_laser'];
         m.weaponWait       = FIGHTER_WEAPON_WAIT;
-      }
-    }
-
-    // Returning fighter: dock if it reaches mothership (restores 1 crew)
-    if (returning) {
-      const dx = ownShip.x - m.x;
-      const dy = ownShip.y - m.y;
-      if (dx * dx + dy * dy < DISPLAY_TO_WORLD(14) ** 2) { // SHIP_RADIUS = 14 px
-        effect.destroy = true;
-        effect.healOwn = 1;
-        effect.sounds  = ['fighter_dock'];
       }
     }
 

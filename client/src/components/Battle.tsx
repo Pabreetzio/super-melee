@@ -943,6 +943,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           owner,
           weaponType: 'fighter',
           weaponWait: 0,
+          orbitDir: s.orbitDir,
         });
       }
     };

@@ -58,6 +58,8 @@ export type SpawnRequest =
       speed: number;
       /** Total lifespan in frames. Filled by the controller. */
       life: number;
+      /** Attack-lane side copied from UQM's LEFT/RIGHT fighter state. */
+      orbitDir: -1 | 1;
     }
   | { type: 'vux_laser'; x: number; y: number; facing: number }
   | {
@@ -106,6 +108,7 @@ export interface BattleMissile {
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
+  orbitDir?: -1 | 1;     // fighters: preferred attack lane around enemy
 }
 
 export interface LaserFlash {
