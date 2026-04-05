@@ -195,6 +195,8 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.androsynthBlazer ? 1 : 0);
     h = hashStep(h, ship.androsynthSeed ?? 0);
     h = hashStep(h, ship.chenjesuDogiCount ?? 0);
+    h = hashStep(h, ship.chmmrLaserCycle ?? 0);
+    h = hashStep(h, ship.chmmrSatellitesSpawned ? 1 : 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
@@ -220,8 +222,10 @@ export function computeChecksum(bs: BattleState): number {
         : m.weaponType === 'chenjesu_crystal' ? 6
         : m.weaponType === 'chenjesu_shard' ? 7
         : m.weaponType === 'dogi' ? 8
+        : m.weaponType === 'chmmr_satellite' ? 9
         : 0,
     );
+    h = hashStep(h, m.satelliteAngle ?? 0);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

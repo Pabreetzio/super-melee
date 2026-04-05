@@ -976,11 +976,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]);
       else
       if (s.type === 'missile') {
-        if (bs.shipTypes[0] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
+        if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
+        }
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[0]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed0) { playSecondary(bs.shipTypes[0]); gasSoundPlayed0 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'chmmr_laser') playPrimary(bs.shipTypes[0]);
+      else if (s.type === 'chmmr_tractor') playSecondary(bs.shipTypes[0]);
       else if (s.type === 'fighter' && !launchSoundPlayed0) { playFighterLaunch(); launchSoundPlayed0 = true; }
     }
     let launchSoundPlayed1 = false;
@@ -1000,11 +1004,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'sound')          s.sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]);
       else
       if (s.type === 'missile') {
-        if (bs.shipTypes[1] !== 'pkunk') s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
+        if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
+        }
       }
       else if (s.type === 'buzzsaw')   playPrimary(bs.shipTypes[1]);
       else if (s.type === 'gas_cloud' && !gasSoundPlayed1) { playSecondary(bs.shipTypes[1]); gasSoundPlayed1 = true; }
       else if (s.type === 'vux_laser') playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'chmmr_laser') playPrimary(bs.shipTypes[1]);
+      else if (s.type === 'chmmr_tractor') playSecondary(bs.shipTypes[1]);
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 

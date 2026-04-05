@@ -303,7 +303,7 @@ export const chenjesuController: ShipController = {
     return null;
   },
 
-  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, input: number): MissileEffect {
+  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _missiles: BattleMissile[], input: number): MissileEffect {
     if (m.weaponType === 'chenjesu_crystal') {
       if ((input & INPUT_FIRE1) && ownShip.crew > 0) {
         m.life++;

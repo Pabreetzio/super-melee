@@ -33,6 +33,8 @@ export interface ShipState {
   androsynthBlazer?: boolean;
   androsynthSeed?: number;
   chenjesuDogiCount?: number;
+  chmmrLaserCycle?: number;
+  chmmrSatellitesSpawned?: boolean;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -52,11 +54,13 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi';
+      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' }
   | { type: 'point_defense'; x: number; y: number }
+  | { type: 'chmmr_laser'; x: number; y: number; facing: number }
+  | { type: 'chmmr_tractor'; x: number; y: number; facing: number }
   | {
       type: 'fighter';
       x: number; y: number; facing: number;
@@ -111,11 +115,12 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
   orbitDir?: -1 | 1;     // fighters: preferred attack lane around enemy
+  satelliteAngle?: number;
 }
 
 export interface LaserFlash {
@@ -149,6 +154,8 @@ export interface MissileEffect {
   healOwn?: number;
   /** Laser flashes to add to the world this frame. */
   lasers?: LaserFlash[];
+  /** Apply damage to specific missiles after this missile updates. */
+  damageMissiles?: Array<{ missile: BattleMissile; damage: number }>;
   /** If true, skip the generic tracking logic in Battle.tsx this frame. */
   skipDefaultTracking?: boolean;
   /** If true, skip the generic setVelocityVector call in Battle.tsx this frame. */
@@ -260,6 +267,7 @@ export interface ShipController {
     m: BattleMissile,
     ownShip: ShipState,
     enemyShip: ShipState,
+    missiles: BattleMissile[],
     input: number,
   ): MissileEffect;
 

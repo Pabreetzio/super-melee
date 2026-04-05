@@ -21,6 +21,7 @@ import { myconController  } from './mycon';
 import { arilouController } from './arilou';
 import { androsynthController } from './androsynth';
 import { chenjesuController } from './chenjesu';
+import { chmmrController } from './chmmr';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -70,6 +71,7 @@ function makeDefaultController(id: ShipId): ShipController {
 const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   androsynth: androsynthController,
   chenjesu: chenjesuController,
+  chmmr: chmmrController,
   human:   humanController,
   spathi:  spathiController,
   urquan:  urquanController,

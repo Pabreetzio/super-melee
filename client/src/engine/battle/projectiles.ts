@@ -22,6 +22,7 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'chenjesu_crystal') return DISPLAY_TO_WORLD(9);
   if (m.weaponType === 'chenjesu_shard') return DISPLAY_TO_WORLD(8);
   if (m.weaponType === 'dogi') return DISPLAY_TO_WORLD(9);
+  if (m.weaponType === 'chmmr_satellite') return DISPLAY_TO_WORLD(9);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
@@ -306,12 +307,19 @@ export function processMissiles(
     const enemyShip  = bs.ships[m.owner === 0 ? 1 : 0];
     const ownerInput = m.owner === 0 ? input0 : input1;
 
-    const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, ownerInput) ?? {};
+    const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, bs.missiles, ownerInput) ?? {};
 
     if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
     if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
     if (effect.lasers)      bs.lasers.push(...effect.lasers);
     if (effect.sounds) for (const snd of effect.sounds) playEffectSound(snd);
+    if (effect.damageMissiles) {
+      for (const dmg of effect.damageMissiles) {
+        if (applyDirectMissileDamage(bs, dmg.missile, dmg.damage)) {
+          dmg.missile.life = 0;
+        }
+      }
+    }
 
     if (effect.destroy) {
       if (effect.resolveAsHit) {
@@ -444,7 +452,7 @@ export function processMissiles(
       }
     }
 
-    if (!hit) aliveMissiles.push(m);
+    if (!hit && m.life > 0 && m.hitPoints > 0) aliveMissiles.push(m);
   }
 
   const alive = Array(aliveMissiles.length).fill(true) as boolean[];
@@ -504,5 +512,5 @@ export function processMissiles(
     }
   }
 
-  bs.missiles = aliveMissiles.filter((_m, idx) => alive[idx]);
+  bs.missiles = aliveMissiles.filter((m, idx) => alive[idx] && m.life > 0 && m.hitPoints > 0);
 }

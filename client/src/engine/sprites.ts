@@ -265,6 +265,30 @@ const CHENJESU_SPARK_SML_HOTSPOTS: [number, number][] = [
 const DOGGY_BIG_HOTSPOTS: [number, number][] = [[9,8],[9,8],[9,8],[9,8],[9,8],[9,8],[9,8]];
 const DOGGY_MED_HOTSPOTS: [number, number][] = [[4,4],[4,4],[4,4],[4,4],[4,4],[4,4],[4,4]];
 const DOGGY_SML_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2]];
+const MUZZLE_BIG_HOTSPOTS: [number, number][] = [
+  [0,22],[-11,20],[-16,17],[-21,10],[-22,0],[-22,-10],[-17,-16],[-11,-20],
+  [0,-22],[11,-20],[17,-16],[22,-10],[23,0],[22,10],[17,16],[11,20],
+  [2,21],[-6,19],[-11,16],[-14,9],[-17,2],[-15,-5],[-12,-11],[-6,-13],
+  [2,-17],[10,-13],[16,-11],[21,-5],[22,2],[21,9],[16,15],[10,19],
+  [3,4],[3,4],[5,5],[5,5],[6,5],[6,4],[6,4],[5,3],[5,0],
+];
+const MUZZLE_MED_HOTSPOTS: [number, number][] = [
+  [0,-11],[5,-12],[9,-9],[10,-5],[12,0],[10,5],[9,10],[6,12],
+  [0,12],[-6,13],[-9,10],[-10,5],[-12,0],[-10,-6],[-9,-9],[-6,-12],
+  [1,10],[-4,10],[-5,8],[-8,4],[-9,1],[-8,-3],[-5,-6],[-4,-8],
+  [1,-9],[5,-8],[8,-6],[10,-3],[11,1],[10,4],[8,8],[5,10],
+  [3,4],[3,4],[5,5],[5,5],[6,5],[6,4],[6,4],[5,3],[5,0],
+];
+const MUZZLE_SML_HOTSPOTS: [number, number][] = [
+  [0,-7],[3,-6],[5,-5],[6,-3],[7,0],[6,3],[5,5],[3,6],
+  [0,7],[-3,6],[-5,-5],[-6,3],[-7,0],[-6,-3],[-5,-5],[-3,-6],
+  [0,6],[-2,5],[-3,4],[-4,2],[-5,0],[-4,-2],[-3,-3],[-2,-4],
+  [0,-5],[2,-4],[4,-3],[5,-2],[6,0],[5,2],[4,4],[2,5],
+  [2,2],[2,2],[3,2],[3,3],[3,2],[4,2],[3,2],[3,1],[3,0],
+];
+const SATELLITE_BIG_HOTSPOTS: [number, number][] = [[9,7],[8,7],[5,7],[3,7],[3,7],[3,7],[5,7],[8,7]];
+const SATELLITE_MED_HOTSPOTS: [number, number][] = [[4,3],[4,3],[3,3],[2,3],[1,3],[2,3],[3,3],[4,3]];
+const SATELLITE_SML_HOTSPOTS: [number, number][] = [[2,2],[2,2],[2,2],[1,2],[1,2],[2,2],[2,2],[2,2]];
 
 // ─── Pkunk Fury hotspot tables ────────────────────────────────────────────────
 
@@ -670,6 +694,39 @@ export async function loadChenjesuSprites(): Promise<ChenjesuSprites> {
     sml,
     spark: { big: sparkBig, med: sparkMed, sml: sparkSml },
     doggy: { big: doggyBig, med: doggyMed, sml: doggySml },
+  };
+}
+
+export interface ChmmrSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  muzzle: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  satellite: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadChmmrSprites(): Promise<ChmmrSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('chmmr/avatar', 'big', 16, AVATAR_BIG_HOTSPOTS),
+    loadSpriteSet('chmmr/avatar', 'med', 16, AVATAR_MED_HOTSPOTS),
+    loadSpriteSet('chmmr/avatar', 'sml', 16, AVATAR_SML_HOTSPOTS),
+  ]);
+  const [muzzleBig, muzzleMed, muzzleSml] = await Promise.all([
+    loadSpriteSet('chmmr/muzzle', 'big', 41, MUZZLE_BIG_HOTSPOTS),
+    loadSpriteSet('chmmr/muzzle', 'med', 41, MUZZLE_MED_HOTSPOTS),
+    loadSpriteSet('chmmr/muzzle', 'sml', 41, MUZZLE_SML_HOTSPOTS),
+  ]);
+  const [satBig, satMed, satSml] = await Promise.all([
+    loadSpriteSet('chmmr/satellite', 'big', 8, SATELLITE_BIG_HOTSPOTS),
+    loadSpriteSet('chmmr/satellite', 'med', 8, SATELLITE_MED_HOTSPOTS),
+    loadSpriteSet('chmmr/satellite', 'sml', 8, SATELLITE_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    muzzle: { big: muzzleBig, med: muzzleMed, sml: muzzleSml },
+    satellite: { big: satBig, med: satMed, sml: satSml },
   };
 }
 

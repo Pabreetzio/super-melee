@@ -272,7 +272,7 @@ export const kohrahController: ShipController = {
     return null;
   },
 
-  processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, input: number): MissileEffect {
+  processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, _missiles: BattleMissile[], input: number): MissileEffect {
     if (m.weaponType === 'gas_cloud') {
       // Gas cloud: velocity set once at spawn; never overwrite it.
       return { skipVelocityUpdate: true };

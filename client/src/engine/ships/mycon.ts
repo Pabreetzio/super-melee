@@ -239,7 +239,7 @@ export const myconController: ShipController = {
     return sp?.plasma.big.frames[plasmoidFrameIndex(m)] ?? null;
   },
 
-  processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
+  processMissile(m: BattleMissile, _ownShip: ShipState, enemyShip: ShipState, _missiles: BattleMissile[], _input: number): MissileEffect {
     if (m.weaponType !== 'plasmoid') return {};
 
     // Replicate UQM's plasma_preprocess damage/HP decay.

@@ -305,7 +305,7 @@ export const androsynthController: ShipController = {
     return sp?.bubble.big.frames[bubbleFrame(m)] ?? null;
   },
 
-  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
+  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _missiles: BattleMissile[], _input: number): MissileEffect {
     if (m.weaponType !== 'bubble') return {};
 
     if ((m.weaponWait ?? 0) > 0) {

@@ -282,7 +282,7 @@ export const urquanController: ShipController = {
     return sp?.fusion.big.frames[m.facing] ?? null;
   },
 
-  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _input: number): MissileEffect {
+  processMissile(m: BattleMissile, ownShip: ShipState, enemyShip: ShipState, _missiles: BattleMissile[], _input: number): MissileEffect {
     if (m.weaponType !== 'fighter') return {};
 
     if (ownShip.crew <= 0) {

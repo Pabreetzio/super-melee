@@ -25,7 +25,7 @@ const SHIPS: ShipDef[] = [
   { id: 'androsynth', name: 'Androsynth Guardian', crew: 20, energy: 24, speed: 24, turnRate: 1, thrustDelay: 0, turnDelay: 4, mass: 6, radius: 15, primaryDamage: 2, secondaryDamage: 3 },
   { id: 'arilou',     name: 'Arilou Skiff',        crew:  6, energy: 20, speed: 40, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 1, radius: 10, primaryDamage: 2, secondaryDamage: 0 },
   { id: 'chenjesu',   name: 'Chenjesu Broodhome',  crew: 36, energy: 30, speed: 27, turnRate: 1, thrustDelay: 4, turnDelay: 6, mass: 10, radius: 20, primaryDamage: 6, secondaryDamage: 0 },
-  { id: 'chmmr',      name: 'Chmmr Avatar',        crew: 42, energy: 42, speed: 18, turnRate: 2, thrustDelay: 2, turnDelay: 2, mass: 9, radius: 22, primaryDamage: 9, secondaryDamage: 0 },
+  { id: 'chmmr',      name: 'Chmmr Avatar',        crew: 42, energy: 42, speed: 35, turnRate: 1, thrustDelay: 5, turnDelay: 3, mass: 10, radius: 22, primaryDamage: 2, secondaryDamage: 1 },
   { id: 'druuge',     name: 'Druuge Mauler',        crew: 14, energy: 32, speed: 36, turnRate: 3, thrustDelay: 1, turnDelay: 1, mass: 4, radius: 14, primaryDamage: 9, secondaryDamage: 0 },
   { id: 'human',      name: 'Earthling Cruiser',   crew: 18, energy: 18, speed: 30, turnRate: 2, thrustDelay: 1, turnDelay: 1, mass: 6, radius: 16, primaryDamage: 4, secondaryDamage: 0 },
   { id: 'ilwrath',    name: 'Ilwrath Avenger',     crew: 22, energy: 16, speed: 30, turnRate: 4, thrustDelay: 0, turnDelay: 0, mass: 4, radius: 12, primaryDamage: 3, secondaryDamage: 0 },
