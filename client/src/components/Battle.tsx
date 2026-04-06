@@ -8,8 +8,7 @@ import type { AIDifficulty, FullRoomState } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
 import {
-  getControls, setControls, buildKeyMap, codeDisplay,
-  type BindingField, BINDING_FIELDS, FIELD_LABELS,
+  getControls, buildKeyMap,
   type ControlsConfig,
 } from '../lib/controls';
 import { COSINE, SINE } from '../engine/sinetab';
@@ -33,13 +32,17 @@ import {
   shouldRenderExplodingShip,
 } from '../engine/battle/destruction';
 import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
-import { renderExplosions, renderIonTrails, renderLaserFlashes } from '../engine/battle/renderEffects';
+import { renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth } from '../engine/battle/renderEffects';
+import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
+import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
+import { computeAIInput } from '../engine/battle/ai';
+import PauseOverlay from './PauseOverlay';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
-import { loadExplosionSprites, drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites, type SpriteFrame } from '../engine/sprites';
+import { loadExplosionSprites, placeholderDot, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playShipSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying, getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playShipSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying } from '../engine/audio';
 import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
 import { getShipDef } from '../engine/ships/index';
 
@@ -68,8 +71,6 @@ const GRAVITY_THRESHOLD_W = DISPLAY_TO_WORLD(255);
 const HYPERJUMP_LIFE = 15;
 const TRANSITION_SPEED_W = DISPLAY_TO_WORLD(40);
 const POST_BATTLE_PAUSE_FRAMES = 144; // safety cap (~12.5s); real end is gated on ditty completion
-const SPAWN_CONFLICT_RADIUS_W = DISPLAY_TO_WORLD(24);
-const VUX_AGGRESSIVE_ENTRY_DIST_W = DISPLAY_TO_WORLD((150 + 12 + 46) << 1);
 
 const FRAME_MS = 1000 / BATTLE_FPS;
 
@@ -84,71 +85,6 @@ const PLANET_HOT: Record<'big' | 'med' | 'sml', [number, number]> = {
   med: [19, 17],
   sml: [9, 8],
 };
-
-function randomSpawnCoord(rng: RNG, worldSize: number): number {
-  return (rng.rand(worldSize >> 2) << 2) % worldSize;
-}
-
-function inGravityWell(x: number, y: number): boolean {
-  const { dx, dy } = worldDelta(x, y, PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
-  return dx * dx + dy * dy <= GRAVITY_THRESHOLD_W * GRAVITY_THRESHOLD_W;
-}
-
-function conflictsWithShips(
-  x: number,
-  y: number,
-  ships: ReadonlyArray<ShipState>,
-): boolean {
-  for (const ship of ships) {
-    const { dx, dy } = worldDelta(x, y, ship.x, ship.y, WORLD_W, WORLD_H);
-    if (dx * dx + dy * dy < SPAWN_CONFLICT_RADIUS_W * SPAWN_CONFLICT_RADIUS_W) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function pickSpawnPoint(
-  rng: RNG,
-  existingShips: ReadonlyArray<ShipState>,
-): { x: number; y: number } {
-  for (let attempt = 0; attempt < 256; attempt++) {
-    const x = randomSpawnCoord(rng, WORLD_W);
-    const y = randomSpawnCoord(rng, WORLD_H);
-    if (!inGravityWell(x, y) && !conflictsWithShips(x, y, existingShips)) {
-      return { x, y };
-    }
-  }
-
-  // Fallback: preserve progress even if our approximation gets unlucky.
-  return {
-    x: wrapWorldCoord(PLANET_X - DISPLAY_TO_WORLD(300), WORLD_W),
-    y: wrapWorldCoord(PLANET_Y, WORLD_H),
-  };
-}
-
-function pickVuxSpawnPoint(
-  rng: RNG,
-  targetShip: ShipState,
-  existingShips: ReadonlyArray<ShipState>,
-): { x: number; y: number } {
-  for (let attempt = 0; attempt < 256; attempt++) {
-    const x = wrapWorldCoord(
-      targetShip.x - (VUX_AGGRESSIVE_ENTRY_DIST_W >> 1) + rng.rand(VUX_AGGRESSIVE_ENTRY_DIST_W),
-      WORLD_W,
-    );
-    const y = wrapWorldCoord(
-      targetShip.y - (VUX_AGGRESSIVE_ENTRY_DIST_W >> 1) + rng.rand(VUX_AGGRESSIVE_ENTRY_DIST_W),
-      WORLD_H,
-    );
-    if (!inGravityWell(x, y) && !conflictsWithShips(x, y, existingShips)) {
-      return { x, y };
-    }
-  }
-
-  return pickSpawnPoint(rng, existingShips);
-}
-
 
 // Key maps are built inside the component at mount time from the live controls
 // singleton so they reflect any rebinds made in a previous battle this session.
@@ -187,11 +123,6 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [isPaused, setIsPaused]        = useState(false);
   const pausedRef    = useRef(false); // mirror of isPaused readable in tick closure
   const assetsReadyRef = useRef(false);
-  const [pauseAudio, setPauseAudio]    = useState<AudioConfig>(getAudioConfig);
-  const [pauseTab, setPauseTab]        = useState<'audio' | 'controls'>('audio');
-  const [pauseControls, setPauseControls] = useState<ControlsConfig>(getControls);
-  const [pauseRebinding, setPauseRebinding] =
-    useState<{ player: 1 | 2; field: BindingField } | null>(null);
 
   // Live key-map refs — initialized from getControls() at mount (not from the
   // module-level constants, which are fixed at page load and go stale if the
@@ -219,46 +150,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // Populated every frame; read when checksum_mismatch arrives from server.
   // Number of consecutive checksum mismatches seen — used to decide when to give up.
   const checksumMismatchCountRef = useRef(0);
-  interface FrameSnap {
-    frame:    number;
-    i0:       number;
-    i1:       number;
-    ships: Array<{
-      x: number; y: number;
-      vx: number; vy: number; ex: number; ey: number; travelAngle: number;
-      facing: number; crew: number; energy: number;
-      thrustWait: number; turnWait: number; weaponWait: number;
-      specialWait: number; energyWait: number; thrusting: boolean;
-    }>;
-    missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
-    warpIn:   [number, number];
-    rebirth:  [number, number];
-  }
   const snapHistoryRef = useRef<FrameSnap[]>([]);
-
-  function captureSnap(bs: BattleState, i0: number, i1: number): FrameSnap {
-    return {
-      frame: bs.frame,
-      i0, i1,
-      ships: bs.ships.map(s => ({
-        x: s.x, y: s.y,
-        vx: s.velocity.vx, vy: s.velocity.vy,
-        ex: s.velocity.ex, ey: s.velocity.ey,
-        travelAngle: s.velocity.travelAngle,
-        facing: s.facing,
-        crew: s.crew, energy: s.energy,
-        thrustWait: s.thrustWait, turnWait: s.turnWait,
-        weaponWait: s.weaponWait, specialWait: s.specialWait,
-        energyWait: s.energyWait, thrusting: s.thrusting,
-      })),
-      missiles: bs.missiles.map(m => ({
-        x: m.x, y: m.y, facing: m.facing, life: m.life,
-        speed: m.speed, owner: m.owner, tracks: m.tracks,
-      })),
-      warpIn: [...bs.warpIn] as [number, number],
-      rebirth: [...bs.rebirth] as [number, number],
-    };
-  }
 
   // Planet sprite images (type determined by parent, stable across ship fights); null until loaded
   const planetImgRef = useRef<{ big: { source: CanvasImageSource; width: number; height: number }; med: { source: CanvasImageSource; width: number; height: number }; sml: { source: CanvasImageSource; width: number; height: number } } | null>(null);
@@ -350,20 +242,20 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const makeShip = (type: ShipId, x: number, y: number) =>
       SHIP_REGISTRY[type].make(x, y, () => rng.rand(1000) / 1000);
 
-    const spawn0 = pickSpawnPoint(rng, []);
+    const spawn0 = pickSpawnPoint(rng, [], PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
     const s0 = makeShip(type0, spawn0.x, spawn0.y);
     s0.facing = rng.rand(16);
 
     const spawn1 = type1 === 'vux'
-      ? pickVuxSpawnPoint(rng, s0, [s0])
-      : pickSpawnPoint(rng, [s0]);
+      ? pickVuxSpawnPoint(rng, s0, [s0], PLANET_X, PLANET_Y, WORLD_W, WORLD_H)
+      : pickSpawnPoint(rng, [s0], PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
     const s1 = makeShip(type1, spawn1.x, spawn1.y);
     s1.facing = type1 === 'vux'
       ? worldAngle(s1.x, s1.y, s0.x, s0.y) >> 2
       : rng.rand(16);
 
     if (type0 === 'vux') {
-      const vuxSpawn0 = pickVuxSpawnPoint(rng, s1, [s1]);
+      const vuxSpawn0 = pickVuxSpawnPoint(rng, s1, [s1], PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
       s0.x = vuxSpawn0.x;
       s0.y = vuxSpawn0.y;
       s0.facing = worldAngle(s0.x, s0.y, s1.x, s1.y) >> 2;
@@ -390,8 +282,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const loserSide = ws.side === 0 ? 1 : 0;
       const loserType = loserSide === 0 ? type0 : type1;
       const respawn = loserType === 'vux'
-        ? pickVuxSpawnPoint(rng, wShip, [wShip])
-        : pickSpawnPoint(rng, [wShip]);
+        ? pickVuxSpawnPoint(rng, wShip, [wShip], PLANET_X, PLANET_Y, WORLD_W, WORLD_H)
+        : pickSpawnPoint(rng, [wShip], PLANET_X, PLANET_Y, WORLD_W, WORLD_H);
       const loserShip = loserSide === 0 ? s0 : s1;
       loserShip.x = respawn.x;
       loserShip.y = respawn.y;
@@ -513,45 +405,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           onBattleEnd(msg.winner);
         }
       } else if (msg.type === 'checksum_mismatch') {
-        const mf = msg.frame;
-        const cur = stateRef.current?.frame ?? -1;
-        const allSnaps = snapHistoryRef.current;
-        const snap = allSnaps.find(s => s.frame === mf);
         checksumMismatchCountRef.current++;
-        const mismatchN = checksumMismatchCountRef.current;
-        console.group(
-          `%c[DESYNC #${mismatchN}] Checksum mismatch — diverged at frame ${mf}, currently at frame ${cur}`,
-          'color:orange;font-weight:bold;font-size:14px'
-        );
-        console.log('yourSide:', yourSide, '— game continues (states may drift)');
-        // Compact per-frame table: find where Ship 1 state first changed unusually.
-        // Both players paste this; compare row-by-row to find first divergence.
-        console.log('--- FRAME HISTORY (compact) ---');
-        console.log('frm  i0 i1 | s0.facing s0.turnW s0.vx  s0.vy  | s1.facing s1.turnW s1.vx  s1.vy  s1.trvlA');
-        for (const s of allSnaps) {
-          const s0 = s.ships[0]; const s1 = s.ships[1];
-          const mark = s.frame === mf ? '*** ' : '    ';
-          console.log(
-            mark + String(s.frame).padStart(3) + '  ' +
-            String(s.i0).padStart(2) + ' ' + String(s.i1).padStart(2) + ' | ' +
-            String(s0.facing).padStart(9) + ' ' + String(s0.turnWait).padStart(7) + ' ' +
-            String(s0.vx).padStart(6) + ' ' + String(s0.vy).padStart(6) + ' | ' +
-            String(s1.facing).padStart(9) + ' ' + String(s1.turnWait).padStart(7) + ' ' +
-            String(s1.vx).padStart(6) + ' ' + String(s1.vy).padStart(6) + ' ' +
-            String(s1.travelAngle).padStart(7)
-          );
-        }
-        console.log('--- MISMATCH FRAME FULL STATE ---');
-        if (snap) {
-          console.log('SHIP 0:', JSON.stringify(snap.ships[0]));
-          console.log('SHIP 1:', JSON.stringify(snap.ships[1]));
-          console.log('MISSILES:', snap.missiles.length, JSON.stringify(snap.missiles));
-          console.log('warpIn:', snap.warpIn, ' inputs(i0,i1):', snap.i0, snap.i1);
-        } else {
-          console.warn('Mismatch frame not in ring buffer — RTT too high?');
-          console.log('Oldest buffered frame:', allSnaps[0]?.frame);
-        }
-        console.groupEnd();
+        logDesyncEvent(snapHistoryRef.current, msg.frame, stateRef.current?.frame ?? -1, yourSide, checksumMismatchCountRef.current);
         // Don't crash — continue playing. The lockstep still guarantees both
         // clients run identical inputs each frame, so crew/energy should still
         // agree in most cases even if positions have drifted slightly.
@@ -1377,52 +1232,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // carved its 64px status column from the right of a 640px screen.
   const panelW = Math.round(displaySize.w * 128 / 640);
 
-  // Key capture for in-pause rebinding — runs in the capture phase so ESC
-  // cancels the rebind instead of toggling the pause overlay.
-  useEffect(() => {
-    if (!isPaused || !pauseRebinding) return;
-    const handler = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.code !== 'Escape') {
-        const pKey = pauseRebinding.player === 1 ? 'p1' : 'p2';
-        const next: ControlsConfig = {
-          ...pauseControls,
-          [pKey]: {
-            preset: 'custom',
-            bindings: { ...pauseControls[pKey].bindings, [pauseRebinding.field]: e.code },
-          },
-        };
-        setPauseControls(next);
-        setControls(next);
-        // Rebuild live refs so new bindings work immediately on resume
-        keyMapP1Ref.current  = buildKeyMap(next.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
-        keyMapP2Ref.current  = buildKeyMap(next.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
-        gamepadP1Ref.current = next.p1.bindings.gamepadIndex;
-        gamepadP2Ref.current = next.p2.bindings.gamepadIndex;
-        gameKeysRef.current  = new Set([
-          ...Object.keys(keyMapP1Ref.current),
-          ...Object.keys(keyMapP2Ref.current),
-        ]);
-      }
-      setPauseRebinding(null);
-    };
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [isPaused, pauseRebinding, pauseControls]);
-
   const handleResume = useCallback(() => {
     pausedRef.current = false;
     setIsPaused(false);
     lastTimeRef.current = performance.now();
     accumRef.current = 0;
   }, []);
-
-  function patchPauseAudio(patch: Partial<AudioConfig>) {
-    const next = { ...pauseAudio, ...patch };
-    setPauseAudio(next);
-    setAudioConfig(next);
-  }
 
   return (
     <div style={{
@@ -1443,330 +1258,21 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
         {/* Pause overlay */}
         {isPaused && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'rgba(0,0,0,0.72)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font)',
-          }}>
-            <div style={{
-              background: 'rgba(2,3,20,0.97)',
-              border: '1px solid #2a2a50',
-              padding: '24px 28px',
-              display: 'flex', flexDirection: 'column', gap: 16,
-              minWidth: 320, maxWidth: 480,
-              maxHeight: '90vh', overflowY: 'auto',
-            }}>
-              {/* Title */}
-              <div style={{
-                fontSize: 22, fontWeight: 'bold', letterSpacing: '0.3em',
-                color: '#ff44ff', textShadow: '0 0 12px #ff00ff50',
-                textTransform: 'uppercase', textAlign: 'center',
-              }}>
-                PAUSED
-              </div>
-
-              {/* Tab bar */}
-              <div style={{ display: 'flex', gap: 2 }}>
-                {(['audio', 'controls'] as const).map(t => (
-                  <button key={t} onClick={() => { setPauseTab(t); setPauseRebinding(null); }} style={{
-                    flex: 1, fontSize: 10, padding: '5px',
-                    background: pauseTab === t ? '#111130' : '#07070f',
-                    color: pauseTab === t ? '#ff88ff' : '#445',
-                    border: `1px solid ${pauseTab === t ? '#ff88ff44' : '#181830'}`,
-                    fontFamily: 'var(--font)', letterSpacing: '0.12em',
-                    cursor: 'pointer', textTransform: 'uppercase',
-                  }}>{t}</button>
-                ))}
-              </div>
-
-              {/* Audio tab */}
-              {pauseTab === 'audio' && <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#778', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mute All</span>
-                  <button
-                    onClick={() => patchPauseAudio({ muted: !pauseAudio.muted })}
-                    style={{
-                      fontSize: 10, padding: '4px 14px',
-                      background: pauseAudio.muted ? '#220a22' : '#07070f',
-                      color: pauseAudio.muted ? '#ff88ff' : '#556',
-                      border: `1px solid ${pauseAudio.muted ? '#ff44ff55' : '#1e1e40'}`,
-                      fontFamily: 'var(--font)', letterSpacing: '0.1em',
-                      cursor: 'pointer', textTransform: 'uppercase',
-                    }}
-                  >
-                    {pauseAudio.muted ? 'MUTED' : 'MUTE'}
-                  </button>
-                </div>
-                <PauseVolumeSlider label="Sound Effects" value={pauseAudio.sfxVolume} disabled={pauseAudio.muted} onChange={v => patchPauseAudio({ sfxVolume: v })} />
-                <PauseVolumeSlider label="Music" value={pauseAudio.musicVolume} disabled={pauseAudio.muted} note="(victory ditties)" onChange={v => patchPauseAudio({ musicVolume: v })} />
-              </>}
-
-              {/* Controls tab */}
-              {pauseTab === 'controls' && (
-                <PauseControlsPanel
-                  controls={pauseControls}
-                  rebinding={pauseRebinding}
-                  isLocal2P={isLocal2P}
-                  onRebind={target => setPauseRebinding(target)}
-                />
-              )}
-
-              {/* Divider */}
-              <div style={{ borderTop: '1px solid #1a1a30' }} />
-
-              {/* Buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  onClick={handleResume}
-                  style={{
-                    fontSize: 12, padding: '9px',
-                    background: '#0d0d2a', color: '#ff88ff',
-                    border: '1px solid #ff44ff44',
-                    fontFamily: 'var(--font)', letterSpacing: '0.18em',
-                    cursor: 'pointer', textTransform: 'uppercase',
-                  }}
-                >
-                  RESUME  (Esc)
-                </button>
-                <button
-                  onClick={() => onBattleEnd(null)}
-                  style={{
-                    fontSize: 12, padding: '9px',
-                    background: '#07070f', color: '#556',
-                    border: '1px solid #1e1e40',
-                    fontFamily: 'var(--font)', letterSpacing: '0.18em',
-                    cursor: 'pointer', textTransform: 'uppercase',
-                  }}
-                >
-                  QUIT BATTLE
-                </button>
-              </div>
-
-              <div style={{ color: '#2a2a44', fontSize: 10, letterSpacing: '0.08em', textAlign: 'center' }}>
-                {pauseRebinding ? 'Press any key to bind · Esc to cancel' : 'ESC to resume · changes saved automatically'}
-              </div>
-            </div>
-          </div>
+          <PauseOverlay
+            isLocal2P={isLocal2P}
+            onResume={handleResume}
+            onQuit={() => onBattleEnd(null)}
+            onBindingsChanged={(controls: ControlsConfig) => {
+              keyMapP1Ref.current  = buildKeyMap(controls.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+              keyMapP2Ref.current  = buildKeyMap(controls.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+              gamepadP1Ref.current = controls.p1.bindings.gamepadIndex;
+              gamepadP2Ref.current = controls.p2.bindings.gamepadIndex;
+              gameKeysRef.current  = new Set([...Object.keys(keyMapP1Ref.current), ...Object.keys(keyMapP2Ref.current)]);
+            }}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// ─── Pause menu sub-components ───────────────────────────────────────────────
-
-function PauseControlsPanel({ controls, rebinding, isLocal2P, onRebind }: {
-  controls: ControlsConfig;
-  rebinding: { player: 1 | 2; field: BindingField } | null;
-  isLocal2P: boolean;
-  onRebind: (target: { player: 1 | 2; field: BindingField }) => void;
-}) {
-  const players: Array<1 | 2> = isLocal2P ? [1, 2] : [1];
-  const accents: Record<1 | 2, string> = { 1: '#ff88ff', 2: '#88ccff' };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {players.map(player => {
-        const cfg     = player === 1 ? controls.p1 : controls.p2;
-        const isJoy   = cfg.bindings.gamepadIndex >= 0;
-        const accent  = accents[player];
-        return (
-          <div key={player}>
-            {isLocal2P && (
-              <div style={{
-                color: accent, fontSize: 10, letterSpacing: '0.15em',
-                textTransform: 'uppercase', marginBottom: 6,
-                borderBottom: '1px solid #181830', paddingBottom: 4,
-              }}>
-                Player {player}
-              </div>
-            )}
-            {isJoy ? (
-              <div style={{ color: '#556', fontSize: 11, lineHeight: 1.7 }}>
-                <div>Gamepad {cfg.bindings.gamepadIndex + 1} — axis / buttons</div>
-                <div style={{ color: '#334', fontSize: 10, marginTop: 4 }}>Switch preset in Settings to use keyboard.</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  color: '#334', fontSize: 10, letterSpacing: '0.1em',
-                  marginBottom: 3, paddingBottom: 3, borderBottom: '1px solid #111125',
-                }}>
-                  <span>ACTION</span>
-                  <span>KEY (CLICK TO REBIND)</span>
-                </div>
-                {BINDING_FIELDS.map(field => {
-                  const keyCode  = cfg.bindings[field as keyof typeof cfg.bindings] as string;
-                  const isAlt    = field === 'weaponAlt' || field === 'specialAlt';
-                  const isActive = rebinding?.player === player && rebinding?.field === field;
-                  if (isAlt && !keyCode && !isActive) return null;
-                  return (
-                    <div
-                      key={field}
-                      onClick={() => onRebind({ player, field })}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '4px 5px',
-                        background: isActive ? '#08082a' : 'transparent',
-                        border: `1px solid ${isActive ? '#334499' : 'transparent'}`,
-                        cursor: 'pointer', borderRadius: 2,
-                      }}
-                    >
-                      <span style={{
-                        color: isAlt ? '#445' : '#778', fontSize: isAlt ? 10 : 11,
-                        letterSpacing: '0.05em', paddingLeft: isAlt ? 10 : 0,
-                      }}>
-                        {FIELD_LABELS[field]}
-                      </span>
-                      <span style={{
-                        color: isActive ? '#aabbff' : keyCode ? accent : '#2a2a44',
-                        fontSize: 10,
-                        background: isActive ? '#111140' : '#040410',
-                        padding: '2px 8px',
-                        border: `1px solid ${isActive ? '#4455bb' : '#121220'}`,
-                        minWidth: 72, textAlign: 'center', letterSpacing: '0.04em',
-                      }}>
-                        {isActive ? 'Press a key…' : codeDisplay(keyCode) || '—'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {!isLocal2P && (
-        <div style={{ color: '#2a2a44', fontSize: 10, letterSpacing: '0.07em' }}>
-          Online play uses Player 1 controls.
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PauseVolumeSlider({ label, value, disabled, note, onChange }: {
-  label: string;
-  value: number;
-  disabled?: boolean;
-  note?: string;
-  onChange: (v: number) => void;
-}) {
-  const pct = Math.round(value * 100);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, opacity: disabled ? 0.4 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ color: '#778', fontSize: 11, letterSpacing: '0.09em', textTransform: 'uppercase' }}>
-          {label}
-          {note && <span style={{ color: '#334', fontSize: 10, marginLeft: 8 }}>{note}</span>}
-        </span>
-        <span style={{ color: '#ff88ff', fontSize: 11, minWidth: 32, textAlign: 'right' }}>{pct}%</span>
-      </div>
-      <input
-        type="range" min={0} max={100} step={1}
-        value={pct}
-        disabled={disabled}
-        onChange={e => onChange(Number(e.target.value) / 100)}
-        style={{ width: '100%', accentColor: '#ff44ff', cursor: disabled ? 'not-allowed' : 'pointer' }}
-      />
-    </div>
-  );
-}
-
-// ─── Helper functions ─────────────────────────────────────────────────────────
-
-// placeholderDot is imported from engine/sprites
-
-function renderPkunkRebirth(
-  ctx: CanvasRenderingContext2D,
-  ship: ShipState,
-  sprites: unknown,
-  timer: number,
-  baseDc: Omit<DrawContext, 'ctx'>,
-): void {
-  const sp = sprites as PkunkSprites | null;
-  const set = sp
-    ? (baseDc.reduction >= 2 ? sp.sml : baseDc.reduction === 1 ? sp.med : sp.big)
-    : null;
-  const progress = 1 - ((timer - 1) / 12);
-  const distance = Math.round(DISPLAY_TO_WORLD(20) * (1 - progress));
-  const alpha = Math.max(0.2, Math.min(0.85, progress));
-  const faces = [ship.facing, (ship.facing + 4) & 15, (ship.facing + 8) & 15, (ship.facing + 12) & 15];
-
-  ctx.save();
-  for (const face of faces) {
-    const angle = (face * 4) & 63;
-    const x = ship.x - COSINE(angle, distance);
-    const y = ship.y - SINE(angle, distance);
-
-    for (let trail = 0; trail < 4; trail++) {
-      const trailDist = distance + DISPLAY_TO_WORLD(5 * (trail + 1));
-      const tx = ship.x - COSINE(angle, trailDist);
-      const ty = ship.y - SINE(angle, trailDist);
-      const tdx = (((tx - baseDc.camX) % baseDc.worldW) + baseDc.worldW) % baseDc.worldW;
-      const tdy = (((ty - baseDc.camY) % baseDc.worldH) + baseDc.worldH) % baseDc.worldH;
-      const sx = Math.floor((tdx > baseDc.worldW / 2 ? tdx - baseDc.worldW : tdx) / (1 << (2 + baseDc.reduction)));
-      const sy = Math.floor((tdy > baseDc.worldH / 2 ? tdy - baseDc.worldH : tdy) / (1 << (2 + baseDc.reduction)));
-      ctx.fillStyle = `rgba(${255 - trail * 24},${Math.max(0, 171 - trail * 40)},0,${alpha * (0.7 - trail * 0.12)})`;
-      ctx.fillRect(sx, sy, 2, 2);
-    }
-
-    ctx.globalAlpha = alpha;
-    if (set) {
-      drawSprite(ctx, set, face, x, y, baseDc.canvasW, baseDc.canvasH, baseDc.camX, baseDc.camY, baseDc.reduction);
-    } else {
-      placeholderDot(ctx, x, y, baseDc.camX, baseDc.camY, 8, '#f80', baseDc.reduction);
-    }
-  }
-  ctx.restore();
-}
-
-/**
- * Pick the smallest zoom-out level (0–MAX_REDUCTION) that keeps both ships
- * on screen. Zoom out immediately; zoom in only after separation drops below
- * threshold by HYSTERESIS_W world units to prevent jitter at the boundary.
- */
-/**
- * Simple AI based on UQM human_intelligence behavior:
- * 1. Turn toward enemy
- * 2. Thrust when roughly facing enemy or when far away
- * 3. Fire nuke when well-aligned
- * 4. Fire point defense when enemy nuke is close
- */
-function computeAIInput(
-  ai: ShipState,
-  target: ShipState,
-  nukes: BattleMissile[],
-  aiSide: 0 | 1,
-  aiDifficulty: AIDifficulty,
-): number {
-  let input = 0;
-
-  // Angle to target (0–63 UQM system)
-  const rawAngle = worldAngle(ai.x, ai.y, target.x, target.y);
-  // Convert to facing (0–15)
-  const targetFacing = Math.round(rawAngle / 4) & 15;
-  const facingDiff = ((targetFacing - ai.facing + 16) % 16);
-
-  // Turn: shortest path. facingDiff > 8 means left is shorter.
-  if (facingDiff >= 1 && facingDiff <= 8)  input |= INPUT_RIGHT;
-  else if (facingDiff > 8)                  input |= INPUT_LEFT;
-
-  const thrustWindow = aiDifficulty === 'cyborg_awesome' ? 4 : aiDifficulty === 'cyborg_good' ? 3 : 2;
-  if (facingDiff <= thrustWindow || facingDiff >= 16 - thrustWindow) input |= INPUT_THRUST;
-
-  const fireWindow = aiDifficulty === 'cyborg_awesome' ? 1 : aiDifficulty === 'cyborg_good' ? 1 : 0;
-  if (facingDiff <= fireWindow || facingDiff >= 16 - fireWindow) input |= INPUT_FIRE1;
-
-  const aiRangeW = DISPLAY_TO_WORLD(aiDifficulty === 'cyborg_awesome' ? 96 : aiDifficulty === 'cyborg_good' ? 84 : 72);
-  const hasIncomingNuke = nukes.some(n => {
-    if (n.owner === aiSide) return false; // own nuke, not a threat
-    const dx = n.x - ai.x; const dy = n.y - ai.y;
-    return dx * dx + dy * dy < aiRangeW * aiRangeW;
-  });
-  if (hasIncomingNuke) input |= INPUT_FIRE2;
-
-  return input;
-}

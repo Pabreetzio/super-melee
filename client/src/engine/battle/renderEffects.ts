@@ -1,6 +1,8 @@
-import { drawSprite, placeholderDot, type ExplosionSprites } from '../sprites';
-import type { LaserFlash } from '../ships/types';
+import { drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../sprites';
+import type { DrawContext, LaserFlash, ShipState } from '../ships/types';
 import type { BattleExplosion, IonDot } from './types';
+import { COSINE, SINE } from '../sinetab';
+import { DISPLAY_TO_WORLD } from '../velocity';
 
 const ION_COLORS: [number, number, number][] = [
   [255, 171,  0],
@@ -54,6 +56,50 @@ export function renderIonTrails(
       ctx.fillRect(dotDX, dotDY, 1, 1);
     }
   }
+}
+
+export function renderPkunkRebirth(
+  ctx: CanvasRenderingContext2D,
+  ship: ShipState,
+  sprites: unknown,
+  timer: number,
+  baseDc: Omit<DrawContext, 'ctx'>,
+): void {
+  const sp = sprites as PkunkSprites | null;
+  const set = sp
+    ? (baseDc.reduction >= 2 ? sp.sml : baseDc.reduction === 1 ? sp.med : sp.big)
+    : null;
+  const progress = 1 - ((timer - 1) / 12);
+  const distance = Math.round(DISPLAY_TO_WORLD(20) * (1 - progress));
+  const alpha = Math.max(0.2, Math.min(0.85, progress));
+  const faces = [ship.facing, (ship.facing + 4) & 15, (ship.facing + 8) & 15, (ship.facing + 12) & 15];
+
+  ctx.save();
+  for (const face of faces) {
+    const angle = (face * 4) & 63;
+    const x = ship.x - COSINE(angle, distance);
+    const y = ship.y - SINE(angle, distance);
+
+    for (let trail = 0; trail < 4; trail++) {
+      const trailDist = distance + DISPLAY_TO_WORLD(5 * (trail + 1));
+      const tx = ship.x - COSINE(angle, trailDist);
+      const ty = ship.y - SINE(angle, trailDist);
+      const tdx = (((tx - baseDc.camX) % baseDc.worldW) + baseDc.worldW) % baseDc.worldW;
+      const tdy = (((ty - baseDc.camY) % baseDc.worldH) + baseDc.worldH) % baseDc.worldH;
+      const sx = Math.floor((tdx > baseDc.worldW / 2 ? tdx - baseDc.worldW : tdx) / (1 << (2 + baseDc.reduction)));
+      const sy = Math.floor((tdy > baseDc.worldH / 2 ? tdy - baseDc.worldH : tdy) / (1 << (2 + baseDc.reduction)));
+      ctx.fillStyle = `rgba(${255 - trail * 24},${Math.max(0, 171 - trail * 40)},0,${alpha * (0.7 - trail * 0.12)})`;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+
+    ctx.globalAlpha = alpha;
+    if (set) {
+      drawSprite(ctx, set, face, x, y, baseDc.canvasW, baseDc.canvasH, baseDc.camX, baseDc.camY, baseDc.reduction);
+    } else {
+      placeholderDot(ctx, x, y, baseDc.camX, baseDc.camY, 8, '#f80', baseDc.reduction);
+    }
+  }
+  ctx.restore();
 }
 
 export function renderExplosions(
