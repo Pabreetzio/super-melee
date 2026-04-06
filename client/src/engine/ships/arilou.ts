@@ -16,6 +16,7 @@ import { loadGenericShipSprites, drawSprite, placeholderDot, type ShipSpriteSet,
 import type { BattleMissile, DrawContext, LaserFlash, ShipController, ShipState, SpawnRequest } from './types';
 import { toroidalDelta, worldAngle, worldDelta, wrapWorldCoord } from '../battle/helpers';
 import { WORLD_H, WORLD_W } from '../battle/constants';
+import { SHIP_REGISTRY } from './registry';
 import type { AIDifficulty } from 'shared/types';
 
 // ─── Constants (from arilou.c) ───────────────────────────────────────────────
@@ -276,6 +277,7 @@ export const arilouController: ShipController = {
     addLaser: (l: LaserFlash) => void,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
+    enemyType,
   ): void {
     if (s.type !== 'arilou_laser') return;
 
@@ -297,7 +299,8 @@ export const arilouController: ShipController = {
       const miss = worldDelta(closestX, closestY, enemyShip.x, enemyShip.y, WORLD_W, WORLD_H);
       const shipRadiusW = DISPLAY_TO_WORLD(10);
       if (miss.dx * miss.dx + miss.dy * miss.dy <= shipRadiusW * shipRadiusW) {
-        enemyShip.crew = Math.max(0, enemyShip.crew - 2);
+        const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: 2 });
+        if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - 2);
       }
     }
 

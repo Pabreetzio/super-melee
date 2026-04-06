@@ -18,6 +18,7 @@ import { drawSprite, loadShofixtiSprites, placeholderDot, type ShofixtiSprites, 
 import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { SHIP_REGISTRY } from './registry';
 
 export const SHOFIXTI_MAX_CREW = 6;
 export const SHOFIXTI_MAX_ENERGY = 4;
@@ -249,6 +250,8 @@ export const shofixtiController: ShipController = {
     missiles: BattleMissile[],
     _addLaser,
     damageMissile,
+    _emitSound,
+    enemyType,
   ): void {
     if (s.type !== 'shofixti_glory') return;
 
@@ -264,7 +267,8 @@ export const shofixtiController: ShipController = {
 
     const enemyDamage = damageAt(enemyShip.x, enemyShip.y);
     if (enemyDamage > 0) {
-      enemyShip.crew = Math.max(0, enemyShip.crew - enemyDamage);
+      const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'missile', damage: enemyDamage });
+      if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - enemyDamage);
     }
 
     for (const missile of [...missiles]) {

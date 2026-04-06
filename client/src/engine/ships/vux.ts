@@ -14,6 +14,7 @@ import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites, type Sprit
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileHitEffect, LaserFlash } from './types';
 import type { AIDifficulty } from 'shared/types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { SHIP_REGISTRY } from './registry';
 
 export type { ShipState as HumanShipState };
 
@@ -253,6 +254,7 @@ export const vuxController: ShipController = {
     addLaser: (l: LaserFlash) => void,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
+    enemyType,
   ): void {
     if (s.type !== 'vux_laser') return;
 
@@ -275,7 +277,8 @@ export const vuxController: ShipController = {
     const shipRadW = DISPLAY_TO_WORLD(14); // SHIP_RADIUS = 14 display px
 
     if (distSq <= shipRadW * shipRadW) {
-      enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+      const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: 1 });
+      if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - 1);
     }
     // Always show flash, hit or miss
     addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey, color: VUX_LASER_COLOR });

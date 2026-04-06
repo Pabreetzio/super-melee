@@ -1,4 +1,4 @@
-import { playBlast, playEffectSound } from '../audio';
+import { playBattleSound, playBlast, playEffectSound } from '../audio';
 import { SHIP_REGISTRY } from '../ships/registry';
 import { getShipDef } from '../ships';
 import type { BattleMissile, ShipState } from '../ships/types';
@@ -6,7 +6,7 @@ import type { SpriteFrame } from '../sprites';
 import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY, setVelocityComponents } from '../velocity';
 import { trackFacing } from '../ships/human';
 import { COSINE, SINE } from '../sinetab';
-import type { BattleExplosion, IonDot } from './types';
+import type { BattleExplosion, CrewPod, IonDot } from './types';
 import type { BattleState } from './types';
 import { circleOverlap, worldAngle, worldDelta } from './helpers';
 import { spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
@@ -336,6 +336,47 @@ export function updateIonTrails(
   }
 }
 
+export function updateCrewPods(
+  bs: BattleState,
+  warpIn: [number, number],
+  worldW: number,
+  worldH: number,
+): void {
+  const alivePods: CrewPod[] = [];
+
+  for (const pod of bs.crewPods) {
+    pod.life--;
+    if (pod.life <= 0) continue;
+    if (pod.collectDelay > 0) pod.collectDelay--;
+
+    pod.blink = !pod.blink;
+    const targetShip = bs.ships[pod.targetSide];
+    const { dx, dy } = worldDelta(pod.x, pod.y, targetShip.x, targetShip.y, worldW, worldH);
+    const stepX = dx === 0 ? 0 : dx > 0 ? DISPLAY_TO_WORLD(1) : -DISPLAY_TO_WORLD(1);
+    const stepY = dy === 0 ? 0 : dy > 0 ? DISPLAY_TO_WORLD(1) : -DISPLAY_TO_WORLD(1);
+    pod.x = ((pod.x + stepX) % worldW + worldW) % worldW;
+    pod.y = ((pod.y + stepY) % worldH + worldH) % worldH;
+
+    let collected = false;
+    if (pod.collectDelay <= 0) {
+      for (const side of [0, 1] as const) {
+        const ship = bs.ships[side];
+        if (ship.crew <= 0 || warpIn[side] > 0 || SHIP_REGISTRY[bs.shipTypes[side]].isIntangible?.(ship)) continue;
+        if (SHIP_REGISTRY[bs.shipTypes[side]].isCrewImmune?.(ship)) continue;
+        if (!circleOverlap(pod.x, pod.y, DISPLAY_TO_WORLD(2), ship.x, ship.y, getShipCollisionRadius(bs, side), worldW, worldH)) continue;
+        ship.crew = Math.min(ship.crew + 1, SHIP_REGISTRY[bs.shipTypes[side]].maxCrew);
+        playBattleSound('getcrew', 0.7);
+        collected = true;
+        break;
+      }
+    }
+
+    if (!collected) alivePods.push(pod);
+  }
+
+  bs.crewPods = alivePods;
+}
+
 export function processMissiles(
   bs: BattleState,
   shipSprites: Map<string, unknown>,
@@ -372,7 +413,14 @@ export function processMissiles(
 
     const effect = ownerCtrl.processMissile?.(m, ownShip, enemyShip, bs.missiles, ownerInput) ?? {};
 
-    if (effect.damageEnemy) enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
+    if (effect.damageEnemy) {
+      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[m.owner === 0 ? 1 : 0]];
+      const absorb = targetCtrl.absorbHit?.(enemyShip, { kind: 'laser', damage: effect.damageEnemy });
+      if (absorb?.sound) playEffectSound(absorb.sound);
+      if (!absorb?.absorbed) {
+        enemyShip.crew = Math.max(0, enemyShip.crew - effect.damageEnemy);
+      }
+    }
     if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
     if (effect.lasers)      bs.lasers.push(...effect.lasers);
     if (effect.sounds) for (const snd of effect.sounds) playEffectSound(snd);
@@ -489,6 +537,12 @@ export function processMissiles(
         !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
         m.weaponType !== 'fighter' &&
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
+      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
+      const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+      if (absorb?.absorbed) {
+        if (absorb.sound) playEffectSound(absorb.sound);
+        if (absorb.destroyIncoming !== false) hit = true;
+      } else {
       targetShip.crew = Math.max(0, targetShip.crew - m.damage);
       const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
       pushHitEffects(bs, m, hitFx, worldW, worldH);
@@ -521,6 +575,7 @@ export function processMissiles(
       } else {
         hit = true;
       }
+      }
     }
 
     if (!hit &&
@@ -530,6 +585,12 @@ export function processMissiles(
         bs.warpIn[targetSide] === 0 &&
         !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
         missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
+      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
+      const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+      if (absorb?.absorbed) {
+        if (absorb.sound) playEffectSound(absorb.sound);
+        if (absorb.destroyIncoming !== false) hit = true;
+      } else {
       const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
       pushHitEffects(bs, m, hitFx, worldW, worldH);
       if (hitFx.drainTargetEnergy) {
@@ -540,6 +601,7 @@ export function processMissiles(
         m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
       } else {
         hit = true;
+      }
       }
     }
 

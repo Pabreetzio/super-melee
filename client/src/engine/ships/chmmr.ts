@@ -33,6 +33,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { SHIP_REGISTRY } from './registry';
 import type { AIDifficulty } from 'shared/types';
 
 export const CHMMR_MAX_CREW = 42;
@@ -323,6 +324,7 @@ export const chmmrController: ShipController = {
     addLaser: (l: LaserFlash) => void,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
+    enemyType,
   ): void {
     if (s.type === 'chmmr_laser') {
       const angle = (s.facing * 4) & 63;
@@ -331,7 +333,8 @@ export const chmmrController: ShipController = {
       const endX = startX + COSINE(angle, CHMMR_LASER_RANGE);
       const endY = startY + SINE(angle, CHMMR_LASER_RANGE);
       if (pointHitsShip(startX, startY, endX, endY, enemyShip, DISPLAY_TO_WORLD(18))) {
-        enemyShip.crew = Math.max(0, enemyShip.crew - CHMMR_LASER_DAMAGE);
+        const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: CHMMR_LASER_DAMAGE });
+        if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - CHMMR_LASER_DAMAGE);
       }
       addLaser({ x1: startX, y1: startY, x2: endX, y2: endY, color: LASER_COLORS[ownShip.chmmrLaserCycle ?? 0] });
       ownShip.chmmrLaserCycle = ((ownShip.chmmrLaserCycle ?? 0) + 1) % LASER_COLORS.length;

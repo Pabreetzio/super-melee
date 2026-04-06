@@ -50,7 +50,6 @@ export interface ShipSelectionPreview {
 }
 
 const STARTING_OVERRIDES: Partial<Record<ShipId, { crew?: number; energy?: number }>> = {
-  syreen: { crew: 8 },
   utwig:  { energy: 10 },
 };
 
@@ -72,7 +71,7 @@ const MAX_STATS: Partial<Record<ShipId, { crew: number; energy: number }>> = {
   slylandro:  { crew: 12, energy: 20 },
   spathi:     { crew: 30, energy: 10 },
   supox:      { crew: 12, energy: 16 },
-  syreen:     { crew: 12, energy: 16 },
+  syreen:     { crew: 42, energy: 16 },
   thraddash:  { crew: 8,  energy: 24 },
   umgah:      { crew: 10, energy: 30 },
   urquan:     { crew: 42, energy: 42 },

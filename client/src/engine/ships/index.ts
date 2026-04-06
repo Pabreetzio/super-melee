@@ -1,5 +1,5 @@
-// Ship registry — placeholder stats for all 27 ships.
-// Values are rough estimates; will be refined per UQM source deep-dives.
+// Ship defs — battle-facing stats for all ships.
+// Values are refined against the UQM reference source as ships are ported.
 // Canonical reference: uqm-0.8.0/src/uqm/ships/<name>/<name>.c
 
 import type { ShipId } from 'shared/types';
@@ -15,7 +15,7 @@ export interface ShipDef {
   turnDelay:  number;        // frames between turns
   mass:       number;        // collision mass
   radius:     number;        // collision radius (display pixels)
-  // Weapons — stubs until ship deep-dives
+  // Weapon summary stats used by UI/debug surfaces.
   primaryDamage:   number;
   secondaryDamage: number;
 }

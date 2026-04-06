@@ -218,8 +218,14 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.melnormeConfusionFrames ?? 0);
     h = hashStep(h, ship.melnormeConfusionInput ?? 0);
     h = hashStep(h, ship.melnormeSeed ?? 0);
+    h = hashStep(h, ship.mmrnmhrmForm === 'y' ? 2 : ship.mmrnmhrmForm === 'x' ? 1 : 0);
+    h = hashStep(h, ship.slylandroReversePressed ? 1 : 0);
+    h = hashStep(h, ship.slylandroLightningCycle ?? 0);
     h = hashStep(h, ship.umgahConeCycle ?? 0);
     h = hashStep(h, ship.umgahZipPending ? 1 : 0);
+    h = hashStep(h, ship.utwigShieldFrames ?? 0);
+    h = hashStep(h, ship.utwigShieldDrainWait ?? 0);
+    h = hashStep(h, ship.utwigShieldCycle ?? 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
@@ -262,6 +268,15 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, m.orzBoardSlot ?? -1);
     h = hashStep(h, m.orzFlashFrame ?? 0);
     h = hashStep(h, m.orzSeed ?? 0);
+  }
+  h = hashStep(h, bs.crewPods.length);
+  for (const pod of bs.crewPods) {
+    h = hashStep(h, pod.x);
+    h = hashStep(h, pod.y);
+    h = hashStep(h, pod.targetSide);
+    h = hashStep(h, pod.life);
+    h = hashStep(h, pod.collectDelay);
+    h = hashStep(h, pod.blink ? 1 : 0);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

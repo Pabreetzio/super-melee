@@ -2,10 +2,538 @@
   "id": "ships/syreen",
   "imageUrl": "/atlases/ships/syreen.png",
   "frames": {
+    "/ships/syreen/dagger-big-000.png": {
+      "key": "/ships/syreen/dagger-big-000.png",
+      "sourceUrl": "/ships/syreen/dagger-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 1,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-000.png"
+    },
+    "/ships/syreen/dagger-big-001.png": {
+      "key": "/ships/syreen/dagger-big-001.png",
+      "sourceUrl": "/ships/syreen/dagger-big-001.png",
+      "x": 5,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-001.png"
+    },
+    "/ships/syreen/dagger-big-002.png": {
+      "key": "/ships/syreen/dagger-big-002.png",
+      "sourceUrl": "/ships/syreen/dagger-big-002.png",
+      "x": 10,
+      "y": 2,
+      "w": 6,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-002.png"
+    },
+    "/ships/syreen/dagger-big-003.png": {
+      "key": "/ships/syreen/dagger-big-003.png",
+      "sourceUrl": "/ships/syreen/dagger-big-003.png",
+      "x": 18,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-003.png"
+    },
+    "/ships/syreen/dagger-big-004.png": {
+      "key": "/ships/syreen/dagger-big-004.png",
+      "sourceUrl": "/ships/syreen/dagger-big-004.png",
+      "x": 27,
+      "y": 2,
+      "w": 8,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-004.png"
+    },
+    "/ships/syreen/dagger-big-005.png": {
+      "key": "/ships/syreen/dagger-big-005.png",
+      "sourceUrl": "/ships/syreen/dagger-big-005.png",
+      "x": 37,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-005.png"
+    },
+    "/ships/syreen/dagger-big-006.png": {
+      "key": "/ships/syreen/dagger-big-006.png",
+      "sourceUrl": "/ships/syreen/dagger-big-006.png",
+      "x": 46,
+      "y": 2,
+      "w": 6,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-006.png"
+    },
+    "/ships/syreen/dagger-big-007.png": {
+      "key": "/ships/syreen/dagger-big-007.png",
+      "sourceUrl": "/ships/syreen/dagger-big-007.png",
+      "x": 54,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-007.png"
+    },
+    "/ships/syreen/dagger-big-008.png": {
+      "key": "/ships/syreen/dagger-big-008.png",
+      "sourceUrl": "/ships/syreen/dagger-big-008.png",
+      "x": 59,
+      "y": 2,
+      "w": 1,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-008.png"
+    },
+    "/ships/syreen/dagger-big-009.png": {
+      "key": "/ships/syreen/dagger-big-009.png",
+      "sourceUrl": "/ships/syreen/dagger-big-009.png",
+      "x": 62,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-009.png"
+    },
+    "/ships/syreen/dagger-big-010.png": {
+      "key": "/ships/syreen/dagger-big-010.png",
+      "sourceUrl": "/ships/syreen/dagger-big-010.png",
+      "x": 67,
+      "y": 2,
+      "w": 6,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-010.png"
+    },
+    "/ships/syreen/dagger-big-011.png": {
+      "key": "/ships/syreen/dagger-big-011.png",
+      "sourceUrl": "/ships/syreen/dagger-big-011.png",
+      "x": 75,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-011.png"
+    },
+    "/ships/syreen/dagger-big-012.png": {
+      "key": "/ships/syreen/dagger-big-012.png",
+      "sourceUrl": "/ships/syreen/dagger-big-012.png",
+      "x": 84,
+      "y": 2,
+      "w": 8,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-012.png"
+    },
+    "/ships/syreen/dagger-big-013.png": {
+      "key": "/ships/syreen/dagger-big-013.png",
+      "sourceUrl": "/ships/syreen/dagger-big-013.png",
+      "x": 94,
+      "y": 2,
+      "w": 7,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-013.png"
+    },
+    "/ships/syreen/dagger-big-014.png": {
+      "key": "/ships/syreen/dagger-big-014.png",
+      "sourceUrl": "/ships/syreen/dagger-big-014.png",
+      "x": 103,
+      "y": 2,
+      "w": 6,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-014.png"
+    },
+    "/ships/syreen/dagger-big-015.png": {
+      "key": "/ships/syreen/dagger-big-015.png",
+      "sourceUrl": "/ships/syreen/dagger-big-015.png",
+      "x": 111,
+      "y": 2,
+      "w": 3,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-big-015.png"
+    },
+    "/ships/syreen/dagger-med-000.png": {
+      "key": "/ships/syreen/dagger-med-000.png",
+      "sourceUrl": "/ships/syreen/dagger-med-000.png",
+      "x": 116,
+      "y": 2,
+      "w": 1,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-000.png"
+    },
+    "/ships/syreen/dagger-med-001.png": {
+      "key": "/ships/syreen/dagger-med-001.png",
+      "sourceUrl": "/ships/syreen/dagger-med-001.png",
+      "x": 119,
+      "y": 2,
+      "w": 2,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-001.png"
+    },
+    "/ships/syreen/dagger-med-002.png": {
+      "key": "/ships/syreen/dagger-med-002.png",
+      "sourceUrl": "/ships/syreen/dagger-med-002.png",
+      "x": 123,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-002.png"
+    },
+    "/ships/syreen/dagger-med-003.png": {
+      "key": "/ships/syreen/dagger-med-003.png",
+      "sourceUrl": "/ships/syreen/dagger-med-003.png",
+      "x": 129,
+      "y": 2,
+      "w": 4,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-003.png"
+    },
+    "/ships/syreen/dagger-med-004.png": {
+      "key": "/ships/syreen/dagger-med-004.png",
+      "sourceUrl": "/ships/syreen/dagger-med-004.png",
+      "x": 135,
+      "y": 2,
+      "w": 4,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-004.png"
+    },
+    "/ships/syreen/dagger-med-005.png": {
+      "key": "/ships/syreen/dagger-med-005.png",
+      "sourceUrl": "/ships/syreen/dagger-med-005.png",
+      "x": 141,
+      "y": 2,
+      "w": 4,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-005.png"
+    },
+    "/ships/syreen/dagger-med-006.png": {
+      "key": "/ships/syreen/dagger-med-006.png",
+      "sourceUrl": "/ships/syreen/dagger-med-006.png",
+      "x": 147,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-006.png"
+    },
+    "/ships/syreen/dagger-med-007.png": {
+      "key": "/ships/syreen/dagger-med-007.png",
+      "sourceUrl": "/ships/syreen/dagger-med-007.png",
+      "x": 153,
+      "y": 2,
+      "w": 2,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-007.png"
+    },
+    "/ships/syreen/dagger-med-008.png": {
+      "key": "/ships/syreen/dagger-med-008.png",
+      "sourceUrl": "/ships/syreen/dagger-med-008.png",
+      "x": 157,
+      "y": 2,
+      "w": 1,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-008.png"
+    },
+    "/ships/syreen/dagger-med-009.png": {
+      "key": "/ships/syreen/dagger-med-009.png",
+      "sourceUrl": "/ships/syreen/dagger-med-009.png",
+      "x": 160,
+      "y": 2,
+      "w": 2,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-009.png"
+    },
+    "/ships/syreen/dagger-med-010.png": {
+      "key": "/ships/syreen/dagger-med-010.png",
+      "sourceUrl": "/ships/syreen/dagger-med-010.png",
+      "x": 164,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-010.png"
+    },
+    "/ships/syreen/dagger-med-011.png": {
+      "key": "/ships/syreen/dagger-med-011.png",
+      "sourceUrl": "/ships/syreen/dagger-med-011.png",
+      "x": 170,
+      "y": 2,
+      "w": 4,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-011.png"
+    },
+    "/ships/syreen/dagger-med-012.png": {
+      "key": "/ships/syreen/dagger-med-012.png",
+      "sourceUrl": "/ships/syreen/dagger-med-012.png",
+      "x": 176,
+      "y": 2,
+      "w": 4,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-012.png"
+    },
+    "/ships/syreen/dagger-med-013.png": {
+      "key": "/ships/syreen/dagger-med-013.png",
+      "sourceUrl": "/ships/syreen/dagger-med-013.png",
+      "x": 182,
+      "y": 2,
+      "w": 4,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-013.png"
+    },
+    "/ships/syreen/dagger-med-014.png": {
+      "key": "/ships/syreen/dagger-med-014.png",
+      "sourceUrl": "/ships/syreen/dagger-med-014.png",
+      "x": 188,
+      "y": 2,
+      "w": 4,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-014.png"
+    },
+    "/ships/syreen/dagger-med-015.png": {
+      "key": "/ships/syreen/dagger-med-015.png",
+      "sourceUrl": "/ships/syreen/dagger-med-015.png",
+      "x": 194,
+      "y": 2,
+      "w": 2,
+      "h": 4,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-med-015.png"
+    },
+    "/ships/syreen/dagger-sml-000.png": {
+      "key": "/ships/syreen/dagger-sml-000.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-000.png",
+      "x": 198,
+      "y": 2,
+      "w": 1,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-000.png"
+    },
+    "/ships/syreen/dagger-sml-001.png": {
+      "key": "/ships/syreen/dagger-sml-001.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-001.png",
+      "x": 201,
+      "y": 2,
+      "w": 2,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-001.png"
+    },
+    "/ships/syreen/dagger-sml-002.png": {
+      "key": "/ships/syreen/dagger-sml-002.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-002.png",
+      "x": 205,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-002.png"
+    },
+    "/ships/syreen/dagger-sml-003.png": {
+      "key": "/ships/syreen/dagger-sml-003.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-003.png",
+      "x": 210,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-003.png"
+    },
+    "/ships/syreen/dagger-sml-004.png": {
+      "key": "/ships/syreen/dagger-sml-004.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-004.png",
+      "x": 215,
+      "y": 2,
+      "w": 3,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-004.png"
+    },
+    "/ships/syreen/dagger-sml-005.png": {
+      "key": "/ships/syreen/dagger-sml-005.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-005.png",
+      "x": 220,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-005.png"
+    },
+    "/ships/syreen/dagger-sml-006.png": {
+      "key": "/ships/syreen/dagger-sml-006.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-006.png",
+      "x": 225,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-006.png"
+    },
+    "/ships/syreen/dagger-sml-007.png": {
+      "key": "/ships/syreen/dagger-sml-007.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-007.png",
+      "x": 230,
+      "y": 2,
+      "w": 2,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-007.png"
+    },
+    "/ships/syreen/dagger-sml-008.png": {
+      "key": "/ships/syreen/dagger-sml-008.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-008.png",
+      "x": 234,
+      "y": 2,
+      "w": 1,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-008.png"
+    },
+    "/ships/syreen/dagger-sml-009.png": {
+      "key": "/ships/syreen/dagger-sml-009.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-009.png",
+      "x": 237,
+      "y": 2,
+      "w": 2,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-009.png"
+    },
+    "/ships/syreen/dagger-sml-010.png": {
+      "key": "/ships/syreen/dagger-sml-010.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-010.png",
+      "x": 241,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-010.png"
+    },
+    "/ships/syreen/dagger-sml-011.png": {
+      "key": "/ships/syreen/dagger-sml-011.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-011.png",
+      "x": 246,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-011.png"
+    },
+    "/ships/syreen/dagger-sml-012.png": {
+      "key": "/ships/syreen/dagger-sml-012.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-012.png",
+      "x": 251,
+      "y": 2,
+      "w": 3,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-012.png"
+    },
+    "/ships/syreen/dagger-sml-013.png": {
+      "key": "/ships/syreen/dagger-sml-013.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-013.png",
+      "x": 256,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-013.png"
+    },
+    "/ships/syreen/dagger-sml-014.png": {
+      "key": "/ships/syreen/dagger-sml-014.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-014.png",
+      "x": 261,
+      "y": 2,
+      "w": 3,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-014.png"
+    },
+    "/ships/syreen/dagger-sml-015.png": {
+      "key": "/ships/syreen/dagger-sml-015.png",
+      "sourceUrl": "/ships/syreen/dagger-sml-015.png",
+      "x": 266,
+      "y": 2,
+      "w": 2,
+      "h": 3,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/syreen/dagger-sml-015.png"
+    },
     "/ships/syreen/penetrator-big-000.png": {
       "key": "/ships/syreen/penetrator-big-000.png",
       "sourceUrl": "/ships/syreen/penetrator-big-000.png",
-      "x": 2,
+      "x": 270,
       "y": 2,
       "w": 17,
       "h": 30,
@@ -16,7 +544,7 @@
     "/ships/syreen/penetrator-big-001.png": {
       "key": "/ships/syreen/penetrator-big-001.png",
       "sourceUrl": "/ships/syreen/penetrator-big-001.png",
-      "x": 21,
+      "x": 289,
       "y": 2,
       "w": 23,
       "h": 31,
@@ -27,7 +555,7 @@
     "/ships/syreen/penetrator-big-002.png": {
       "key": "/ships/syreen/penetrator-big-002.png",
       "sourceUrl": "/ships/syreen/penetrator-big-002.png",
-      "x": 46,
+      "x": 314,
       "y": 2,
       "w": 30,
       "h": 28,
@@ -38,7 +566,7 @@
     "/ships/syreen/penetrator-big-003.png": {
       "key": "/ships/syreen/penetrator-big-003.png",
       "sourceUrl": "/ships/syreen/penetrator-big-003.png",
-      "x": 78,
+      "x": 346,
       "y": 2,
       "w": 34,
       "h": 22,
@@ -49,7 +577,7 @@
     "/ships/syreen/penetrator-big-004.png": {
       "key": "/ships/syreen/penetrator-big-004.png",
       "sourceUrl": "/ships/syreen/penetrator-big-004.png",
-      "x": 114,
+      "x": 382,
       "y": 2,
       "w": 36,
       "h": 17,
@@ -60,7 +588,7 @@
     "/ships/syreen/penetrator-big-005.png": {
       "key": "/ships/syreen/penetrator-big-005.png",
       "sourceUrl": "/ships/syreen/penetrator-big-005.png",
-      "x": 152,
+      "x": 420,
       "y": 2,
       "w": 34,
       "h": 22,
@@ -71,7 +599,7 @@
     "/ships/syreen/penetrator-big-006.png": {
       "key": "/ships/syreen/penetrator-big-006.png",
       "sourceUrl": "/ships/syreen/penetrator-big-006.png",
-      "x": 188,
+      "x": 456,
       "y": 2,
       "w": 30,
       "h": 28,
@@ -82,7 +610,7 @@
     "/ships/syreen/penetrator-big-007.png": {
       "key": "/ships/syreen/penetrator-big-007.png",
       "sourceUrl": "/ships/syreen/penetrator-big-007.png",
-      "x": 220,
+      "x": 488,
       "y": 2,
       "w": 23,
       "h": 31,
@@ -93,7 +621,7 @@
     "/ships/syreen/penetrator-big-008.png": {
       "key": "/ships/syreen/penetrator-big-008.png",
       "sourceUrl": "/ships/syreen/penetrator-big-008.png",
-      "x": 245,
+      "x": 513,
       "y": 2,
       "w": 17,
       "h": 30,
@@ -104,7 +632,7 @@
     "/ships/syreen/penetrator-big-009.png": {
       "key": "/ships/syreen/penetrator-big-009.png",
       "sourceUrl": "/ships/syreen/penetrator-big-009.png",
-      "x": 264,
+      "x": 532,
       "y": 2,
       "w": 23,
       "h": 31,
@@ -115,7 +643,7 @@
     "/ships/syreen/penetrator-big-010.png": {
       "key": "/ships/syreen/penetrator-big-010.png",
       "sourceUrl": "/ships/syreen/penetrator-big-010.png",
-      "x": 289,
+      "x": 557,
       "y": 2,
       "w": 29,
       "h": 28,
@@ -126,7 +654,7 @@
     "/ships/syreen/penetrator-big-011.png": {
       "key": "/ships/syreen/penetrator-big-011.png",
       "sourceUrl": "/ships/syreen/penetrator-big-011.png",
-      "x": 320,
+      "x": 588,
       "y": 2,
       "w": 34,
       "h": 22,
@@ -137,7 +665,7 @@
     "/ships/syreen/penetrator-big-012.png": {
       "key": "/ships/syreen/penetrator-big-012.png",
       "sourceUrl": "/ships/syreen/penetrator-big-012.png",
-      "x": 356,
+      "x": 624,
       "y": 2,
       "w": 36,
       "h": 17,
@@ -148,7 +676,7 @@
     "/ships/syreen/penetrator-big-013.png": {
       "key": "/ships/syreen/penetrator-big-013.png",
       "sourceUrl": "/ships/syreen/penetrator-big-013.png",
-      "x": 394,
+      "x": 662,
       "y": 2,
       "w": 34,
       "h": 22,
@@ -159,7 +687,7 @@
     "/ships/syreen/penetrator-big-014.png": {
       "key": "/ships/syreen/penetrator-big-014.png",
       "sourceUrl": "/ships/syreen/penetrator-big-014.png",
-      "x": 430,
+      "x": 698,
       "y": 2,
       "w": 30,
       "h": 28,
@@ -170,7 +698,7 @@
     "/ships/syreen/penetrator-big-015.png": {
       "key": "/ships/syreen/penetrator-big-015.png",
       "sourceUrl": "/ships/syreen/penetrator-big-015.png",
-      "x": 462,
+      "x": 730,
       "y": 2,
       "w": 23,
       "h": 31,
@@ -181,7 +709,7 @@
     "/ships/syreen/penetrator-cap-000.png": {
       "key": "/ships/syreen/penetrator-cap-000.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-000.png",
-      "x": 487,
+      "x": 755,
       "y": 2,
       "w": 55,
       "h": 30,
@@ -192,7 +720,7 @@
     "/ships/syreen/penetrator-cap-001.png": {
       "key": "/ships/syreen/penetrator-cap-001.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-001.png",
-      "x": 544,
+      "x": 812,
       "y": 2,
       "w": 10,
       "h": 21,
@@ -203,7 +731,7 @@
     "/ships/syreen/penetrator-cap-002.png": {
       "key": "/ships/syreen/penetrator-cap-002.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-002.png",
-      "x": 556,
+      "x": 824,
       "y": 2,
       "w": 10,
       "h": 21,
@@ -214,7 +742,7 @@
     "/ships/syreen/penetrator-cap-003.png": {
       "key": "/ships/syreen/penetrator-cap-003.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-003.png",
-      "x": 568,
+      "x": 836,
       "y": 2,
       "w": 10,
       "h": 21,
@@ -225,7 +753,7 @@
     "/ships/syreen/penetrator-cap-004.png": {
       "key": "/ships/syreen/penetrator-cap-004.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-004.png",
-      "x": 580,
+      "x": 848,
       "y": 2,
       "w": 10,
       "h": 21,
@@ -236,7 +764,7 @@
     "/ships/syreen/penetrator-cap-005.png": {
       "key": "/ships/syreen/penetrator-cap-005.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-005.png",
-      "x": 592,
+      "x": 860,
       "y": 2,
       "w": 10,
       "h": 21,
@@ -247,7 +775,7 @@
     "/ships/syreen/penetrator-cap-006.png": {
       "key": "/ships/syreen/penetrator-cap-006.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-006.png",
-      "x": 604,
+      "x": 872,
       "y": 2,
       "w": 9,
       "h": 11,
@@ -258,7 +786,7 @@
     "/ships/syreen/penetrator-cap-007.png": {
       "key": "/ships/syreen/penetrator-cap-007.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-007.png",
-      "x": 615,
+      "x": 883,
       "y": 2,
       "w": 9,
       "h": 11,
@@ -269,7 +797,7 @@
     "/ships/syreen/penetrator-cap-008.png": {
       "key": "/ships/syreen/penetrator-cap-008.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-008.png",
-      "x": 626,
+      "x": 894,
       "y": 2,
       "w": 9,
       "h": 11,
@@ -280,7 +808,7 @@
     "/ships/syreen/penetrator-cap-009.png": {
       "key": "/ships/syreen/penetrator-cap-009.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-009.png",
-      "x": 637,
+      "x": 905,
       "y": 2,
       "w": 17,
       "h": 22,
@@ -291,7 +819,7 @@
     "/ships/syreen/penetrator-cap-010.png": {
       "key": "/ships/syreen/penetrator-cap-010.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-010.png",
-      "x": 656,
+      "x": 924,
       "y": 2,
       "w": 17,
       "h": 22,
@@ -302,7 +830,7 @@
     "/ships/syreen/penetrator-cap-011.png": {
       "key": "/ships/syreen/penetrator-cap-011.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-011.png",
-      "x": 675,
+      "x": 943,
       "y": 2,
       "w": 17,
       "h": 22,
@@ -313,7 +841,7 @@
     "/ships/syreen/penetrator-cap-012.png": {
       "key": "/ships/syreen/penetrator-cap-012.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-012.png",
-      "x": 694,
+      "x": 962,
       "y": 2,
       "w": 22,
       "h": 17,
@@ -324,7 +852,7 @@
     "/ships/syreen/penetrator-cap-013.png": {
       "key": "/ships/syreen/penetrator-cap-013.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-013.png",
-      "x": 718,
+      "x": 986,
       "y": 2,
       "w": 22,
       "h": 17,
@@ -335,7 +863,7 @@
     "/ships/syreen/penetrator-cap-014.png": {
       "key": "/ships/syreen/penetrator-cap-014.png",
       "sourceUrl": "/ships/syreen/penetrator-cap-014.png",
-      "x": 742,
+      "x": 1010,
       "y": 2,
       "w": 22,
       "h": 17,
@@ -346,7 +874,7 @@
     "/ships/syreen/penetrator-icons-001.png": {
       "key": "/ships/syreen/penetrator-icons-001.png",
       "sourceUrl": "/ships/syreen/penetrator-icons-001.png",
-      "x": 766,
+      "x": 1034,
       "y": 2,
       "w": 27,
       "h": 40,
@@ -357,7 +885,7 @@
     "/ships/syreen/penetrator-med-000.png": {
       "key": "/ships/syreen/penetrator-med-000.png",
       "sourceUrl": "/ships/syreen/penetrator-med-000.png",
-      "x": 795,
+      "x": 1063,
       "y": 2,
       "w": 9,
       "h": 15,
@@ -368,7 +896,7 @@
     "/ships/syreen/penetrator-med-001.png": {
       "key": "/ships/syreen/penetrator-med-001.png",
       "sourceUrl": "/ships/syreen/penetrator-med-001.png",
-      "x": 806,
+      "x": 1074,
       "y": 2,
       "w": 11,
       "h": 16,
@@ -379,7 +907,7 @@
     "/ships/syreen/penetrator-med-002.png": {
       "key": "/ships/syreen/penetrator-med-002.png",
       "sourceUrl": "/ships/syreen/penetrator-med-002.png",
-      "x": 819,
+      "x": 1087,
       "y": 2,
       "w": 16,
       "h": 15,
@@ -390,7 +918,7 @@
     "/ships/syreen/penetrator-med-003.png": {
       "key": "/ships/syreen/penetrator-med-003.png",
       "sourceUrl": "/ships/syreen/penetrator-med-003.png",
-      "x": 837,
+      "x": 1105,
       "y": 2,
       "w": 18,
       "h": 12,
@@ -401,7 +929,7 @@
     "/ships/syreen/penetrator-med-004.png": {
       "key": "/ships/syreen/penetrator-med-004.png",
       "sourceUrl": "/ships/syreen/penetrator-med-004.png",
-      "x": 857,
+      "x": 1125,
       "y": 2,
       "w": 17,
       "h": 9,
@@ -412,7 +940,7 @@
     "/ships/syreen/penetrator-med-005.png": {
       "key": "/ships/syreen/penetrator-med-005.png",
       "sourceUrl": "/ships/syreen/penetrator-med-005.png",
-      "x": 876,
+      "x": 1144,
       "y": 2,
       "w": 18,
       "h": 12,
@@ -423,7 +951,7 @@
     "/ships/syreen/penetrator-med-006.png": {
       "key": "/ships/syreen/penetrator-med-006.png",
       "sourceUrl": "/ships/syreen/penetrator-med-006.png",
-      "x": 896,
+      "x": 1164,
       "y": 2,
       "w": 16,
       "h": 15,
@@ -434,7 +962,7 @@
     "/ships/syreen/penetrator-med-007.png": {
       "key": "/ships/syreen/penetrator-med-007.png",
       "sourceUrl": "/ships/syreen/penetrator-med-007.png",
-      "x": 914,
+      "x": 1182,
       "y": 2,
       "w": 11,
       "h": 16,
@@ -445,7 +973,7 @@
     "/ships/syreen/penetrator-med-008.png": {
       "key": "/ships/syreen/penetrator-med-008.png",
       "sourceUrl": "/ships/syreen/penetrator-med-008.png",
-      "x": 927,
+      "x": 1195,
       "y": 2,
       "w": 9,
       "h": 15,
@@ -456,7 +984,7 @@
     "/ships/syreen/penetrator-med-009.png": {
       "key": "/ships/syreen/penetrator-med-009.png",
       "sourceUrl": "/ships/syreen/penetrator-med-009.png",
-      "x": 938,
+      "x": 1206,
       "y": 2,
       "w": 11,
       "h": 16,
@@ -467,7 +995,7 @@
     "/ships/syreen/penetrator-med-010.png": {
       "key": "/ships/syreen/penetrator-med-010.png",
       "sourceUrl": "/ships/syreen/penetrator-med-010.png",
-      "x": 951,
+      "x": 1219,
       "y": 2,
       "w": 16,
       "h": 15,
@@ -478,7 +1006,7 @@
     "/ships/syreen/penetrator-med-011.png": {
       "key": "/ships/syreen/penetrator-med-011.png",
       "sourceUrl": "/ships/syreen/penetrator-med-011.png",
-      "x": 969,
+      "x": 1237,
       "y": 2,
       "w": 18,
       "h": 12,
@@ -489,7 +1017,7 @@
     "/ships/syreen/penetrator-med-012.png": {
       "key": "/ships/syreen/penetrator-med-012.png",
       "sourceUrl": "/ships/syreen/penetrator-med-012.png",
-      "x": 989,
+      "x": 1257,
       "y": 2,
       "w": 17,
       "h": 9,
@@ -500,7 +1028,7 @@
     "/ships/syreen/penetrator-med-013.png": {
       "key": "/ships/syreen/penetrator-med-013.png",
       "sourceUrl": "/ships/syreen/penetrator-med-013.png",
-      "x": 1008,
+      "x": 1276,
       "y": 2,
       "w": 18,
       "h": 12,
@@ -511,7 +1039,7 @@
     "/ships/syreen/penetrator-med-014.png": {
       "key": "/ships/syreen/penetrator-med-014.png",
       "sourceUrl": "/ships/syreen/penetrator-med-014.png",
-      "x": 1028,
+      "x": 1296,
       "y": 2,
       "w": 16,
       "h": 15,
@@ -522,7 +1050,7 @@
     "/ships/syreen/penetrator-med-015.png": {
       "key": "/ships/syreen/penetrator-med-015.png",
       "sourceUrl": "/ships/syreen/penetrator-med-015.png",
-      "x": 1046,
+      "x": 1314,
       "y": 2,
       "w": 11,
       "h": 16,
@@ -533,7 +1061,7 @@
     "/ships/syreen/penetrator-sml-000.png": {
       "key": "/ships/syreen/penetrator-sml-000.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-000.png",
-      "x": 1059,
+      "x": 1327,
       "y": 2,
       "w": 5,
       "h": 10,
@@ -544,7 +1072,7 @@
     "/ships/syreen/penetrator-sml-001.png": {
       "key": "/ships/syreen/penetrator-sml-001.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-001.png",
-      "x": 1066,
+      "x": 1334,
       "y": 2,
       "w": 7,
       "h": 9,
@@ -555,7 +1083,7 @@
     "/ships/syreen/penetrator-sml-002.png": {
       "key": "/ships/syreen/penetrator-sml-002.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-002.png",
-      "x": 1075,
+      "x": 1343,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -566,7 +1094,7 @@
     "/ships/syreen/penetrator-sml-003.png": {
       "key": "/ships/syreen/penetrator-sml-003.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-003.png",
-      "x": 1086,
+      "x": 1354,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -577,7 +1105,7 @@
     "/ships/syreen/penetrator-sml-004.png": {
       "key": "/ships/syreen/penetrator-sml-004.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-004.png",
-      "x": 1099,
+      "x": 1367,
       "y": 2,
       "w": 12,
       "h": 5,
@@ -588,7 +1116,7 @@
     "/ships/syreen/penetrator-sml-005.png": {
       "key": "/ships/syreen/penetrator-sml-005.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-005.png",
-      "x": 1113,
+      "x": 1381,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -599,7 +1127,7 @@
     "/ships/syreen/penetrator-sml-006.png": {
       "key": "/ships/syreen/penetrator-sml-006.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-006.png",
-      "x": 1126,
+      "x": 1394,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -610,7 +1138,7 @@
     "/ships/syreen/penetrator-sml-007.png": {
       "key": "/ships/syreen/penetrator-sml-007.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-007.png",
-      "x": 1137,
+      "x": 1405,
       "y": 2,
       "w": 7,
       "h": 9,
@@ -621,7 +1149,7 @@
     "/ships/syreen/penetrator-sml-008.png": {
       "key": "/ships/syreen/penetrator-sml-008.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-008.png",
-      "x": 1146,
+      "x": 1414,
       "y": 2,
       "w": 5,
       "h": 10,
@@ -632,7 +1160,7 @@
     "/ships/syreen/penetrator-sml-009.png": {
       "key": "/ships/syreen/penetrator-sml-009.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-009.png",
-      "x": 1153,
+      "x": 1421,
       "y": 2,
       "w": 7,
       "h": 9,
@@ -643,7 +1171,7 @@
     "/ships/syreen/penetrator-sml-010.png": {
       "key": "/ships/syreen/penetrator-sml-010.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-010.png",
-      "x": 1162,
+      "x": 1430,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -654,7 +1182,7 @@
     "/ships/syreen/penetrator-sml-011.png": {
       "key": "/ships/syreen/penetrator-sml-011.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-011.png",
-      "x": 1173,
+      "x": 1441,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -665,7 +1193,7 @@
     "/ships/syreen/penetrator-sml-012.png": {
       "key": "/ships/syreen/penetrator-sml-012.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-012.png",
-      "x": 1186,
+      "x": 1454,
       "y": 2,
       "w": 12,
       "h": 5,
@@ -676,7 +1204,7 @@
     "/ships/syreen/penetrator-sml-013.png": {
       "key": "/ships/syreen/penetrator-sml-013.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-013.png",
-      "x": 1200,
+      "x": 1468,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -687,7 +1215,7 @@
     "/ships/syreen/penetrator-sml-014.png": {
       "key": "/ships/syreen/penetrator-sml-014.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-014.png",
-      "x": 1213,
+      "x": 1481,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -698,7 +1226,7 @@
     "/ships/syreen/penetrator-sml-015.png": {
       "key": "/ships/syreen/penetrator-sml-015.png",
       "sourceUrl": "/ships/syreen/penetrator-sml-015.png",
-      "x": 1224,
+      "x": 1492,
       "y": 2,
       "w": 7,
       "h": 9,

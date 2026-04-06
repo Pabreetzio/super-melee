@@ -1,8 +1,7 @@
 // Ship registry — maps every ShipId to its ShipController.
 //
-// Implemented ships have full physics/sprites in their own file (RACE_DESC pattern).
-// Unimplemented ships fall back to a default controller that uses Earthling
-// Cruiser movement and generic sprite loading until they are fleshed out.
+// Playable ships have full physics/sprites in their own file (RACE_DESC pattern).
+// The non-playable Sa-Matra still falls back to a lightweight default controller.
 
 import type { ShipId } from 'shared/types';
 import type { ShipController, ShipState, DrawContext } from './types';
@@ -32,6 +31,10 @@ import { supoxController } from './supox';
 import { zoqfotpikController } from './zoqfotpik';
 import { orzController } from './orz';
 import { umgahController } from './umgah';
+import { mmrnmhrmController } from './mmrnmhrm';
+import { slylandroController } from './slylandro';
+import { syreenController } from './syreen';
+import { utwigController } from './utwig';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -71,6 +74,10 @@ function makeDefaultController(id: ShipId): ShipController {
       return sp?.big?.frames[ship.facing] ?? null;
     },
 
+    isCrewImmune(): boolean {
+      return id === 'samatra';
+    },
+
     // No custom missile sprite — Battle.tsx will call the owner controller's
     // drawMissile and fall through to placeholderDot.
   };
@@ -85,10 +92,14 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   druuge: druugeController,
   ilwrath: ilwrathController,
   melnorme: melnormeController,
+  mmrnmhrm: mmrnmhrmController,
   shofixti: shofixtiController,
+  slylandro: slylandroController,
   supox: supoxController,
+  syreen: syreenController,
   thraddash: thraddashController,
   umgah: umgahController,
+  utwig: utwigController,
   yehat: yehatController,
   zoqfotpik: zoqfotpikController,
   human:   humanController,
@@ -102,10 +113,8 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   orz: orzController,
 };
 
-export const IMPLEMENTED_SHIP_IDS = new Set<ShipId>(Object.keys(EXPLICIT) as ShipId[]);
-
 // Build the full registry, filling every ShipId with either the explicit
-// controller or a generated default.  Computed once at module load.
+// controller or a generated default. Computed once at module load.
 const _registry: Partial<Record<ShipId, ShipController>> = {};
 for (const ship of getAllShips()) {
   _registry[ship.id] = EXPLICIT[ship.id] ?? makeDefaultController(ship.id);
@@ -115,8 +124,4 @@ export const SHIP_REGISTRY = _registry as Record<ShipId, ShipController>;
 
 export function getController(id: ShipId): ShipController {
   return SHIP_REGISTRY[id] ?? humanController;
-}
-
-export function isShipImplemented(id: ShipId): boolean {
-  return IMPLEMENTED_SHIP_IDS.has(id);
 }

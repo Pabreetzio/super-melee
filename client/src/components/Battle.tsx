@@ -43,8 +43,8 @@ import {
   beginShipDestruction,
   shouldRenderExplodingShip,
 } from '../engine/battle/destruction';
-import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateIonTrails } from '../engine/battle/projectiles';
-import { renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth } from '../engine/battle/renderEffects';
+import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateCrewPods, updateIonTrails } from '../engine/battle/projectiles';
+import { renderCrewPods, renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth } from '../engine/battle/renderEffects';
 import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
 import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
 import { computeAIInput } from '../engine/battle/ai';
@@ -54,7 +54,7 @@ import { loadExplosionSprites, placeholderDot, type ExplosionSprites, type Sprit
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
-import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playShipSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying } from '../engine/audio';
+import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playSpawnSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying } from '../engine/audio';
 import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
 import { getShipDef } from '../engine/ships/index';
 
@@ -312,6 +312,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       explosions: [],
       shipDestructions: [null, null],
       ionTrails: [[], []],
+      crewPods: [],
       warpIn: [warpIn0, warpIn1],
       rebirth: [0, 0],
       shipAlive: [true, true],
@@ -842,17 +843,16 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         addLaser,
         damageMissile,
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]),
+        bs.shipTypes[1],
+        pod => bs.crewPods.push(pod),
       );
       // Sound dispatch (keyed on spawn type, independent of ship identity)
       if (s.type === 'sound') {
-        if (s.sound === 'primary') playPrimary(bs.shipTypes[0]);
-        else if (s.sound === 'secondary') playSecondary(bs.shipTypes[0]);
-        else if (s.sound === 'cloak') playSecondary(bs.shipTypes[0]);
-        else if (s.sound === 'uncloak') playShipSound(bs.shipTypes[0], 'uncloak');
+        playSpawnSound(bs.shipTypes[0], s.sound);
       }
       else
       if (s.type === 'missile') {
-        if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+        if (bs.shipTypes[0] !== 'pkunk' && bs.shipTypes[0] !== 'mmrnmhrm' && bs.shipTypes[0] !== 'utwig' && s.weaponType !== 'chmmr_satellite') {
           if (s.weaponType === 'orz_marine') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[0] === 'yehat' && missileSoundPlayed0) continue;
@@ -881,16 +881,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         addLaser,
         damageMissile,
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]),
+        bs.shipTypes[0],
+        pod => bs.crewPods.push(pod),
       );
       if (s.type === 'sound') {
-        if (s.sound === 'primary') playPrimary(bs.shipTypes[1]);
-        else if (s.sound === 'secondary') playSecondary(bs.shipTypes[1]);
-        else if (s.sound === 'cloak') playSecondary(bs.shipTypes[1]);
-        else if (s.sound === 'uncloak') playShipSound(bs.shipTypes[1], 'uncloak');
+        playSpawnSound(bs.shipTypes[1], s.sound);
       }
       else
       if (s.type === 'missile') {
-        if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+        if (bs.shipTypes[1] !== 'pkunk' && bs.shipTypes[1] !== 'mmrnmhrm' && bs.shipTypes[1] !== 'utwig' && s.weaponType !== 'chmmr_satellite') {
           if (s.weaponType === 'orz_marine') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[1] === 'yehat' && missileSoundPlayed1) continue;
@@ -907,6 +906,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     processMissiles(bs, shipSpritesRef.current, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
+    updateCrewPods(bs, bs.warpIn, WORLD_W, WORLD_H);
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
     bs.explosions = advanceExplosions(bs.explosions, WORLD_W, WORLD_H);
@@ -1147,6 +1147,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // UQM-style: small 1×1 dots cycling orange → red → dark red → gone.
     // Colors from UQM tactrans.c cycle_ion_trail colorTab (RGB15 values).
     renderIonTrails(ctx, bs.ionTrails, SPACE_CANVAS_W, CANVAS_H, tw2dx, tw2dy);
+    renderCrewPods(ctx, bs.crewPods, SPACE_CANVAS_W, CANVAS_H, tw2dx, tw2dy);
 
     // ── Ships ────────────────────────────────────────────────────────────
     {

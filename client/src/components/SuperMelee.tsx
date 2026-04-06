@@ -328,7 +328,7 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
         }
         if (isConfirm) {
           const chosen = pickerOptions[picker.activeIndex] ?? null;
-          if (!canSelectShipPickerOption(chosen, e.ctrlKey)) {
+          if (!canSelectShipPickerOption(chosen)) {
             playMenuError();
             return;
           }

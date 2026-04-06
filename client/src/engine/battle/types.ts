@@ -24,7 +24,16 @@ export interface IonDot {
   x: number;
   y: number;
   age: number;
-  palette?: 'default' | 'green';
+  palette?: 'default' | 'green' | 'crew';
+}
+
+export interface CrewPod {
+  x: number;
+  y: number;
+  targetSide: 0 | 1;
+  life: number;
+  collectDelay: number;
+  blink: boolean;
 }
 
 // Winner ship state preserved between rounds (offline modes only)
@@ -48,6 +57,7 @@ export interface BattleState {
   explosions: BattleExplosion[];
   shipDestructions: [ShipDestructionState | null, ShipDestructionState | null];
   ionTrails:  [IonDot[], IonDot[]];
+  crewPods: CrewPod[];
   warpIn:     [number, number];
   rebirth:    [number, number];
   shipAlive:  [boolean, boolean];

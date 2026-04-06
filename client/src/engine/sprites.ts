@@ -23,6 +23,8 @@ export interface SpriteSet {
   count:  number;
 }
 
+const spriteMaskFillCache = new WeakMap<SpriteFrame, Map<string, HTMLCanvasElement>>();
+
 // ─── Hot-spot tables (from .ani files) ───────────────────────────────────────
 // Format: [hotX, hotY] per frame index
 
@@ -183,6 +185,54 @@ const YEHAT_SHIELD_MED_HOTSPOTS: [number, number][] = [
 const YEHAT_SHIELD_SML_HOTSPOTS: [number, number][] = [
   [4,3],[4,4],[4,4],[3,4],[3,4],[4,3],[4,3],[4,3],
   [4,3],[4,3],[4,3],[4,4],[4,4],[4,4],[4,4],[4,4],
+];
+const YWING_BIG_HOTSPOTS: [number, number][] = [
+  [8,12],[9,12],[12,11],[13,9],[12,7],[13,9],[12,11],[9,12],
+  [8,12],[9,12],[12,11],[13,9],[13,7],[13,9],[12,11],[9,12],
+];
+const YWING_MED_HOTSPOTS: [number, number][] = [
+  [4,5],[5,6],[6,5],[6,4],[6,4],[6,4],[6,5],[5,6],
+  [4,5],[5,6],[6,5],[6,4],[6,4],[6,4],[6,5],[5,6],
+];
+const YWING_SML_HOTSPOTS: [number, number][] = [
+  [2,3],[2,3],[3,3],[4,2],[3,2],[4,2],[3,3],[2,3],
+  [2,3],[2,3],[3,3],[4,2],[3,2],[4,2],[3,3],[2,3],
+];
+const TORPEDO_BIG_HOTSPOTS: [number, number][] = [
+  [1,4],[2,3],[3,3],[3,2],[4,1],[3,2],[3,3],[2,3],
+  [1,4],[2,3],[3,3],[3,2],[4,1],[3,2],[3,3],[2,3],
+];
+const TORPEDO_MED_HOTSPOTS: [number, number][] = [
+  [1,2],[1,2],[2,2],[2,1],[2,1],[2,1],[2,2],[1,2],
+  [1,2],[1,2],[2,2],[2,1],[2,1],[2,1],[2,2],[1,2],
+];
+const TORPEDO_SML_HOTSPOTS: [number, number][] = [
+  [0,1],[1,1],[1,1],[1,1],[1,0],[1,1],[1,1],[1,1],
+  [0,1],[1,1],[1,1],[1,1],[1,0],[1,1],[1,1],[1,1],
+];
+const DAGGER_BIG_HOTSPOTS: [number, number][] = [
+  [0,3],[1,3],[3,2],[3,1],[4,0],[3,1],[3,3],[1,3],
+  [0,3],[1,3],[2,3],[3,1],[3,0],[3,1],[2,2],[1,3],
+];
+const DAGGER_MED_HOTSPOTS: [number, number][] = [
+  [0,1],[1,1],[2,1],[2,0],[2,0],[2,1],[2,2],[1,2],
+  [0,2],[0,2],[1,2],[1,1],[1,0],[1,0],[1,1],[0,1],
+];
+const DAGGER_SML_HOTSPOTS: [number, number][] = [
+  [0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[1,1],
+];
+const LANCE_BIG_HOTSPOTS: [number, number][] = [
+  [0,3],[1,3],[2,2],[2,1],[3,0],[2,1],[2,2],[1,2],
+  [0,2],[1,2],[2,2],[3,1],[3,0],[3,1],[2,2],[1,3],
+];
+const LANCE_MED_HOTSPOTS: [number, number][] = [
+  [0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[0,1],
+];
+const LANCE_SML_HOTSPOTS: [number, number][] = [
+  [0,0],[1,0],[1,0],[1,0],[1,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[0,1],[0,1],[0,0],[0,0],[0,0],[0,0],
 ];
 
 // ─── Ship-specific loaders ────────────────────────────────────────────────────
@@ -748,6 +798,79 @@ export function drawSprite(
   }
 }
 
+export function drawSpriteFill(
+  ctx: CanvasRenderingContext2D,
+  set: SpriteSet,
+  frameIndex: number,
+  worldX: number,
+  worldY: number,
+  canvasW: number,
+  canvasH: number,
+  originWorldX: number,
+  originWorldY: number,
+  fillStyle: string,
+  reduction: number = 0,
+  worldW = WORLD_W, worldH = WORLD_H,
+): void {
+  const normalizedIndex = ((frameIndex % set.count) + set.count) % set.count;
+  const frame = set.frames[normalizedIndex];
+  if (!frame) return;
+
+  let rx = worldX - originWorldX;
+  let ry = worldY - originWorldY;
+  rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
+  ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
+  let displayX = Math.round(rx >> (2 + reduction));
+  let displayY = Math.round(ry >> (2 + reduction));
+  const wdw = worldW >> (2 + reduction);
+  const wdh = worldH >> (2 + reduction);
+  if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
+  else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
+  if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
+  else if (displayY > canvasH && displayY - wdh >= 0) displayY -= wdh;
+
+  const drawX = displayX - frame.hotX;
+  const drawY = displayY - frame.hotY;
+  if (drawX + frame.width < 0 || drawX > canvasW) return;
+  if (drawY + frame.height < 0 || drawY > canvasH) return;
+
+  let colorCache = spriteMaskFillCache.get(frame);
+  if (!colorCache) {
+    colorCache = new Map<string, HTMLCanvasElement>();
+    spriteMaskFillCache.set(frame, colorCache);
+  }
+
+  let maskCanvas = colorCache.get(fillStyle);
+  if (!maskCanvas) {
+    maskCanvas = document.createElement('canvas');
+    maskCanvas.width = frame.width;
+    maskCanvas.height = frame.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+    const image = maskCtx.createImageData(frame.width, frame.height);
+
+    const colorProbe = document.createElement('canvas').getContext('2d');
+    if (!colorProbe) return;
+    colorProbe.fillStyle = fillStyle;
+    colorProbe.fillRect(0, 0, 1, 1);
+    const computed = colorProbe.getImageData(0, 0, 1, 1).data;
+
+    for (let i = 0; i < frame.mask.length; i++) {
+      if (!frame.mask[i]) continue;
+      const px = i * 4;
+      image.data[px] = computed[0];
+      image.data[px + 1] = computed[1];
+      image.data[px + 2] = computed[2];
+      image.data[px + 3] = 255;
+    }
+
+    maskCtx.putImageData(image, 0, 0);
+    colorCache.set(fillStyle, maskCanvas);
+  }
+
+  ctx.drawImage(maskCanvas, drawX, drawY);
+}
+
 // ─── Ur-Quan sprites ──────────────────────────────────────────────────────────
 
 export interface UrquanSprites {
@@ -1111,6 +1234,32 @@ export interface MelnormeSprites {
   confuse: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
 }
 
+export interface MmrnmhrmSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  ywing: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  torpedo: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadMmrnmhrmSprites(): Promise<MmrnmhrmSprites> {
+  const body = await loadGenericShipSprites('mmrnmhrm');
+  if (!body) throw new Error('Missing mmrnmhrm body sprites');
+  const [ywingBig, ywingMed, ywingSml, torpedoBig, torpedoMed, torpedoSml] = await Promise.all([
+    loadSpriteSet('mmrnmhrm/ywing', 'big', 16, YWING_BIG_HOTSPOTS),
+    loadSpriteSet('mmrnmhrm/ywing', 'med', 16, YWING_MED_HOTSPOTS),
+    loadSpriteSet('mmrnmhrm/ywing', 'sml', 16, YWING_SML_HOTSPOTS),
+    loadSpriteSet('mmrnmhrm/torpedo', 'big', 16, TORPEDO_BIG_HOTSPOTS),
+    loadSpriteSet('mmrnmhrm/torpedo', 'med', 16, TORPEDO_MED_HOTSPOTS),
+    loadSpriteSet('mmrnmhrm/torpedo', 'sml', 16, TORPEDO_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    ywing: { big: ywingBig, med: ywingMed, sml: ywingSml },
+    torpedo: { big: torpedoBig, med: torpedoMed, sml: torpedoSml },
+  };
+}
+
 export async function loadMelnormeSprites(): Promise<MelnormeSprites> {
   const [big, med, sml] = await Promise.all([
     loadSpriteSet('melnorme/trader', 'big', 16, TRADER_BIG_HOTSPOTS),
@@ -1168,6 +1317,48 @@ export async function loadKohrahSprites(): Promise<KohrahSprites> {
     big, med, sml,
     buzzsaw: { big: sawBig, med: sawMed, sml: sawSml },
     gas:     { big: gasBig, med: gasMed, sml: gasSml },
+  };
+}
+
+export interface SyreenSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  dagger: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadSyreenSprites(): Promise<SyreenSprites> {
+  const body = await loadGenericShipSprites('syreen');
+  if (!body) throw new Error('Missing syreen body sprites');
+  const [daggerBig, daggerMed, daggerSml] = await Promise.all([
+    loadSpriteSet('syreen/dagger', 'big', 16, DAGGER_BIG_HOTSPOTS),
+    loadSpriteSet('syreen/dagger', 'med', 16, DAGGER_MED_HOTSPOTS),
+    loadSpriteSet('syreen/dagger', 'sml', 16, DAGGER_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    dagger: { big: daggerBig, med: daggerMed, sml: daggerSml },
+  };
+}
+
+export interface UtwigSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  lance: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadUtwigSprites(): Promise<UtwigSprites> {
+  const body = await loadGenericShipSprites('utwig');
+  if (!body) throw new Error('Missing utwig body sprites');
+  const [lanceBig, lanceMed, lanceSml] = await Promise.all([
+    loadSpriteSet('utwig/lance', 'big', 16, LANCE_BIG_HOTSPOTS),
+    loadSpriteSet('utwig/lance', 'med', 16, LANCE_MED_HOTSPOTS),
+    loadSpriteSet('utwig/lance', 'sml', 16, LANCE_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    lance: { big: lanceBig, med: lanceMed, sml: lanceSml },
   };
 }
 

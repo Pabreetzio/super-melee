@@ -6,7 +6,8 @@
 
 import type { VelocityDesc } from '../velocity';
 import type { SpriteFrame } from '../sprites';
-import type { AIDifficulty } from 'shared/types';
+import type { AIDifficulty, ShipId } from 'shared/types';
+import type { CrewPod } from '../battle/types';
 
 // ─── Common ship state (all ships use this) ───────────────────────────────────
 
@@ -54,12 +55,28 @@ export interface ShipState {
   melnormeConfusionFrames?: number;
   melnormeConfusionInput?: number;
   melnormeSeed?: number;
+  mmrnmhrmForm?: 'x' | 'y';
   thraddashPrevSpecialHeld?: boolean;
+  slylandroReversePressed?: boolean;
+  slylandroLightningCycle?: number;
   umgahConeCycle?: number;
   umgahZipPending?: boolean;
+  utwigShieldFrames?: number;
+  utwigShieldDrainWait?: number;
+  utwigShieldCycle?: number;
   zoqTongueFrames?: number;
   zoqSpitCycle?: number;
 }
+
+export type SoundSpawnKey =
+  | 'primary'
+  | 'secondary'
+  | 'cloak'
+  | 'uncloak'
+  | 'mmrnmhrm_primary_x'
+  | 'mmrnmhrm_secondary_x'
+  | 'mmrnmhrm_primary_y'
+  | 'mmrnmhrm_secondary_y';
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
 
@@ -82,7 +99,7 @@ export type SpawnRequest =
       initialTrackWait?: number;
       orzSeed?: number;
     }
-  | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
+  | { type: 'sound'; sound: SoundSpawnKey }
   | { type: 'point_defense'; x: number; y: number }
   | { type: 'chmmr_laser'; x: number; y: number; facing: number }
   | { type: 'chmmr_tractor'; x: number; y: number; facing: number }
@@ -172,7 +189,14 @@ export type EffectSound =
   | 'chenjesu_shrapnel'
   | 'chenjesu_dogi_bark'
   | 'chenjesu_dogi_die'
-  | 'supox_glob_hit';
+  | 'supox_glob_hit'
+  | 'utwig_shield_gain';
+
+export interface DamageAbsorbEffect {
+  absorbed: boolean;
+  destroyIncoming?: boolean;
+  sound?: EffectSound;
+}
 
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
 
@@ -200,7 +224,7 @@ export interface MissileEffect {
   /** Sound keys to play after applying this effect (Battle.tsx dispatches). */
   sounds?: EffectSound[];
   /** Cosmetic ion dots to add this frame. */
-  ionDots?: Array<{ x: number; y: number; age?: number; palette?: 'default' | 'green' }>;
+  ionDots?: Array<{ x: number; y: number; age?: number; palette?: 'default' | 'green' | 'crew' }>;
 }
 
 // ─── Collision effect returned by onMissileHit() ─────────────────────────────
@@ -334,10 +358,14 @@ export interface ShipController {
     addLaser: (l: LaserFlash) => void,
     damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
+    enemyType: ShipId,
+    emitCrewPod?: (pod: CrewPod) => void,
   ): void;
 
   /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
   isIntangible?(ship: ShipState): boolean;
+  isCrewImmune?(ship: ShipState): boolean;
+  absorbHit?(ship: ShipState, hit: { kind: 'missile' | 'laser'; damage: number; hitPoints?: number }): DamageAbsorbEffect | null;
   onShipCollision?(ship: ShipState, other: ShipState): { damageOther?: number } | void;
   postUpdateShip?(ship: ShipState): void;
 

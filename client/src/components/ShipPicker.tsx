@@ -1,7 +1,5 @@
 import type { ShipId } from 'shared/types';
 import { getAllShips } from '../engine/ships';
-import { playMenuError } from '../engine/audio';
-import { isShipImplemented } from '../engine/ships/registry';
 import { SHIP_ICON } from './shipSelectionData';
 import { PreloadedImage } from '../lib/preloadedImage';
 
@@ -18,18 +16,14 @@ export function getShipPickerOptions(): (ShipId | null)[] {
   return SHIP_PICKER_OPTIONS;
 }
 
-export function canSelectShipPickerOption(option: ShipId | null, allowUnimplemented = false): boolean {
-  return option === null || allowUnimplemented || isShipImplemented(option);
+export function canSelectShipPickerOption(option: ShipId | null): boolean {
+  return option === null || option !== 'samatra';
 }
 
 export default function ShipPicker({ onPick, onClose, activeIndex, onActiveIndexChange }: Props) {
   const ships = getAllShips().filter(s => s.id !== 'samatra'); // Sa-Matra not selectable
 
-  function handlePick(ship: ShipId | null, allowUnimplemented: boolean) {
-    if (!canSelectShipPickerOption(ship, allowUnimplemented)) {
-      playMenuError();
-      return;
-    }
+  function handlePick(ship: ShipId | null) {
     onPick(ship);
   }
 
@@ -70,11 +64,10 @@ export default function ShipPicker({ onPick, onClose, activeIndex, onActiveIndex
           {ships.map((ship, shipIdx) => {
             const iconUrl = SHIP_ICON[ship.id];
             const optionIdx = shipIdx + 1;
-            const implemented = isShipImplemented(ship.id);
             return (
               <button
                 key={ship.id}
-                onClick={e => handlePick(ship.id, e.ctrlKey)}
+                onClick={() => handlePick(ship.id)}
                 onMouseEnter={() => onActiveIndexChange?.(optionIdx)}
                 style={{
                   padding: '6px 5px',
@@ -83,13 +76,11 @@ export default function ShipPicker({ onPick, onClose, activeIndex, onActiveIndex
                   display: 'flex',
                   alignItems: 'center',
                   gap: 3,
-                  opacity: implemented ? 1 : 0.45,
                   minHeight: 74,
                   background: 'var(--bg2)',
                   border: activeIndex === optionIdx ? '1px solid #dd55ff' : '1px solid transparent',
-                  filter: implemented ? 'none' : 'grayscale(1)',
                 }}
-                title={implemented ? ship.name : `${ship.name} (not implemented)`}
+                title={ship.name}
               >
                 {iconUrl ? (
                   <PreloadedImage
@@ -107,16 +98,13 @@ export default function ShipPicker({ onPick, onClose, activeIndex, onActiveIndex
                 <span style={{ fontSize: 9, color: 'var(--text-hi)', textTransform: 'none', lineHeight: 1.15 }}>
                   {ship.name}
                 </span>
-                {!implemented && (
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>WIP</span>
-                )}
               </button>
             );
           })}
         </div>
 
         <p style={{ color: 'var(--text-dim)', fontSize: 11 }}>
-          Choose a ship or clear the slot. Unimplemented ships stay locked.
+          Choose a ship or clear the slot.
         </p>
       </div>
     </div>

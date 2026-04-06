@@ -128,6 +128,13 @@ Use the ship controller hooks before adding special cases:
 - `applySpawn(...)`
   Use for immediate weapons or non-missile effects such as instant lasers.
 
+- `absorbHit(...)`
+  Use for shield-like defenses that need to cancel or convert incoming weapon
+  damage before crew is removed.
+
+- `isCrewImmune(...)`
+  Use for ships that should ignore crew-theft mechanics such as the Syreen song.
+
 ## Subsystem Contracts
 
 These are non-obvious coupling points that are not visible from any single file.
@@ -178,6 +185,37 @@ Use this when the controller has already set velocity directly
 step to overwrite it. Not returning it (or returning `{}`) lets the generic
 step run. `skipDefaultTracking: true` is a parallel flag for the generic
 tracking rotation step.
+
+### absorbHit / isCrewImmune — generic defensive hooks
+
+Some ship defenses need to affect damage before it becomes crew loss:
+
+- `absorbHit(...)` lets the target ship intercept incoming weapon damage from
+  both projectile collisions and immediate-effect weapon paths.
+- `isCrewImmune(...)` lets the target opt out of crew-steal mechanics without
+  reintroducing per-ship checks in battle orchestration.
+
+Current users:
+
+- `utwig.absorbHit(...)` converts blocked weapon hits into battery gain.
+- `slylandro.isCrewImmune(...)` prevents Syreen crew theft.
+- the fallback registry marks `samatra` as crew-immune.
+
+When porting or fixing a weapon, check whether its damage path goes through one
+of these:
+
+1. projectile collision in `engine/battle/projectiles.ts`
+2. `MissileEffect.damageEnemy`
+3. direct `enemyShip.crew -= ...` logic inside `applySpawn(...)`
+
+If a new weapon bypasses all three, defensive ships will silently stop working.
+
+## Known Caveats
+
+- Slylandro's `SPECIAL` harvest behavior is intentionally deferred. The current
+  melee arena does not simulate neutral space junk/asteroids yet, so the
+  controller leaves that path inert for now. Revisit this when asteroid/junk
+  objects are introduced to battle state.
 
 ## Smells To Avoid
 

@@ -2,7 +2,7 @@
 // All sounds are loaded non-blockingly; missing files are silently ignored.
 // Sounds are played via HTMLAudioElement. Multiple simultaneous instances
 // are supported by cloning nodes.
-import type { EffectSound } from './ships/types';
+import type { EffectSound, SoundSpawnKey } from './ships/types';
 import type { ShipId } from 'shared/types';
 
 // ─── Audio config ─────────────────────────────────────────────────────────────
@@ -46,6 +46,7 @@ const BATTLE_SOUNDS = {
   boom23:   '/sounds/battle/boom23.wav',
   boom45:   '/sounds/battle/boom45.wav',
   boom67:   '/sounds/battle/boom67.wav',
+  getcrew:  '/sounds/battle/getcrew.wav',
 } as const;
 
 const UI_SOUNDS = {
@@ -214,6 +215,17 @@ export function playSecondary(shipType: string): void {
   if (url) playUrl(url, 0.7);
 }
 
+export function playSpawnSound(shipType: string, key: SoundSpawnKey): void {
+  if (key === 'primary') playPrimary(shipType);
+  else if (key === 'secondary') playSecondary(shipType);
+  else if (key === 'cloak') playSecondary(shipType);
+  else if (key === 'uncloak') playShipSound(shipType, 'uncloak');
+  else if (key === 'mmrnmhrm_primary_x') playShipSound(shipType, 'primaryX');
+  else if (key === 'mmrnmhrm_secondary_x') playShipSound(shipType, 'secondaryX');
+  else if (key === 'mmrnmhrm_primary_y') playShipSound(shipType, 'primaryY');
+  else if (key === 'mmrnmhrm_secondary_y') playShipSound(shipType, 'secondaryY');
+}
+
 export function playShipSound(shipType: string, key: string, volume = 0.7): void {
   const url = SHIP_SOUNDS[shipType]?.[key];
   if (url) playUrl(url, volume);
@@ -280,6 +292,10 @@ export function playEffectSound(cue: EffectSound): void {
   }
   else if (cue === 'supox_glob_hit') {
     playUrl(BATTLE_SOUNDS.boom1, 0.6);
+  }
+  else if (cue === 'utwig_shield_gain') {
+    const url = SHIP_SOUNDS.utwig?.shieldBatteryGain;
+    if (url) playUrl(url, 0.75);
   }
 }
 

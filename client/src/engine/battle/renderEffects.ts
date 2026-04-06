@@ -1,6 +1,6 @@
 import { drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../sprites';
 import type { DrawContext, LaserFlash, ShipState } from '../ships/types';
-import type { BattleExplosion, IonDot } from './types';
+import type { BattleExplosion, CrewPod, IonDot } from './types';
 import { COSINE, SINE } from '../sinetab';
 import { DISPLAY_TO_WORLD } from '../velocity';
 
@@ -34,6 +34,21 @@ const GREEN_ION_COLORS: [number, number, number][] = [
   [  6,  52,   6],
 ];
 
+const CREW_ION_COLORS: [number, number, number][] = [
+  [255, 255, 220],
+  [244, 236, 202],
+  [232, 218, 184],
+  [220, 200, 166],
+  [208, 182, 148],
+  [196, 164, 130],
+  [184, 146, 112],
+  [168, 128,  96],
+  [148, 110,  82],
+  [126,  92,  68],
+  [104,  74,  54],
+  [ 82,  58,  42],
+];
+
 export function renderLaserFlashes(
   ctx: CanvasRenderingContext2D,
   lasers: LaserFlash[],
@@ -63,7 +78,11 @@ export function renderIonTrails(
 ): void {
   for (let side = 0; side < 2; side++) {
     for (const dot of ionTrails[side]) {
-      const palette = dot.palette === 'green' ? GREEN_ION_COLORS : ION_COLORS;
+      const palette = dot.palette === 'green'
+        ? GREEN_ION_COLORS
+        : dot.palette === 'crew'
+          ? CREW_ION_COLORS
+          : ION_COLORS;
       const [cr, cg, cb] = palette[Math.min(dot.age, 11)];
       const dotDX = tw2dx(dot.x);
       const dotDY = tw2dy(dot.y);
@@ -71,6 +90,23 @@ export function renderIonTrails(
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
       ctx.fillRect(dotDX, dotDY, 1, 1);
     }
+  }
+}
+
+export function renderCrewPods(
+  ctx: CanvasRenderingContext2D,
+  crewPods: CrewPod[],
+  canvasW: number,
+  canvasH: number,
+  tw2dx: (x: number) => number,
+  tw2dy: (y: number) => number,
+): void {
+  for (const pod of crewPods) {
+    const sx = tw2dx(pod.x);
+    const sy = tw2dy(pod.y);
+    if (sx < -3 || sx > canvasW + 3 || sy < -3 || sy > canvasH + 3) continue;
+    ctx.fillStyle = pod.blink ? 'rgb(120,255,120)' : 'rgb(40,132,40)';
+    ctx.fillRect(sx - 1, sy - 1, 3, 3);
   }
 }
 

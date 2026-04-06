@@ -6,6 +6,7 @@
 import type { AIDifficulty } from 'shared/types';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { SHIP_REGISTRY } from './registry';
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
@@ -262,6 +263,10 @@ export const zoqfotpikController: ShipController = {
     enemyShip: ShipState,
     ownSide: 0 | 1,
     missiles: BattleMissile[],
+    _addLaser: (l: never) => void,
+    _damageMissile: (m: BattleMissile, damage: number) => boolean,
+    _emitSound: (sound: 'primary' | 'secondary') => void,
+    enemyType,
   ): void {
     if (s.type === 'missile' && s.weaponType === 'zoqfotpik_spit') {
       const missile = [...missiles].reverse().find(m => m.owner === ownSide && m.weaponType === 'zoqfotpik_spit' && m.life === ZOQFOTPIK_WEAPON_LIFE);
@@ -274,7 +279,8 @@ export const zoqfotpikController: ShipController = {
     }
     if (s.type !== 'zoqfotpik_tongue') return;
     if (tongueHits(ownShip, enemyShip)) {
-      enemyShip.crew = Math.max(0, enemyShip.crew - ZOQFOTPIK_TONGUE_DAMAGE);
+      const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: ZOQFOTPIK_TONGUE_DAMAGE });
+      if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - ZOQFOTPIK_TONGUE_DAMAGE);
     }
   },
 
