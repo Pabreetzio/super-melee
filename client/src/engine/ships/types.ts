@@ -56,7 +56,6 @@ export interface ShipState {
   melnormeConfusionInput?: number;
   melnormeSeed?: number;
   mmrnmhrmForm?: 'x' | 'y';
-  thraddashPrevSpecialHeld?: boolean;
   slylandroReversePressed?: boolean;
   slylandroLightningCycle?: number;
   umgahConeCycle?: number;

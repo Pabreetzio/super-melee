@@ -90,6 +90,25 @@ checking the others is the primary cause of double-play bugs and speculative
 fixes that conflict with existing dispatch. Read `docs/battle-architecture.md`
 § "Sound dispatch — two separate paths" before proceeding.
 
+## Low Sample Rate WAV Fixes
+
+If a ship sound appears to be wired correctly but still does not play in the
+browser, inspect the WAV header before changing gameplay code. We already hit
+this with Mycon and Thraddash: some extracted UQM WAVs were stored at very low
+sample rates such as `1657 Hz`, `2090 Hz`, or `2100 Hz`, which browsers may
+fail to decode through `Audio()`.
+
+When this happens:
+
+1. Confirm the sound path is correct across all live dispatch routes listed
+   above.
+2. Check the WAV header sample rate in `assets/sounds/...`.
+3. If the file is one of these low-rate assets, resample it to `8363 Hz`
+   while preserving duration, then rebuild so `client/dist/sounds/...` picks
+   up the fixed asset.
+
+Do not assume the asset is fine just because the WAV container is valid.
+
 ## Stack
 
 TypeScript + React + Canvas, Node/Socket.io for netplay relay, Vite for build. See `docs/architecture.md`.

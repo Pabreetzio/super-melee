@@ -127,7 +127,6 @@ export function makeThraddashShip(x: number, y: number): ShipState {
     specialWait: 0,
     energyWait: 0,
     thrusting: false,
-    thraddashPrevSpecialHeld: false,
   };
 }
 
@@ -144,9 +143,8 @@ export function updateThraddashShip(ship: ShipState, input: number): SpawnReques
     ship.turnWait = THRADDASH_TURN_WAIT;
   }
 
-  const specialHeld = (input & INPUT_FIRE2) !== 0;
   ship.thrusting = false;
-  if (specialHeld && ship.energy >= THRADDASH_SPECIAL_ENERGY_COST) {
+  if ((input & INPUT_FIRE2) && ship.energy >= THRADDASH_SPECIAL_ENERGY_COST) {
     ship.energy -= THRADDASH_SPECIAL_ENERGY_COST;
     applyThrust(ship, THRADDASH_SPECIAL_MAX_THRUST, THRADDASH_SPECIAL_THRUST_INCREMENT, false);
     spawns.push({
@@ -165,16 +163,13 @@ export function updateThraddashShip(ship: ShipState, input: number): SpawnReques
       preserveVelocity: true,
       weaponType: 'thraddash_napalm',
     });
-    if (!ship.thraddashPrevSpecialHeld) {
-      spawns.push({ type: 'sound', sound: 'secondary' });
-    }
+    spawns.push({ type: 'sound', sound: 'secondary' });
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     applyThrust(ship, THRADDASH_MAX_THRUST, THRADDASH_THRUST_INCREMENT, true);
   } else if (ship.thrustWait > 0) {
     ship.thrustWait--;
   }
-  ship.thraddashPrevSpecialHeld = specialHeld;
 
   advancePosition(ship);
 
