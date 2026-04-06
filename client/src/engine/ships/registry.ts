@@ -30,6 +30,7 @@ import { yehatController } from './yehat';
 import { thraddashController } from './thraddash';
 import { supoxController } from './supox';
 import { zoqfotpikController } from './zoqfotpik';
+import { orzController } from './orz';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -96,6 +97,7 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   kohrah:  kohrahController,
   mycon:   myconController,
   arilou:  arilouController,
+  orz: orzController,
 };
 
 export const IMPLEMENTED_SHIP_IDS = new Set<ShipId>(Object.keys(EXPLICIT) as ShipId[]);

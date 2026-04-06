@@ -734,6 +734,37 @@ export async function loadUrquanSprites(): Promise<UrquanSprites> {
   };
 }
 
+export interface OrzSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  turret: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  howitzer: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadOrzSprites(): Promise<OrzSprites> {
+  const [big, med, sml] = await Promise.all([
+    loadSpriteSet('orz/nemesis', 'big', 16, NEMESIS_BIG_HOTSPOTS),
+    loadSpriteSet('orz/nemesis', 'med', 16, NEMESIS_MED_HOTSPOTS),
+    loadSpriteSet('orz/nemesis', 'sml', 16, NEMESIS_SML_HOTSPOTS),
+  ]);
+  const [turretBig, turretMed, turretSml, howitzerBig, howitzerMed, howitzerSml] = await Promise.all([
+    loadSpriteSet('orz/turret', 'big', 32, ORZ_TURRET_BIG_HOTSPOTS),
+    loadSpriteSet('orz/turret', 'med', 22, ORZ_TURRET_MED_HOTSPOTS),
+    loadSpriteSet('orz/turret', 'sml', 22, ORZ_TURRET_SML_HOTSPOTS),
+    loadSpriteSet('orz/howitzer', 'big', 22, ORZ_HOWITZER_BIG_HOTSPOTS),
+    loadSpriteSet('orz/howitzer', 'med', 22, ORZ_HOWITZER_MED_HOTSPOTS),
+    loadSpriteSet('orz/howitzer', 'sml', 22, ORZ_HOWITZER_SML_HOTSPOTS),
+  ]);
+  return {
+    big,
+    med,
+    sml,
+    turret: { big: turretBig, med: turretMed, sml: turretSml },
+    howitzer: { big: howitzerBig, med: howitzerMed, sml: howitzerSml },
+  };
+}
+
 // ─── Pkunk Fury sprites ───────────────────────────────────────────────────────
 
 export interface PkunkSprites {
@@ -1138,6 +1169,12 @@ const PODSHIP_SML_HOTSPOTS: [number,number][] = [[3,4],[3,4],[3,4],[3,3],[3,3],[
 const NEMESIS_BIG_HOTSPOTS: [number,number][] = [[14,11],[17,11],[17,10],[16,10],[11,14],[17,16],[19,18],[17,15],[14,11],[9,16],[10,19],[11,16],[11,14],[11,10],[10,10],[9,11]];
 const NEMESIS_MED_HOTSPOTS: [number,number][] = [[7,5],[8,5],[8,5],[7,4],[5,7],[6,8],[8,7],[8,6],[7,5],[4,6],[5,8],[5,8],[5,7],[5,4],[5,5],[4,5]];
 const NEMESIS_SML_HOTSPOTS: [number,number][] = [[3,3],[4,3],[4,2],[3,2],[2,3],[3,4],[4,4],[4,3],[3,2],[2,3],[2,4],[3,4],[3,3],[3,2],[2,2],[2,3]];
+const ORZ_TURRET_BIG_HOTSPOTS: [number,number][] = [[6,11],[6,10],[6,8],[5,5],[5,6],[5,6],[6,6],[6,5],[6,5],[5,5],[8,6],[10,6],[11,6],[10,5],[8,8],[5,10],[2,2],[3,3],[4,4],[5,5],[1,1],[1,1],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2],[2,2]];
+const ORZ_TURRET_MED_HOTSPOTS: [number,number][] = [[3,6],[3,5],[3,4],[2,2],[2,3],[2,3],[3,3],[3,2],[3,2],[2,2],[4,3],[5,3],[6,3],[5,2],[4,4],[2,5],[1,1],[2,2],[3,3],[3,3],[0,0],[0,0]];
+const ORZ_TURRET_SML_HOTSPOTS: [number,number][] = [[1,3],[1,3],[1,2],[1,1],[1,1],[1,1],[1,1],[1,1],[1,1],[1,1],[2,1],[3,1],[3,1],[3,1],[2,2],[1,3],[1,1],[1,1],[2,2],[2,2],[0,0],[0,0]];
+const ORZ_HOWITZER_BIG_HOTSPOTS: [number,number][] = [[1,3],[1,3],[2,2],[3,1],[3,1],[3,1],[2,2],[1,3],[1,3],[1,3],[2,2],[3,1],[3,1],[3,1],[2,2],[1,3],[11,10],[12,12],[16,15],[22,21],[26,25],[28,27]];
+const ORZ_HOWITZER_MED_HOTSPOTS: [number,number][] = [[0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[0,1],[0,1],[1,1],[1,1],[1,0],[1,0],[1,1],[1,1],[1,1],[4,4],[5,5],[7,7],[10,10],[12,12],[13,13]];
+const ORZ_HOWITZER_SML_HOTSPOTS: [number,number][] = [[0,0],[1,0],[1,0],[1,0],[1,0],[1,1],[1,1],[1,1],[0,0],[0,1],[0,1],[0,1],[0,0],[0,0],[0,0],[0,0],[2,2],[2,2],[3,3],[4,4],[5,5],[6,6]];
 
 const SCOUT_BIG_HOTSPOTS: [number,number][] = [[4,9],[3,9],[4,6],[5,3],[6,4],[5,4],[4,4],[4,4],[4,5],[3,4],[6,4],[7,4],[9,4],[7,3],[6,6],[3,7]];
 const SCOUT_MED_HOTSPOTS: [number,number][] = [[2,4],[2,4],[3,3],[4,2],[5,2],[4,2],[3,3],[2,4],[2,4],[2,4],[3,3],[4,2],[5,2],[4,2],[3,3],[2,4]];

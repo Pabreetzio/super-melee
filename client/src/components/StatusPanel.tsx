@@ -87,6 +87,8 @@ export interface SideStatus {
   energy:    number;
   maxEnergy: number;
   limpetCount?: number;
+  orzBoardSlots?: boolean[];
+  orzBoardDamageFlash?: number[];
   inputs:    number;   // current input bit flags (INPUT_THRUST | INPUT_LEFT …)
   captainIdx: number;  // which captain name to show (stable per match)
   caption?:  string;   // optional override for the center status caption
@@ -205,6 +207,14 @@ function getImg(url: string): RenderableImage | null {
   return imgCache.get(url) ?? null;
 }
 
+async function preloadOrzBoardOverlay(): Promise<void> {
+  const urls: string[] = [];
+  for (let i = 22; i <= 31; i++) {
+    urls.push(`/ships/orz/turret-big-${String(i).padStart(3, '0')}.png`);
+  }
+  await Promise.allSettled(urls.map(loadImg));
+}
+
 // ─── Drawing helpers ────────────────────────────────────────────────────────
 
 function drawSection(
@@ -276,6 +286,7 @@ function drawSection(
     const iconY = sectionY + ICON_CY - ih / 2;
     ctx.drawImage(iconImg.source, iconX, iconY, iw, ih);
     drawLimpetOverlay(ctx, side.limpetCount ?? 0, iconX, iconY, iw, ih);
+    drawOrzBoardOverlay(ctx, side.orzBoardSlots ?? [], side.orzBoardDamageFlash ?? [], iconX, iconY, iw, ih);
   }
 
   // ── Crew gauge ────────────────────────────────────────────────────────────
@@ -400,6 +411,34 @@ function drawLimpetOverlay(
     const h = frame.height * S;
     const x = Math.round(iconX + iconW * sx - w / 2);
     const y = Math.round(iconY + iconH * sy - h / 2);
+    ctx.drawImage(frame.source, x, y, w, h);
+  }
+}
+
+function drawOrzBoardOverlay(
+  ctx: CanvasRenderingContext2D,
+  boardSlots: boolean[],
+  damageFlash: number[],
+  iconX: number,
+  iconY: number,
+  iconW: number,
+  iconH: number,
+) {
+  if (!boardSlots.some(Boolean)) return;
+
+  const cols = [0.12, 0.36, 0.66, 0.92];
+  const rows = [0.26, 0.60];
+  for (let i = 0; i < 8; i++) {
+    if (!boardSlots[i]) continue;
+    const frameId = (damageFlash[i] ?? 0) > 0 ? 31 : 30;
+    const frame = getImg(`/ships/orz/turret-big-${String(frameId).padStart(3, '0')}.png`);
+    if (!frame) continue;
+    const col = i & 3;
+    const row = i >> 2;
+    const w = frame.width * S;
+    const h = frame.height * S;
+    const x = Math.round(iconX + iconW * cols[col] - w / 2);
+    const y = Math.round(iconY + iconH * rows[row] - h / 2);
     ctx.drawImage(frame.source, x, y, w, h);
   }
 }
@@ -576,6 +615,7 @@ export default function StatusPanel({
   // preloadShip() once per unique ShipId across frames.
   const loadedRef  = useRef(new Set<ShipId>());
   const limpetsLoadedRef = useRef(false);
+  const orzBoardLoadedRef = useRef(false);
   const captainDefeatRef = useRef<[CaptainDefeatState, CaptainDefeatState]>([
     { key: null, startedAt: null, wasAlive: true },
     { key: null, startedAt: null, wasAlive: true },
@@ -605,6 +645,10 @@ export default function StatusPanel({
         if (side?.limpetCount && !limpetsLoadedRef.current) {
           limpetsLoadedRef.current = true;
           preloadLimpetOverlay().catch(() => {});
+        }
+        if (side?.orzBoardSlots?.some(Boolean) && !orzBoardLoadedRef.current) {
+          orzBoardLoadedRef.current = true;
+          preloadOrzBoardOverlay().catch(() => {});
         }
       }
 

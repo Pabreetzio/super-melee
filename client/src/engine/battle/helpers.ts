@@ -189,6 +189,17 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.energy);
     h = hashStep(h, ship.facing);
     h = hashStep(h, ship.limpetCount ?? 0);
+    h = hashStep(h, ship.orzTurretOffset ?? 0);
+    h = hashStep(h, ship.orzTurretTurnWait ?? 0);
+    h = hashStep(h, ship.orzTurretFlashFrames ?? 0);
+    h = hashStep(h, ship.orzMarineCount ?? 0);
+    h = hashStep(h, ship.orzMarineSeed ?? 0);
+    const orzSlots = ship.orzBoardSlots ?? [];
+    const orzFlashes = ship.orzBoardDamageFlash ?? [];
+    for (let i = 0; i < 8; i++) {
+      h = hashStep(h, orzSlots[i] ? 1 : 0);
+      h = hashStep(h, orzFlashes[i] ?? 0);
+    }
     h = hashStep(h, ship.canResurrect ? 1 : 0);
     h = hashStep(h, ship.arilouTeleportFrames ?? 0);
     h = hashStep(h, ship.arilouTeleportSeed ?? 0);
@@ -229,17 +240,23 @@ export function computeChecksum(bs: BattleState): number {
       m.weaponType === 'buzzsaw' ? 1
         : m.weaponType === 'gas_cloud' ? 2
         : m.weaponType === 'fighter' ? 3
-        : m.weaponType === 'plasmoid' ? 4
-        : m.weaponType === 'bubble' ? 5
-        : m.weaponType === 'chenjesu_crystal' ? 6
-        : m.weaponType === 'chenjesu_shard' ? 7
-        : m.weaponType === 'dogi' ? 8
-        : m.weaponType === 'chmmr_satellite' ? 9
-        : m.weaponType === 'melnorme_pump' ? 10
-        : m.weaponType === 'melnorme_confuse' ? 11
+        : m.weaponType === 'orz_howitzer' ? 4
+        : m.weaponType === 'orz_marine' ? 5
+        : m.weaponType === 'plasmoid' ? 6
+        : m.weaponType === 'bubble' ? 7
+        : m.weaponType === 'chenjesu_crystal' ? 8
+        : m.weaponType === 'chenjesu_shard' ? 9
+        : m.weaponType === 'dogi' ? 10
+        : m.weaponType === 'chmmr_satellite' ? 11
+        : m.weaponType === 'melnorme_pump' ? 12
+        : m.weaponType === 'melnorme_confuse' ? 13
         : 0,
     );
     h = hashStep(h, m.satelliteAngle ?? 0);
+    h = hashStep(h, m.orzMarineMode === 'space' ? 1 : m.orzMarineMode === 'boarded' ? 2 : m.orzMarineMode === 'return' ? 3 : 0);
+    h = hashStep(h, m.orzBoardSlot ?? -1);
+    h = hashStep(h, m.orzFlashFrame ?? 0);
+    h = hashStep(h, m.orzSeed ?? 0);
   }
   h = hashStep(h, bs.warpIn[0]);
   h = hashStep(h, bs.warpIn[1]);

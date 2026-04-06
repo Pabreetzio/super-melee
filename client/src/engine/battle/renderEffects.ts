@@ -19,6 +19,21 @@ const ION_COLORS: [number, number, number][] = [
   [ 75,   0,  0],
 ];
 
+const GREEN_ION_COLORS: [number, number, number][] = [
+  [120, 255, 120],
+  [104, 236, 104],
+  [ 88, 218,  88],
+  [ 72, 200,  72],
+  [ 56, 182,  56],
+  [ 40, 164,  40],
+  [ 24, 146,  24],
+  [ 18, 126,  18],
+  [ 14, 106,  14],
+  [ 10,  86,  10],
+  [  8,  68,   8],
+  [  6,  52,   6],
+];
+
 export function renderLaserFlashes(
   ctx: CanvasRenderingContext2D,
   lasers: LaserFlash[],
@@ -48,7 +63,8 @@ export function renderIonTrails(
 ): void {
   for (let side = 0; side < 2; side++) {
     for (const dot of ionTrails[side]) {
-      const [cr, cg, cb] = ION_COLORS[Math.min(dot.age, 11)];
+      const palette = dot.palette === 'green' ? GREEN_ION_COLORS : ION_COLORS;
+      const [cr, cg, cb] = palette[Math.min(dot.age, 11)];
       const dotDX = tw2dx(dot.x);
       const dotDY = tw2dy(dot.y);
       if (dotDX < -1 || dotDX > canvasW + 1 || dotDY < -1 || dotDY > canvasH + 1) continue;
@@ -172,6 +188,21 @@ export function renderExplosions(
         drawSprite(ctx, sset, 16 + ex.frame, ex.x, ex.y, canvasW, canvasH, camX, camY, reduction);
       } else {
         placeholderDot(ctx, ex.x, ex.y, camX, camY, 4, '#8cff5a', reduction);
+      }
+      continue;
+    }
+
+    if (ex.type === 'orz_howitzer') {
+      const orzSp = shipSprites.get('orz') as
+        { howitzer?: { big: object; med: object; sml: object } } | null;
+      const group = orzSp?.howitzer ?? null;
+      const sset = group
+        ? (reduction >= 2 ? group.sml : reduction === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
+        : null;
+      if (sset) {
+        drawSprite(ctx, sset, 16 + ex.frame, ex.x, ex.y, canvasW, canvasH, camX, camY, reduction);
+      } else {
+        placeholderDot(ctx, ex.x, ex.y, camX, camY, 5, '#8cd8ff', reduction);
       }
       continue;
     }

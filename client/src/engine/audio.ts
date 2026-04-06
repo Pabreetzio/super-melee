@@ -68,7 +68,7 @@ const SHIP_SOUNDS: Record<string, Record<string, string | undefined>> = {
   melnorme:   { primary: '/sounds/ships/melnorme/primary.wav',  secondary: '/sounds/ships/melnorme/secondary.wav' },
   mmrnmhrm:   { primaryX: '/sounds/ships/mmrnmhrm/primaryx.wav', secondaryX: '/sounds/ships/mmrnmhrm/secondary.wav', primaryY: '/sounds/ships/mmrnmhrm/primaryy.wav', secondaryY: '/sounds/ships/mmrnmhrm/secondaryy.wav' },
   mycon:      { primary: '/sounds/ships/mycon/primary.wav',     secondary: '/sounds/ships/mycon/secondary.wav' },
-  orz:        { primary: '/sounds/ships/orz/primary.wav',       secondary: '/sounds/ships/orz/secondary.wav', zap: '/sounds/ships/orz/zap.wav', argh: '/sounds/ships/orz/argh.wav' },
+  orz:        { primary: '/sounds/ships/orz/primary.wav',       secondary: '/sounds/ships/orz/secondary.wav', intruder: '/sounds/ships/orz/intruder.wav', zap: '/sounds/ships/orz/zap.wav', argh: '/sounds/ships/orz/argh.wav' },
   pkunk:      { primary: '/sounds/ships/pkunk/primary.wav',     rebirth: '/sounds/ships/pkunk/rebirth.wav', baby: '/sounds/ships/pkunk/insult01.wav', douDou: '/sounds/ships/pkunk/insult02.wav', fool: '/sounds/ships/pkunk/insult03.wav', idiot: '/sounds/ships/pkunk/insult04.wav', jerk: '/sounds/ships/pkunk/insult05.wav', looser: '/sounds/ships/pkunk/insult06.wav', moron: '/sounds/ships/pkunk/insult07.wav', nerd: '/sounds/ships/pkunk/insult08.wav', nitwit: '/sounds/ships/pkunk/insult09.wav', stupid: '/sounds/ships/pkunk/insult10.wav', twig: '/sounds/ships/pkunk/insult11.wav', whimp: '/sounds/ships/pkunk/insult12.wav', worm: '/sounds/ships/pkunk/insult13.wav', dummy: '/sounds/ships/pkunk/insult14.wav' },
   samatra:    { primary: '/sounds/ships/samatra/primary.wav',   secondary: '/sounds/ships/samatra/secondary.wav' },
   shofixti:   { primary: '/sounds/ships/shofixti/primary.wav',  secondary: '/sounds/ships/shofixti/secondary.wav' },
@@ -250,6 +250,21 @@ export function playVuxLimpetBite(): void {
 export function playEffectSound(cue: EffectSound): void {
   if (cue === 'fighter_laser') playFighterLaser();
   else if (cue === 'fighter_dock') playFighterDock();
+  else if (cue === 'orz_howitzer_hit') {
+    playUrl(BATTLE_SOUNDS.boom23, 0.6);
+  }
+  else if (cue === 'orz_marine_board') {
+    const url = SHIP_SOUNDS.orz?.intruder;
+    if (url) playUrl(url, 0.75);
+  }
+  else if (cue === 'orz_marine_attack') {
+    const url = SHIP_SOUNDS.orz?.zap;
+    if (url) playUrl(url, 0.7);
+  }
+  else if (cue === 'orz_marine_die') {
+    const url = SHIP_SOUNDS.orz?.argh;
+    if (url) playUrl(url, 0.75);
+  }
   else if (cue === 'vux_limpet_bite') playVuxLimpetBite();
   else if (cue === 'chenjesu_shrapnel') {
     const url = SHIP_SOUNDS.chenjesu?.shrapnel;

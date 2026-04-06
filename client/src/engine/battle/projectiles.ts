@@ -9,7 +9,7 @@ import { COSINE, SINE } from '../sinetab';
 import type { BattleExplosion, IonDot } from './types';
 import type { BattleState } from './types';
 import { circleOverlap, worldAngle, worldDelta } from './helpers';
-import { spriteMasksOverlap, spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
+import { spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
 import type { MissileHitEffect, SpawnRequest } from '../ships/types';
 
 function missileRadius(m: BattleMissile): number {
@@ -33,6 +33,8 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
   if (m.weaponType === 'fighter') return DISPLAY_TO_WORLD(8);
+  if (m.weaponType === 'orz_howitzer') return DISPLAY_TO_WORLD(6);
+  if (m.weaponType === 'orz_marine') return DISPLAY_TO_WORLD(5);
   return DISPLAY_TO_WORLD(2);
 }
 
@@ -135,6 +137,7 @@ function spawnMissileEffect(
     preserveVelocity: s.preserveVelocity,
     limpet: s.limpet,
     weaponType: s.weaponType,
+    orzSeed: s.orzSeed,
   });
 }
 
@@ -148,17 +151,48 @@ function missileIntersectsShip(
 ): boolean {
   const ship = bs.ships[side];
   const shipRadius = getShipCollisionRadius(bs, side);
-  if (!circleOverlap(m.x, m.y, missileRadius(m), ship.x, ship.y, shipRadius, worldW, worldH)) {
+  const missileHitRadius = missileRadius(m);
+  const sweptShipProxy = {
+    prevX: ship.x,
+    prevY: ship.y,
+    x: ship.x,
+    y: ship.y,
+  } as BattleMissile;
+  if (!sweptCircleOverlap(m, missileHitRadius, sweptShipProxy, shipRadius, worldW, worldH)) {
     return false;
   }
 
   const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);
   const shipFrame = getShipCollisionFrame(bs, shipSprites, side);
   if (missileFrame && shipFrame) {
-    return spriteMasksOverlap(missileFrame, m.x, m.y, shipFrame, ship.x, ship.y, worldW, worldH);
+    return sweptSpriteMasksOverlapPadded(
+      missileFrame,
+      m.prevX,
+      m.prevY,
+      m.x,
+      m.y,
+      shipFrame,
+      ship.x,
+      ship.y,
+      ship.x,
+      ship.y,
+      worldW,
+      worldH,
+      1,
+    );
   }
   if (missileFrame) {
-    return spriteMaskIntersectsCircle(missileFrame, m.x, m.y, ship.x, ship.y, shipRadius, worldW, worldH);
+    const { dx: moveX, dy: moveY } = worldDelta(m.prevX, m.prevY, m.x, m.y, worldW, worldH);
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(WORLD_TO_DISPLAY(moveX)), Math.abs(WORLD_TO_DISPLAY(moveY)))));
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps;
+      const sampleX = m.prevX + Math.round(moveX * t);
+      const sampleY = m.prevY + Math.round(moveY * t);
+      if (spriteMaskIntersectsCircle(missileFrame, sampleX, sampleY, ship.x, ship.y, shipRadius, worldW, worldH)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   return true;
@@ -203,6 +237,13 @@ export function applyDirectMissileDamage(
   const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
   pushHitEffects(bs, m, hitFx, 20480, 15360);
   playMissileBlast(m, hitFx.skipBlast);
+  if (m.weaponType === 'dogi') {
+    const ownShip = bs.ships[m.owner];
+    ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+  } else if (m.weaponType === 'orz_marine') {
+    const ownShip = bs.ships[m.owner];
+    ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
+  }
   return true;
 }
 
@@ -262,6 +303,7 @@ export function advanceExplosions(
     e.frame++;
     return e.type === 'splinter' ? e.frame < 7
       : e.type === 'boom' ? e.frame < 9
+      : e.type === 'orz_howitzer' ? e.frame < 6
       : e.type === 'supox_glob' ? e.frame < 5
       : e.frame < 8;
   });
@@ -312,6 +354,9 @@ export function processMissiles(
         playEffectSound('chenjesu_dogi_die');
         const ownShip = bs.ships[m.owner];
         ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+      } else if (m.weaponType === 'orz_marine') {
+        const ownShip = bs.ships[m.owner];
+        ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
       }
       continue;
     }
@@ -329,6 +374,16 @@ export function processMissiles(
     if (effect.healOwn)     ownShip.crew   = Math.min(ownShip.crew + effect.healOwn, ownerCtrl.maxCrew);
     if (effect.lasers)      bs.lasers.push(...effect.lasers);
     if (effect.sounds) for (const snd of effect.sounds) playEffectSound(snd);
+    if (effect.ionDots) {
+      for (const dot of effect.ionDots) {
+        bs.ionTrails[m.owner].push({
+          x: dot.x,
+          y: dot.y,
+          age: dot.age ?? 0,
+          palette: dot.palette,
+        });
+      }
+    }
     if (effect.damageMissiles) {
       for (const dmg of effect.damageMissiles) {
         if (applyDirectMissileDamage(bs, dmg.missile, dmg.damage)) {
@@ -345,6 +400,8 @@ export function processMissiles(
       } else if (m.weaponType === 'dogi') {
         playEffectSound('chenjesu_dogi_die');
         ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+      } else if (m.weaponType === 'orz_marine') {
+        ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
       }
       continue;
     }
@@ -385,7 +442,7 @@ export function processMissiles(
     const targetSide = m.owner === 0 ? 1 : 0;
     const targetShip = bs.ships[targetSide];
 
-    if (!hit && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
+    if (!hit && m.orzMarineMode !== 'boarded' && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
       const { dx: pdx, dy: pdy } = worldDelta(planetX, planetY, m.x, m.y);
       if (pdx * pdx + pdy * pdy < (planetRadiusW + 4) ** 2) {
         const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);
@@ -424,6 +481,7 @@ export function processMissiles(
     }
 
     if (!hit &&
+        m.orzMarineMode !== 'boarded' &&
         targetShip.crew > 0 &&
         bs.warpIn[targetSide] === 0 &&
         !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
@@ -464,6 +522,7 @@ export function processMissiles(
     }
 
     if (!hit &&
+        m.orzMarineMode !== 'boarded' &&
         m.weaponType === 'fighter' &&
         targetShip.crew > 0 &&
         bs.warpIn[targetSide] === 0 &&
@@ -488,11 +547,12 @@ export function processMissiles(
   const alive = Array(aliveMissiles.length).fill(true) as boolean[];
   for (let i = 0; i < aliveMissiles.length; i++) {
     if (!alive[i]) continue;
-    const a = aliveMissiles[i];
-    for (let j = i + 1; j < aliveMissiles.length; j++) {
-      if (!alive[j]) continue;
-      const b = aliveMissiles[j];
-      if (a.owner === b.owner) continue;
+      const a = aliveMissiles[i];
+      for (let j = i + 1; j < aliveMissiles.length; j++) {
+        if (!alive[j]) continue;
+        const b = aliveMissiles[j];
+        if (a.orzMarineMode === 'boarded' || b.orzMarineMode === 'boarded') continue;
+        if (a.owner === b.owner) continue;
       const aRadius = missileRadius(a);
       const bRadius = missileRadius(b);
       if (!sweptCircleOverlap(a, aRadius, b, bRadius, worldW, worldH)) continue;
@@ -525,6 +585,9 @@ export function processMissiles(
         if (a.weaponType === 'dogi') {
           const ownShip = bs.ships[a.owner];
           ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        } else if (a.weaponType === 'orz_marine') {
+          const ownShip = bs.ships[a.owner];
+          ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
         }
         alive[i] = false;
       }
@@ -535,6 +598,9 @@ export function processMissiles(
         if (b.weaponType === 'dogi') {
           const ownShip = bs.ships[b.owner];
           ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        } else if (b.weaponType === 'orz_marine') {
+          const ownShip = bs.ships[b.owner];
+          ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
         }
         alive[j] = false;
       }

@@ -26,6 +26,13 @@ export interface ShipState {
   // Status flags
   thrusting:     boolean;
   limpetCount?:  number;
+  orzTurretOffset?: number;
+  orzTurretTurnWait?: number;
+  orzTurretFlashFrames?: number;
+  orzMarineCount?: number;
+  orzMarineSeed?: number;
+  orzBoardSlots?: boolean[];
+  orzBoardDamageFlash?: number[];
   prevFireHeld?: boolean;   // edge-trigger for weapons like Kohr-Ah buzzsaw
   canResurrect?: boolean;   // Pkunk passive: 50% chance to reincarnate on this life
   arilouTeleportFrames?: number;
@@ -69,8 +76,9 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
+      weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
       initialTrackWait?: number;
+      orzSeed?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
   | { type: 'point_defense'; x: number; y: number }
@@ -132,13 +140,17 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
   orbitDir?: -1 | 1;     // fighters: preferred attack lane around enemy
   satelliteAngle?: number;
   zoqSpitAngle?: number;
+  orzMarineMode?: 'space' | 'boarded' | 'return';
+  orzBoardSlot?: number;
+  orzFlashFrame?: number;
+  orzSeed?: number;
 }
 
 export interface LaserFlash {
@@ -150,6 +162,10 @@ export interface LaserFlash {
 export type EffectSound =
   | 'fighter_laser'
   | 'fighter_dock'
+  | 'orz_howitzer_hit'
+  | 'orz_marine_board'
+  | 'orz_marine_attack'
+  | 'orz_marine_die'
   | 'vux_limpet_bite'
   | 'chenjesu_shrapnel'
   | 'chenjesu_dogi_bark'
@@ -181,6 +197,8 @@ export interface MissileEffect {
   skipVelocityUpdate?: boolean;
   /** Sound keys to play after applying this effect (Battle.tsx dispatches). */
   sounds?: EffectSound[];
+  /** Cosmetic ion dots to add this frame. */
+  ionDots?: Array<{ x: number; y: number; age?: number; palette?: 'default' | 'green' }>;
 }
 
 // ─── Collision effect returned by onMissileHit() ─────────────────────────────
@@ -193,7 +211,7 @@ export interface MissileHitEffect {
   /** If true, skip the default blast explosion at the impact site. */
   skipBlast?: boolean;
   /** Override the cosmetic explosion animation used at the impact site. */
-  explosionType?: 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob';
+  explosionType?: 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob' | 'orz_howitzer';
   /** Spawn a splinter explosion at the impact position with this velocity. */
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */

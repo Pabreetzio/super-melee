@@ -330,8 +330,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Seed the status panel so its data is ready once assets finish preloading.
     statusRef.current = [
-      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[0] },
-      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, inputs: 0, captainIdx: captainIdxRef.current[1] },
+      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, orzBoardSlots: s0.orzBoardSlots ?? [], orzBoardDamageFlash: s0.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[0] },
+      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, orzBoardSlots: s1.orzBoardSlots ?? [], orzBoardDamageFlash: s1.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[1] },
     ];
 
     void (async () => {
@@ -665,6 +665,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         energy:     bs.ships[0].energy,
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[0]].maxEnergy,
         limpetCount: bs.ships[0].limpetCount ?? 0,
+        orzBoardSlots: bs.ships[0].orzBoardSlots ?? [],
+        orzBoardDamageFlash: bs.ships[0].orzBoardDamageFlash ?? [],
         inputs:     i0,
         captainIdx: captainIdxRef.current[0],
       },
@@ -675,6 +677,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         energy:     bs.ships[1].energy,
         maxEnergy:  SHIP_REGISTRY[bs.shipTypes[1]].maxEnergy,
         limpetCount: bs.ships[1].limpetCount ?? 0,
+        orzBoardSlots: bs.ships[1].orzBoardSlots ?? [],
+        orzBoardDamageFlash: bs.ships[1].orzBoardDamageFlash ?? [],
         inputs:     i1,
         captainIdx: captainIdxRef.current[1],
       },
@@ -683,6 +687,13 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
+
+    for (const ship of bs.ships) {
+      if (!ship.orzBoardDamageFlash) continue;
+      for (let i = 0; i < ship.orzBoardDamageFlash.length; i++) {
+        if ((ship.orzBoardDamageFlash[i] ?? 0) > 0) ship.orzBoardDamageFlash[i]!--;
+      }
+    }
 
     if ((bs.ships[0].melnormeConfusionFrames ?? 0) > 0) {
       bs.ships[0].melnormeConfusionFrames!--;
@@ -757,6 +768,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           preserveVelocity: s.preserveVelocity,
           limpet: s.limpet,
           weaponType: s.weaponType,
+          orzSeed: s.orzSeed,
         });
       } else if (s.type === 'sound') {
         // Pure side-effect request; handled by the sound dispatch below.
@@ -849,6 +861,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (s.weaponType === 'orz_marine') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[0] === 'yehat' && missileSoundPlayed0) continue;
           s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
@@ -886,6 +899,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (s.weaponType === 'orz_marine') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[1] === 'yehat' && missileSoundPlayed1) continue;
           s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
@@ -1275,4 +1289,3 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     </div>
   );
 }
-

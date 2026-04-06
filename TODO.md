@@ -79,6 +79,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [x] **Ur-Quan Dreadnought** — `engine/ships/urquan.ts` (Fusion Blast, autonomous fighter launch)
 - [x] **Pkunk Fury** — `engine/ships/pkunk.ts` (triple spread gun, 50% resurrection on death)
 - [x] **VUX Intruder** — `engine/ships/vux.ts` (forward laser, limpet mines with movement impairment)
+- [x] **Orz Nemesis** — `engine/ships/orz.ts` (independent turret control, howitzer shockwave, combo-launched marines, boarded-status overlay)
 
 ### Hotspot Data
 - [x] Parse `.ani` files for all 24 non-human ships — hotspots baked into `sprites.ts`

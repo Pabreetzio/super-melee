@@ -82,7 +82,7 @@ Examples:
 - generic velocity update
 - projectile wrapping
 - projectile-vs-planet handling
-- projectile-vs-ship handling
+- projectile-vs-ship handling, including swept collision tests for fast missiles
 - controller effect application
 - ion-trail updates
 - cosmetic explosion advancement
