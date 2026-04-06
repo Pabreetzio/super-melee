@@ -46,6 +46,7 @@ docs/
 ├── assets.md        # asset catalog and extraction notes
 ├── architecture.md  # planned web stack and module structure
 ├── battle-architecture.md # current battle-loop ownership and extension points
+├── constants.md     # unit conversion table (display→world→velocity) and timing constants
 ├── weapon-porting.md # repeatable checklist for implementing/fixing weapons
 ├── porting-ships.md # broader ship-porting notes
 ├── survey.md        # broad source survey — start here for orientation
@@ -74,6 +75,20 @@ Co-Authored-By: Codex GPT-5.4 (medium reasoning) <codex@openai.com>
 ```
 
 If another agent is creating the commit, follow the same pattern with that agent's own name/model details and configured email rather than pretending the work was co-authored by Codex.
+
+## Sound Dispatch — Required Audit Before Editing
+
+Before adding or modifying any sound-related code in `Battle.tsx` or a ship
+controller, trace **all paths** that already produce sound for that weapon:
+
+1. Does the controller emit a `{ type: 'sound' }` spawn entry?
+2. Does `applySpawn` call the `sound =>` callback?
+3. Does `processMissile` return a `sounds` array in its `MissileEffect`?
+
+All three paths are live independently. Adding sound via one path without
+checking the others is the primary cause of double-play bugs and speculative
+fixes that conflict with existing dispatch. Read `docs/battle-architecture.md`
+§ "Sound dispatch — two separate paths" before proceeding.
 
 ## Stack
 

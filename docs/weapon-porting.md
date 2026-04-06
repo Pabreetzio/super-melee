@@ -128,6 +128,8 @@ Use these heuristics:
 - Forgetting to carry projectile identity from spawn into live missile state
 - Implementing a hit effect but not the status/HUD consequence
 - Using the wrong asset variant or missing sound hookup
+- Treating all impact sounds as ship-specific; some weapons reuse generic battle SFX such as asteroid-hit `boom1.wav`
+- Letting `skipBlast` suppress a weapon's custom impact animation instead of only suppressing the stock `blast`
 - Adding ship-specific branches to `Battle.tsx` when a controller hook would work
 - Porting “what it looks like” but not “how it behaves over time”
 - Porting damage but missing secondary consequences like slow, attach, drain, or return

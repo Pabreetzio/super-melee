@@ -14,6 +14,18 @@
       "problemMatcher": []
     },
     {
+      "label": "kill: client ports from processes",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'SilentlyContinue'; $workspace = (Resolve-Path '${workspaceFolder}').Path; $clientPath = Join-Path $workspace 'client'; $matches = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and (($_.CommandLine -like '*super-melee-client*') -or ($_.CommandLine -like '*vite*' -and $_.CommandLine -like ('*' + $clientPath.Replace('\\', '\\\\') + '*')) -or ($_.CommandLine -like '*npm run dev*' -and $_.CommandLine -like ('*' + $workspace.Replace('\\', '\\\\') + '*'))) }; if (-not $matches) { Write-Host 'No matching client processes found.'; exit 0 }; $pids = @($matches | Select-Object -ExpandProperty ProcessId -Unique); Write-Host 'Matching client processes:'; $matches | Select-Object ProcessId, Name, @{Name='CommandLine';Expression={$_.CommandLine}} | Format-Table -Wrap; $ports = @(Get-NetTCPConnection -State Listen | Where-Object { $pids -contains $_.OwningProcess } | Select-Object -ExpandProperty LocalPort -Unique | Sort-Object); if (-not $ports) { Write-Host 'No listening ports found for matching client processes.'; exit 0 }; Write-Host ('Killing client ports: ' + ($ports -join ', ')); $ports | ForEach-Object { npx --yes kill-port $_ | Out-Host }; exit 0",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "dev: start all",
       "type": "shell",
       "command": "npm run dev",
@@ -39,7 +51,7 @@
     {
       "label": "dev: kill port and start",
       "dependsOrder": "sequence",
-      "dependsOn": ["kill: port 3001", "dev: start all"],
+      "dependsOn": ["kill: port 3001", "kill: client ports from processes", "dev: start all"],
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",

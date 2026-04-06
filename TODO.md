@@ -75,6 +75,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 
 ### Ships — Tier 1
 - [x] **Spathi Eluder** — `engine/ships/spathi.ts` (BUTT torpedo, Emergency Escape Warp)
+- [x] **Supox Blade** — `engine/ships/supox.ts` (glob projectile, lateral/reverse free-thrust special)
 - [x] **Ur-Quan Dreadnought** — `engine/ships/urquan.ts` (Fusion Blast, autonomous fighter launch)
 - [x] **Pkunk Fury** — `engine/ships/pkunk.ts` (triple spread gun, 50% resurrection on death)
 - [x] **VUX Intruder** — `engine/ships/vux.ts` (forward laser, limpet mines with movement impairment)

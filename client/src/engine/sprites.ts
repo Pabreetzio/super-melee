@@ -296,6 +296,43 @@ export async function loadThraddashSprites(): Promise<ThraddashSprites> {
   };
 }
 
+const GLOB_BIG_HOTSPOTS: [number, number][] = [
+  [1,1],[3,1],[6,1],[8,1],[8,1],[8,3],[6,6],[3,8],
+  [1,8],[1,8],[1,6],[2,3],[2,1],[2,1],[1,1],[1,1],
+  [2,2],[5,6],[10,9],[12,11],[13,13],
+];
+const GLOB_MED_HOTSPOTS: [number, number][] = [
+  [0,0],[2,0],[3,0],[4,0],[4,0],[4,2],[3,3],[2,4],
+  [0,4],[0,4],[0,3],[0,2],[0,0],[0,0],[0,0],[0,0],
+  [1,1],[2,3],[3,4],[4,5],[5,6],
+];
+const GLOB_SML_HOTSPOTS: [number, number][] = [
+  [0,0],[1,0],[1,0],[1,0],[1,0],[1,1],[1,1],[1,1],
+  [0,1],[0,1],[0,1],[0,1],[0,0],[0,0],[0,0],[0,0],
+  [0,0],[1,1],[2,2],[3,3],[3,3],
+];
+
+export interface SupoxSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  glob: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadSupoxSprites(): Promise<SupoxSprites> {
+  const body = await loadGenericShipSprites('supox');
+  if (!body) throw new Error('Missing supox body sprites');
+  const [globBig, globMed, globSml] = await Promise.all([
+    loadSpriteSet('supox/glob', 'big', 21, GLOB_BIG_HOTSPOTS),
+    loadSpriteSet('supox/glob', 'med', 21, GLOB_MED_HOTSPOTS),
+    loadSpriteSet('supox/glob', 'sml', 21, GLOB_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    glob: { big: globBig, med: globMed, sml: globSml },
+  };
+}
+
 export interface ZoqfotpikSprites {
   big: SpriteSet;
   med: SpriteSet;

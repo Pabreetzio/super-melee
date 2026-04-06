@@ -263,6 +263,9 @@ export function playEffectSound(cue: EffectSound): void {
     const url = SHIP_SOUNDS.chenjesu?.dogiDie;
     if (url) playUrl(url, 0.75);
   }
+  else if (cue === 'supox_glob_hit') {
+    playUrl(BATTLE_SOUNDS.boom1, 0.6);
+  }
 }
 
 /** Small blast key by battle sound name. */

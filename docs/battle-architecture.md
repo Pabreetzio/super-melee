@@ -128,6 +128,57 @@ Use the ship controller hooks before adding special cases:
 - `applySpawn(...)`
   Use for immediate weapons or non-missile effects such as instant lasers.
 
+## Subsystem Contracts
+
+These are non-obvious coupling points that are not visible from any single file.
+Understanding them is required before touching weapon or sound logic.
+
+### applySpawn vs processMissile — timing
+
+`applySpawn` fires **once at spawn time**, while the missile's `life` is at its
+initial maximum. `processMissile` fires **every frame after spawn**, decrementing
+`life` on each tick.
+
+- Apply one-shot initialization (e.g. stinger spread bias) in `applySpawn`.
+- Apply per-frame behavior (steering, speed curves, decay side-effects) in
+  `processMissile`.
+- Applying bias in `processMissile` instead of `applySpawn` delays the effect
+  by one frame and may apply it redundantly — this is a common porting bug.
+
+### Sound dispatch — two separate paths
+
+Sounds can reach the audio system via two independent paths:
+
+1. **`{ type: 'sound' }` spawn** — the controller emits a dedicated spawn
+   entry. `Battle.tsx` catches it in the spawn loop (`s.type === 'sound'`) and
+   calls `playPrimary` / `playSecondary`. The entry carries no missile state.
+2. **`applySpawn` sound callback** — the controller receives a `sound =>`
+   callback from `Battle.tsx` and may call it inside `applySpawn`. This is
+   intended for sounds tied to the immediate weapon effect.
+
+These paths are independent. A weapon that already plays sound via
+`{ type: 'sound' }` must **not** also call the `applySpawn` callback for the
+same sound event — both paths are live on the same frame and the sound will
+play twice or conflict. Before adding or modifying sound dispatch for any
+weapon, trace which path(s) are already active for that weapon's spawn entries.
+
+Missiles that move via the `bs.missiles` array are **silent by default** —
+they do not automatically play sound when spawned. Sound must be explicitly
+requested via one of the two paths above.
+
+### skipVelocityUpdate — suppressing the generic velocity step
+
+`processMissile` returns a `MissileEffect`. If the effect includes
+`skipVelocityUpdate: true`, the shared projectile pipeline in
+`engine/battle/projectiles.ts` skips the generic `m.speed + m.accel` →
+`setVelocityVector` step for that missile on that frame.
+
+Use this when the controller has already set velocity directly
+(`setVelocityComponents` / `setVelocityVector`) and does not want the generic
+step to overwrite it. Not returning it (or returning `{}`) lets the generic
+step run. `skipDefaultTracking: true` is a parallel flag for the generic
+tracking rotation step.
+
 ## Smells To Avoid
 
 These are signs the design is slipping:

@@ -69,7 +69,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit';
+      weaponType?: 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
       initialTrackWait?: number;
     }
   | { type: 'sound'; sound: 'primary' | 'secondary' | 'cloak' | 'uncloak' }
@@ -132,7 +132,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -153,7 +153,8 @@ export type EffectSound =
   | 'vux_limpet_bite'
   | 'chenjesu_shrapnel'
   | 'chenjesu_dogi_bark'
-  | 'chenjesu_dogi_die';
+  | 'chenjesu_dogi_die'
+  | 'supox_glob_hit';
 
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
 
@@ -192,7 +193,7 @@ export interface MissileHitEffect {
   /** If true, skip the default blast explosion at the impact site. */
   skipBlast?: boolean;
   /** Override the cosmetic explosion animation used at the impact site. */
-  explosionType?: 'mycon_plasma' | 'chenjesu_spark';
+  explosionType?: 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob';
   /** Spawn a splinter explosion at the impact position with this velocity. */
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */

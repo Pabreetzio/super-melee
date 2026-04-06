@@ -28,6 +28,7 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'thraddash_horn') return DISPLAY_TO_WORLD(6);
   if (m.weaponType === 'thraddash_napalm') return DISPLAY_TO_WORLD(11);
   if (m.weaponType === 'zoqfotpik_spit') return DISPLAY_TO_WORLD(6);
+  if (m.weaponType === 'supox_glob') return DISPLAY_TO_WORLD(10);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
   if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
@@ -175,7 +176,8 @@ function pushHitEffects(
   worldH: number,
 ): void {
   const explosionType = hitFx.explosionType ?? 'blast';
-  if (!hitFx.skipBlast) bs.explosions.push({ type: explosionType, x: m.x, y: m.y, frame: 0 });
+  const spawnExplosion = !hitFx.skipBlast || explosionType !== 'blast';
+  if (spawnExplosion) bs.explosions.push({ type: explosionType, x: m.x, y: m.y, frame: 0 });
   if (hitFx.splinter) {
     bs.explosions.push({ type: 'splinter', x: m.x, y: m.y, frame: 2, vx: hitFx.splinter.vx, vy: hitFx.splinter.vy, ex: 0, ey: 0 });
   }
@@ -258,7 +260,10 @@ export function advanceExplosions(
       e.y = ((e.y % worldH) + worldH) % worldH;
     }
     e.frame++;
-    return e.type === 'splinter' ? e.frame < 7 : e.type === 'boom' ? e.frame < 9 : e.frame < 8;
+    return e.type === 'splinter' ? e.frame < 7
+      : e.type === 'boom' ? e.frame < 9
+      : e.type === 'supox_glob' ? e.frame < 5
+      : e.frame < 8;
   });
 }
 

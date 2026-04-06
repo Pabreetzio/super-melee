@@ -8,8 +8,9 @@
       "url": "http://localhost:5173",
       "webRoot": "${workspaceFolder}/client/src",
       "preLaunchTask": "dev: kill port and start",
+      "userDataDir": true,
       "presentation": { "order": 1 },
-      "comment": "Kills any existing server on :3001, then starts fresh. Use this if Claude Desktop or another process has the port."
+      "comment": "Kills any existing server on :3001 and Vite client on :5173, then starts fresh in a clean browser profile."
     },
     {
       "name": "Open Chrome (attach to running)",
@@ -27,6 +28,7 @@
       "url": "http://localhost:5173",
       "webRoot": "${workspaceFolder}/client/src",
       "preLaunchTask": "dev: kill port and start",
+      "userDataDir": true,
       "presentation": { "order": 3 }
     },
     {
