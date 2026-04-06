@@ -15,6 +15,7 @@ import { loadPkunkSprites, drawSprite, placeholderDot, type PkunkSprites, type S
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
 import type { AIDifficulty } from 'shared/types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { WORLD_H, WORLD_W } from '../battle/constants';
 
 // ─── Constants (from pkunk.c) ─────────────────────────────────────────────────
 
@@ -238,8 +239,8 @@ export const pkunkController: ShipController = {
     ship.canResurrect = rand(2) === 0;
     ship.crew    = PKUNK_MAX_CREW;
     ship.energy  = PKUNK_MAX_ENERGY;
-    ship.x       = rand(20480); // WORLD_W
-    ship.y       = rand(15360); // WORLD_H
+    ship.x       = rand(WORLD_W);
+    ship.y       = rand(WORLD_H);
     ship.velocity = { travelAngle: 0, vx: 0, vy: 0, ex: 0, ey: 0 };
     ship.facing  = rand(16);
     ship.thrustWait = 0;

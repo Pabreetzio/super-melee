@@ -15,6 +15,7 @@ import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from 
 import { loadGenericShipSprites, drawSprite, placeholderDot, type ShipSpriteSet, type SpriteFrame } from '../sprites';
 import type { BattleMissile, DrawContext, LaserFlash, ShipController, ShipState, SpawnRequest } from './types';
 import { toroidalDelta, worldAngle, worldDelta, wrapWorldCoord } from '../battle/helpers';
+import { WORLD_H, WORLD_W } from '../battle/constants';
 import type { AIDifficulty } from 'shared/types';
 
 // ─── Constants (from arilou.c) ───────────────────────────────────────────────
@@ -37,9 +38,6 @@ const ARILOU_LASER_COLOR               = '#ffff66';
 export const ARILOU_SPECIAL_ENERGY_COST = 3;
 export const ARILOU_SPECIAL_WAIT        = 2;
 export const ARILOU_HYPER_LIFE          = 5;
-
-const WORLD_W = 20480;
-const WORLD_H = 15360;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;

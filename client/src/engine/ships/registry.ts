@@ -31,6 +31,7 @@ import { thraddashController } from './thraddash';
 import { supoxController } from './supox';
 import { zoqfotpikController } from './zoqfotpik';
 import { orzController } from './orz';
+import { umgahController } from './umgah';
 
 // ─── Fallback controller for unimplemented ships ──────────────────────────────
 
@@ -87,6 +88,7 @@ const EXPLICIT: Partial<Record<ShipId, ShipController>> = {
   shofixti: shofixtiController,
   supox: supoxController,
   thraddash: thraddashController,
+  umgah: umgahController,
   yehat: yehatController,
   zoqfotpik: zoqfotpikController,
   human:   humanController,

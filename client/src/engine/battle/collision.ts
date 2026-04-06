@@ -8,6 +8,7 @@ import { getShipDef } from '../ships';
 import { SHIP_REGISTRY } from '../ships/registry';
 import { resolveShipCollision, worldAngle, worldDelta, wrapWorldCoord } from './helpers';
 import { spriteMasksOverlap, spriteMaskIntersectsCircle } from './maskCollision';
+import { WORLD_H, WORLD_W } from './constants';
 
 function getShipCollisionFrame(
   ship: ShipState,
@@ -51,7 +52,7 @@ export function handleShipShipCollision(
   if (warpIn[0] !== 0 || warpIn[1] !== 0 || distSq >= minDist * minDist || distSq === 0) return;
   const frame0 = getShipCollisionFrame(ships[0], shipTypes[0], shipSprites);
   const frame1 = getShipCollisionFrame(ships[1], shipTypes[1], shipSprites);
-  if (frame0 && frame1 && !spriteMasksOverlap(frame0, ships[0].x, ships[0].y, frame1, ships[1].x, ships[1].y, 20480, 15360)) return;
+  if (frame0 && frame1 && !spriteMasksOverlap(frame0, ships[0].x, ships[0].y, frame1, ships[1].x, ships[1].y, WORLD_W, WORLD_H)) return;
 
   const ctrl0 = SHIP_REGISTRY[shipTypes[0]];
   const ctrl1 = SHIP_REGISTRY[shipTypes[1]];
@@ -72,10 +73,10 @@ export function handleShipShipCollision(
     ships[0].y -= oy;
     ships[1].x += ox;
     ships[1].y += oy;
-    ships[0].x = wrapWorldCoord(ships[0].x, 20480);
-    ships[0].y = wrapWorldCoord(ships[0].y, 15360);
-    ships[1].x = wrapWorldCoord(ships[1].x, 20480);
-    ships[1].y = wrapWorldCoord(ships[1].y, 15360);
+    ships[0].x = wrapWorldCoord(ships[0].x, WORLD_W);
+    ships[0].y = wrapWorldCoord(ships[0].y, WORLD_H);
+    ships[1].x = wrapWorldCoord(ships[1].x, WORLD_W);
+    ships[1].y = wrapWorldCoord(ships[1].y, WORLD_H);
   }
 
   const fx0 = ctrl0.onShipCollision?.(ships[0], ships[1]);
@@ -111,7 +112,7 @@ export function handleShipPlanetCollisions(
     const distSq = pdx * pdx + pdy * pdy;
     if (distSq >= minDistSq || distSq === 0) continue;
     const frame = getShipCollisionFrame(ship, shipTypes[side], shipSprites);
-    if (frame && !spriteMaskIntersectsCircle(frame, ship.x, ship.y, planetX, planetY, planetRadiusW, 20480, 15360)) continue;
+    if (frame && !spriteMaskIntersectsCircle(frame, ship.x, ship.y, planetX, planetY, planetRadiusW, WORLD_W, WORLD_H)) continue;
 
     const angle = worldAngle(planetX, planetY, ship.x, ship.y);
     const cx = COSINE(angle, 64);
@@ -127,8 +128,8 @@ export function handleShipPlanetCollisions(
     if (pushAmt > 0) {
       ship.x += COSINE(angle, pushAmt);
       ship.y += SINE(angle, pushAmt);
-      ship.x = wrapWorldCoord(ship.x, 20480);
-      ship.y = wrapWorldCoord(ship.y, 15360);
+      ship.x = wrapWorldCoord(ship.x, WORLD_W);
+      ship.y = wrapWorldCoord(ship.y, WORLD_H);
     }
 
     const damage = Math.max(1, ship.crew >> 2);

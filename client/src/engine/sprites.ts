@@ -3,6 +3,7 @@
 // them from build-generated atlas images instead of downloading each PNG.
 
 import { getAtlasFrameForUrl } from './atlasAssets';
+import { WORLD_H, WORLD_W } from './battle/constants';
 
 export interface SpriteFrame {
   img:    CanvasImageSource;
@@ -293,6 +294,52 @@ export async function loadThraddashSprites(): Promise<ThraddashSprites> {
     ...body,
     horn: { big: hornBig, med: hornMed, sml: hornSml },
     napalm: { big: napalmBig, med: napalmMed, sml: napalmSml },
+  };
+}
+
+const UMGAH_CONE_BIG_HOTSPOTS: [number, number][] = [
+  [17,46],[-1,43],[-5,39],[-6,30],[-8,17],[-6,-1],[-5,-5],[0,-5],
+  [17,-7],[31,-5],[40,-4],[45,0],[48,17],[45,30],[41,39],[31,43],
+  [17,46],[-1,43],[-5,39],[-6,30],[-8,17],[-6,-1],[-5,-5],[0,-5],
+  [17,-7],[31,-5],[40,-4],[45,0],[48,17],[45,30],[41,39],[31,43],
+  [17,46],[-1,43],[-5,39],[-6,30],[-8,17],[-6,-1],[-5,-5],[0,-5],
+  [17,-7],[31,-5],[40,-4],[45,0],[48,17],[45,30],[41,39],[31,43],
+];
+const UMGAH_CONE_MED_HOTSPOTS: [number, number][] = [
+  [9,22],[0,21],[-3,19],[-2,15],[-4,9],[-3,0],[-3,-3],[0,-3],
+  [9,-4],[15,-4],[19,-2],[21,0],[24,9],[22,16],[20,19],[15,20],
+  [9,22],[0,21],[-3,19],[-2,15],[-4,9],[-3,0],[-3,-3],[0,-3],
+  [9,-4],[15,-4],[19,-2],[21,0],[24,9],[22,16],[20,19],[15,20],
+  [9,22],[0,21],[-3,19],[-2,15],[-4,9],[-3,0],[-3,-3],[0,-3],
+  [9,-4],[15,-4],[19,-2],[21,0],[24,9],[22,16],[20,19],[15,20],
+];
+const UMGAH_CONE_SML_HOTSPOTS: [number, number][] = [
+  [3,10],[0,9],[-1,8],[-1,6],[-2,3],[-1,0],[-1,-1],[-1,-1],
+  [3,-2],[6,-1],[8,-1],[10,0],[10,3],[10,6],[8,8],[6,9],
+  [3,10],[0,9],[-1,8],[-1,6],[-2,3],[-1,0],[-1,-1],[-1,-1],
+  [3,-2],[6,-1],[8,-1],[10,0],[10,3],[10,6],[8,8],[6,9],
+  [3,10],[0,9],[-1,8],[-1,6],[-2,3],[-1,0],[-1,-1],[-1,-1],
+  [3,-2],[6,-1],[8,-1],[10,0],[10,3],[10,6],[8,8],[6,9],
+];
+
+export interface UmgahSprites {
+  big: SpriteSet;
+  med: SpriteSet;
+  sml: SpriteSet;
+  cone: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+}
+
+export async function loadUmgahSprites(): Promise<UmgahSprites> {
+  const body = await loadGenericShipSprites('umgah');
+  if (!body) throw new Error('Missing umgah body sprites');
+  const [coneBig, coneMed, coneSml] = await Promise.all([
+    loadSpriteSet('umgah/cone', 'big', 48, UMGAH_CONE_BIG_HOTSPOTS),
+    loadSpriteSet('umgah/cone', 'med', 48, UMGAH_CONE_MED_HOTSPOTS),
+    loadSpriteSet('umgah/cone', 'sml', 48, UMGAH_CONE_SML_HOTSPOTS),
+  ]);
+  return {
+    ...body,
+    cone: { big: coneBig, med: coneMed, sml: coneSml },
   };
 }
 
@@ -624,7 +671,7 @@ export function placeholderDot(
   camX: number, camY: number,
   dotR: number, color: string,
   reduction: number = 0,
-  worldW = 20480, worldH = 15360,
+  worldW = WORLD_W, worldH = WORLD_H,
 ): void {
   let rx = worldX - camX;
   let ry = worldY - camY;
@@ -659,7 +706,7 @@ export function drawSprite(
   originWorldX: number,  // world X of canvas top-left (camera)
   originWorldY: number,
   reduction: number = 0, // zoom level: 0=1x, 1=2x, 2=4x, 3=8x
-  worldW = 20480, worldH = 15360,
+  worldW = WORLD_W, worldH = WORLD_H,
 ): void {
   const normalizedIndex = ((frameIndex % set.count) + set.count) % set.count;
   const frame = set.frames[normalizedIndex];

@@ -11,6 +11,7 @@ import type { BattleState } from './types';
 import { circleOverlap, worldAngle, worldDelta } from './helpers';
 import { spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
 import type { MissileHitEffect, SpawnRequest } from '../ships/types';
+import { WORLD_H, WORLD_W } from './constants';
 
 function missileRadius(m: BattleMissile): number {
   // Broad-phase circle radius — must be >= the sprite's actual pixel radius so
@@ -27,6 +28,7 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'melnorme_confuse') return DISPLAY_TO_WORLD(10);
   if (m.weaponType === 'thraddash_horn') return DISPLAY_TO_WORLD(6);
   if (m.weaponType === 'thraddash_napalm') return DISPLAY_TO_WORLD(11);
+  if (m.weaponType === 'umgah_cone') return DISPLAY_TO_WORLD(56);
   if (m.weaponType === 'zoqfotpik_spit') return DISPLAY_TO_WORLD(6);
   if (m.weaponType === 'supox_glob') return DISPLAY_TO_WORLD(10);
   // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
@@ -235,7 +237,7 @@ export function applyDirectMissileDamage(
 
   const ownerCtrl = SHIP_REGISTRY[bs.shipTypes[m.owner]];
   const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
-  pushHitEffects(bs, m, hitFx, 20480, 15360);
+  pushHitEffects(bs, m, hitFx, WORLD_W, WORLD_H);
   playMissileBlast(m, hitFx.skipBlast);
   if (m.weaponType === 'dogi') {
     const ownShip = bs.ships[m.owner];

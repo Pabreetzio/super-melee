@@ -55,6 +55,8 @@ export interface ShipState {
   melnormeConfusionInput?: number;
   melnormeSeed?: number;
   thraddashPrevSpecialHeld?: boolean;
+  umgahConeCycle?: number;
+  umgahZipPending?: boolean;
   zoqTongueFrames?: number;
   zoqSpitCycle?: number;
 }
@@ -76,7 +78,7 @@ export type SpawnRequest =
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
       limpet?: boolean;
-      weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
+      weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
       initialTrackWait?: number;
       orzSeed?: number;
     }
@@ -140,7 +142,7 @@ export interface BattleMissile {
   owner: 0 | 1;
   preserveVelocity?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'zoqfotpik_spit' | 'supox_glob';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -337,6 +339,7 @@ export interface ShipController {
   /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
   isIntangible?(ship: ShipState): boolean;
   onShipCollision?(ship: ShipState, other: ShipState): { damageOther?: number } | void;
+  postUpdateShip?(ship: ShipState): void;
 
   /** Optional ship-specific AI override for offline cyborg battles. */
   computeAIInput?(

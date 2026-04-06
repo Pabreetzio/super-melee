@@ -2,9 +2,7 @@ import { COSINE, SINE, tableAngle, HALF_CIRCLE, QUADRANT } from '../sinetab';
 import { setVelocityComponents, deltaVelocityComponents, VELOCITY_TO_WORLD, WORLD_TO_VELOCITY, DISPLAY_TO_WORLD } from '../velocity';
 import type { ShipState } from '../ships/types';
 import type { BattleState } from './types';
-
-const DEFAULT_WORLD_W = 20480;
-const DEFAULT_WORLD_H = 15360;
+import { WORLD_H as DEFAULT_WORLD_H, WORLD_W as DEFAULT_WORLD_W } from './constants';
 const COLLISION_TURN_WAIT = 1;
 const COLLISION_THRUST_WAIT = 3;
 const MIN_COLLISION_SPEED = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(1)) - 1;
@@ -220,6 +218,8 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.melnormeConfusionFrames ?? 0);
     h = hashStep(h, ship.melnormeConfusionInput ?? 0);
     h = hashStep(h, ship.melnormeSeed ?? 0);
+    h = hashStep(h, ship.umgahConeCycle ?? 0);
+    h = hashStep(h, ship.umgahZipPending ? 1 : 0);
   }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
@@ -250,6 +250,11 @@ export function computeChecksum(bs: BattleState): number {
         : m.weaponType === 'chmmr_satellite' ? 11
         : m.weaponType === 'melnorme_pump' ? 12
         : m.weaponType === 'melnorme_confuse' ? 13
+        : m.weaponType === 'thraddash_horn' ? 14
+        : m.weaponType === 'thraddash_napalm' ? 15
+        : m.weaponType === 'umgah_cone' ? 16
+        : m.weaponType === 'zoqfotpik_spit' ? 17
+        : m.weaponType === 'supox_glob' ? 18
         : 0,
     );
     h = hashStep(h, m.satelliteAngle ?? 0);
