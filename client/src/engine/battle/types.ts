@@ -36,6 +36,11 @@ export interface CrewPod {
   blink: boolean;
 }
 
+export interface TractorShadow {
+  targetSide: 0 | 1;
+  angle: number;
+}
+
 // Winner ship state preserved between rounds (offline modes only)
 export interface WinnerShipState {
   side: 0 | 1;
@@ -47,6 +52,7 @@ export interface WinnerShipState {
   vy: number;
   facing: number;
   persistedMissiles?: BattleMissile[];
+  chmmrSatellitesSpawned?: boolean;
 }
 
 export interface BattleState {
@@ -54,6 +60,7 @@ export interface BattleState {
   shipTypes: [ShipId, ShipId];
   missiles:  BattleMissile[];
   lasers:    LaserFlash[];
+  tractorShadows: TractorShadow[];
   explosions: BattleExplosion[];
   shipDestructions: [ShipDestructionState | null, ShipDestructionState | null];
   ionTrails:  [IonDot[], IonDot[]];

@@ -1,6 +1,8 @@
 import { drawSprite, placeholderDot, type ExplosionSprites, type PkunkSprites } from '../sprites';
 import type { DrawContext, LaserFlash, ShipState } from '../ships/types';
-import type { BattleExplosion, CrewPod, IonDot } from './types';
+import type { BattleExplosion, CrewPod, IonDot, TractorShadow } from './types';
+import { SHIP_REGISTRY } from '../ships/registry';
+import type { ShipId } from 'shared/types';
 import { COSINE, SINE } from '../sinetab';
 import { DISPLAY_TO_WORLD } from '../velocity';
 
@@ -66,6 +68,84 @@ export function renderLaserFlashes(
     ctx.stroke();
   }
   ctx.restore();
+}
+
+const TRACTOR_SHADOW_OFFSETS = [
+  DISPLAY_TO_WORLD(8),
+  DISPLAY_TO_WORLD(17),
+  DISPLAY_TO_WORLD(28),
+  DISPLAY_TO_WORLD(42),
+  DISPLAY_TO_WORLD(60),
+] as const;
+
+const TRACTOR_SHADOW_COLORS = [
+  'rgb(0,0,132)',
+  'rgb(0,0,115)',
+  'rgb(0,0,99)',
+  'rgb(0,0,74)',
+  'rgb(0,0,58)',
+] as const;
+
+let tractorShadowScratch: HTMLCanvasElement | null = null;
+
+function getTractorShadowScratch(width: number, height: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
+  if (!tractorShadowScratch) {
+    tractorShadowScratch = document.createElement('canvas');
+  }
+  if (tractorShadowScratch.width !== width || tractorShadowScratch.height !== height) {
+    tractorShadowScratch.width = width;
+    tractorShadowScratch.height = height;
+  }
+  return tractorShadowScratch;
+}
+
+export function renderTractorShadows(
+  ctx: CanvasRenderingContext2D,
+  tractorShadows: TractorShadow[],
+  ships: [ShipState, ShipState],
+  shipTypes: [ShipId, ShipId],
+  shipSprites: Map<string, unknown>,
+  baseDc: Omit<DrawContext, 'ctx'>,
+): void {
+  if (tractorShadows.length === 0) return;
+  const scratch = getTractorShadowScratch(baseDc.canvasW, baseDc.canvasH);
+  const scratchCtx = scratch?.getContext('2d') ?? null;
+  if (!scratch || !scratchCtx) return;
+
+  for (const shadow of tractorShadows) {
+    const side = shadow.targetSide;
+    const ship = ships[side];
+    const shipType = shipTypes[side];
+    const ctrl = SHIP_REGISTRY[shipType];
+    const sprites = shipSprites.get(shipType) ?? null;
+    if (!ctrl.getShipCollisionFrame?.(ship, sprites)) continue;
+
+    for (let i = 0; i < TRACTOR_SHADOW_OFFSETS.length; i++) {
+      const shadowX = ship.x + COSINE(shadow.angle, TRACTOR_SHADOW_OFFSETS[i]);
+      const shadowY = ship.y + SINE(shadow.angle, TRACTOR_SHADOW_OFFSETS[i]);
+      scratchCtx.clearRect(0, 0, scratch.width, scratch.height);
+      ctrl.drawShip(
+        {
+          ctx: scratchCtx,
+          camX: baseDc.camX,
+          camY: baseDc.camY,
+          canvasW: baseDc.canvasW,
+          canvasH: baseDc.canvasH,
+          reduction: baseDc.reduction,
+          worldW: baseDc.worldW,
+          worldH: baseDc.worldH,
+        },
+        { ...ship, x: shadowX, y: shadowY },
+        sprites,
+      );
+      scratchCtx.globalCompositeOperation = 'source-in';
+      scratchCtx.fillStyle = TRACTOR_SHADOW_COLORS[i];
+      scratchCtx.fillRect(0, 0, scratch.width, scratch.height);
+      scratchCtx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(scratch, 0, 0);
+    }
+  }
 }
 
 export function renderIonTrails(

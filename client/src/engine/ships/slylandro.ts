@@ -125,6 +125,7 @@ export const slylandroController: ShipController = {
     _ownSide,
     _missiles,
     addLaser,
+    _addTractorShadow,
     _damageMissile,
     _emitSound,
     enemyType,

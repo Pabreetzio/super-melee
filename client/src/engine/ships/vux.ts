@@ -252,6 +252,7 @@ export const vuxController: ShipController = {
     _ownSide: 0 | 1,
     _missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    _addTractorShadow,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,

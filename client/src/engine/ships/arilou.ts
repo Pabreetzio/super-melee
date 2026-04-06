@@ -275,6 +275,7 @@ export const arilouController: ShipController = {
     _ownSide: 0 | 1,
     _missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    _addTractorShadow,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,

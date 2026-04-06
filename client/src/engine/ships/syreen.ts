@@ -224,6 +224,7 @@ export const syreenController: ShipController = {
     ownSide,
     _missiles,
     _addLaser,
+    _addTractorShadow,
     _damageMissile,
     _emitSound,
     enemyType,

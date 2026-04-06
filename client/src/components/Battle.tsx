@@ -44,7 +44,7 @@ import {
   shouldRenderExplodingShip,
 } from '../engine/battle/destruction';
 import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateCrewPods, updateIonTrails } from '../engine/battle/projectiles';
-import { renderCrewPods, renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth } from '../engine/battle/renderEffects';
+import { renderCrewPods, renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth, renderTractorShadows } from '../engine/battle/renderEffects';
 import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
 import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
 import { computeAIInput } from '../engine/battle/ai';
@@ -268,6 +268,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       wShip.velocity.vx = ws.vx;
       wShip.velocity.vy = ws.vy;
       wShip.facing  = ws.facing;
+      if (ws.chmmrSatellitesSpawned !== undefined) {
+        wShip.chmmrSatellitesSpawned = ws.chmmrSatellitesSpawned;
+      }
       // Winner skips warp-in (they're already in the arena)
       if (ws.side === 0) warpIn0 = 0; else warpIn1 = 0;
 
@@ -309,6 +312,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       shipTypes: [type0, type1],
       missiles: initMissiles,
       lasers: [],
+      tractorShadows: [],
       explosions: [],
       shipDestructions: [null, null],
       ionTrails: [[], []],
@@ -633,13 +637,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             vy:      wShip.velocity.vy,
             facing:  wShip.facing,
           };
-          // Carry over live fighters belonging to the winner (Ur-Quan Dreadnought).
-          // Fighters die with their mothership, so only persist when the winner has them.
-          const winnerFighters = bs.missiles.filter(
-            m => m.weaponType === 'fighter' && m.owner === w,
+          if (bs.shipTypes[w] === 'chmmr') {
+            ws.chmmrSatellitesSpawned = bs.ships[w].chmmrSatellitesSpawned ?? true;
+          }
+          // Carry over live winner-owned companion missiles that persist across rounds.
+          const persistedWinnerMissiles = bs.missiles.filter(
+            m => m.owner === w && (m.weaponType === 'fighter' || m.weaponType === 'chmmr_satellite'),
           );
-          if (winnerFighters.length > 0) {
-            ws.persistedMissiles = winnerFighters.map(m => ({ ...m }));
+          if (persistedWinnerMissiles.length > 0) {
+            ws.persistedMissiles = persistedWinnerMissiles.map(m => ({ ...m }));
           }
         }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -680,6 +686,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
+    bs.tractorShadows = [];
 
     for (const ship of bs.ships) {
       if (!ship.orzBoardDamageFlash) continue;
@@ -822,6 +829,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       }
     };
     const addLaser = (l: LaserFlash) => bs.lasers.push(l);
+    const addTractorShadow = (shadow: BattleState['tractorShadows'][number]) => bs.tractorShadows.push(shadow);
     const damageMissile = (m: BattleMissile, damage: number): boolean => {
       if (!applyDirectMissileDamage(bs, m, damage)) return false;
       const idx = bs.missiles.indexOf(m);
@@ -841,6 +849,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         0,
         bs.missiles,
         addLaser,
+        addTractorShadow,
         damageMissile,
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]),
         bs.shipTypes[1],
@@ -879,6 +888,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         1,
         bs.missiles,
         addLaser,
+        addTractorShadow,
         damageMissile,
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]),
         bs.shipTypes[0],
@@ -1142,6 +1152,14 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // ── Point-defense laser flashes (1 frame, white lines) ───────────────
     renderLaserFlashes(ctx, bs.lasers, tw2dx, tw2dy);
+    renderTractorShadows(
+      ctx,
+      bs.tractorShadows,
+      bs.ships,
+      bs.shipTypes,
+      shipSpritesRef.current,
+      { camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+    );
 
     // ── Ion trails (thruster exhaust dots) ──────────────────────────────
     // UQM-style: small 1×1 dots cycling orange → red → dark red → gone.

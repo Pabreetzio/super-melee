@@ -264,6 +264,7 @@ export const zoqfotpikController: ShipController = {
     ownSide: 0 | 1,
     missiles: BattleMissile[],
     _addLaser: (l: never) => void,
+    _addTractorShadow,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,

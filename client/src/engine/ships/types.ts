@@ -7,7 +7,7 @@
 import type { VelocityDesc } from '../velocity';
 import type { SpriteFrame } from '../sprites';
 import type { AIDifficulty, ShipId } from 'shared/types';
-import type { CrewPod } from '../battle/types';
+import type { CrewPod, TractorShadow } from '../battle/types';
 
 // ─── Common ship state (all ships use this) ───────────────────────────────────
 
@@ -356,6 +356,7 @@ export interface ShipController {
     ownSide: 0 | 1,
     missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    addTractorShadow: (shadow: TractorShadow) => void,
     damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType: ShipId,

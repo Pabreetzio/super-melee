@@ -249,6 +249,7 @@ export const shofixtiController: ShipController = {
     _ownSide: 0 | 1,
     missiles: BattleMissile[],
     _addLaser,
+    _addTractorShadow,
     damageMissile,
     _emitSound,
     enemyType,

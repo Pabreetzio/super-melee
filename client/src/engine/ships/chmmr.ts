@@ -65,7 +65,6 @@ const SATELLITE_LIFE = 255;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(CHMMR_MAX_THRUST) ** 2;
 const LASER_COLORS = ['#7a0000', '#ff2200', '#ffbb00', '#ff2200'] as const;
-const TRACTOR_COLOR = '#2344ff';
 const SATELLITE_LASER_COLOR = '#2a5cff';
 
 function advancePosition(ship: ShipState): void {
@@ -319,9 +318,10 @@ export const chmmrController: ShipController = {
     s: SpawnRequest,
     ownShip: ShipState,
     enemyShip: ShipState,
-    _ownSide: 0 | 1,
+    ownSide: 0 | 1,
     _missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    addTractorShadow: (shadow: { targetSide: 0 | 1; angle: number }) => void,
     _damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,
@@ -349,7 +349,7 @@ export const chmmrController: ShipController = {
       const pull = Math.max(1, Math.floor(WORLD_TO_VELOCITY(12) / CHMMR_SHIP_MASS));
       const { dx: evx, dy: evy } = getCurrentVelocityComponents(enemyShip.velocity);
       setVelocityComponents(enemyShip.velocity, evx + COSINE(toward, pull), evy + SINE(toward, pull));
-      addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y, color: TRACTOR_COLOR });
+      addTractorShadow({ targetSide: ownSide === 0 ? 1 : 0, angle: toward });
     }
   },
 

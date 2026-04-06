@@ -289,6 +289,7 @@ export const humanController: ShipController = {
     ownSide: 0 | 1,
     missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
+    _addTractorShadow,
     damageMissile: (m: BattleMissile, damage: number) => boolean,
     emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,

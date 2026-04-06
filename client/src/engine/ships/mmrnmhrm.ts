@@ -298,6 +298,7 @@ export const mmrnmhrmController: ShipController = {
     _ownSide,
     _missiles,
     addLaser,
+    _addTractorShadow,
     _damageMissile,
     _emitSound,
     enemyType,
