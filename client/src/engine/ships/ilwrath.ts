@@ -154,6 +154,7 @@ export function updateIlwrathShip(ship: ShipState, input: number): SpawnRequest[
       tracks: false,
       trackRate: 0,
       inheritVelocity: true,
+      preserveVelocity: true,
     });
   }
 
