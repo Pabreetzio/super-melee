@@ -53,8 +53,9 @@ const ZOQFOTPIK_SPIT_START_SPEED = DISPLAY_TO_WORLD(ZOQFOTPIK_SPIT_FRAMES) << 1;
 export const ZOQFOTPIK_SPECIAL_ENERGY_COST = Math.floor(ZOQFOTPIK_MAX_ENERGY * 3 / 4);
 export const ZOQFOTPIK_SPECIAL_WAIT = 6;
 export const ZOQFOTPIK_TONGUE_DAMAGE = 12;
-const ZOQFOTPIK_TONGUE_RANGE = DISPLAY_TO_WORLD(32);
-const ZOQFOTPIK_TONGUE_WIDTH = DISPLAY_TO_WORLD(12);
+const ZOQFOTPIK_TONGUE_RANGE = DISPLAY_TO_WORLD(100);
+const ZOQFOTPIK_TONGUE_WIDTH = DISPLAY_TO_WORLD(18);
+const ZOQFOTPIK_SPIT_BIAS_SEQUENCE = [-1, 0, 1, 0] as const;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(ZOQFOTPIK_MAX_THRUST) ** 2;
 
@@ -104,6 +105,7 @@ export function makeZoqfotpikShip(x: number, y: number): ShipState {
     energyWait: 0,
     thrusting: false,
     zoqTongueFrames: 0,
+    zoqSpitCycle: 0,
   };
 }
 
@@ -168,6 +170,7 @@ export function updateZoqfotpikShip(ship: ShipState, input: number): SpawnReques
       trackRate: 0,
       weaponType: 'zoqfotpik_spit',
     });
+    ship.zoqSpitCycle = ((ship.zoqSpitCycle ?? 0) + 1) % ZOQFOTPIK_SPIT_BIAS_SEQUENCE.length;
   }
 
   if (ship.specialWait > 0) {
@@ -236,6 +239,7 @@ export const zoqfotpikController: ShipController = {
     if (m.weaponType !== 'zoqfotpik_spit') return {};
     if (m.weaponWait === undefined) m.weaponWait = ZOQFOTPIK_SPIT_WAIT;
     if (m.decelWait === undefined) m.decelWait = 0;
+    if (m.zoqSpitAngle === undefined) m.zoqSpitAngle = (m.facing * 4) & 63;
 
     if (m.weaponWait > 0) {
       m.weaponWait--;
@@ -246,7 +250,9 @@ export const zoqfotpikController: ShipController = {
 
     const index = spitFrame(m);
     m.speed = DISPLAY_TO_WORLD(Math.max(1, ZOQFOTPIK_SPIT_FRAMES - index)) << 1;
-    setVelocityVector(m.velocity, m.speed, m.facing);
+    const angle = m.zoqSpitAngle ?? ((m.facing * 4) & 63);
+    const velocityMag = WORLD_TO_VELOCITY(m.speed);
+    setVelocityComponents(m.velocity, COSINE(angle, velocityMag), SINE(angle, velocityMag));
     return { skipVelocityUpdate: true };
   },
 
@@ -254,7 +260,18 @@ export const zoqfotpikController: ShipController = {
     s: SpawnRequest,
     ownShip: ShipState,
     enemyShip: ShipState,
+    ownSide: 0 | 1,
+    missiles: BattleMissile[],
   ): void {
+    if (s.type === 'missile' && s.weaponType === 'zoqfotpik_spit') {
+      const missile = [...missiles].reverse().find(m => m.owner === ownSide && m.weaponType === 'zoqfotpik_spit' && m.life === ZOQFOTPIK_WEAPON_LIFE);
+      if (missile) {
+        const cycleIndex = (((ownShip.zoqSpitCycle ?? 0) - 1) + ZOQFOTPIK_SPIT_BIAS_SEQUENCE.length) % ZOQFOTPIK_SPIT_BIAS_SEQUENCE.length;
+        const bias = ZOQFOTPIK_SPIT_BIAS_SEQUENCE[cycleIndex];
+        missile.zoqSpitAngle = ((missile.facing * 4) + bias + 64) & 63;
+      }
+      return;
+    }
     if (s.type !== 'zoqfotpik_tongue') return;
     if (tongueHits(ownShip, enemyShip)) {
       enemyShip.crew = Math.max(0, enemyShip.crew - ZOQFOTPIK_TONGUE_DAMAGE);

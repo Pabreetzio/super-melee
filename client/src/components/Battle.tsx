@@ -994,6 +994,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[0] === 'yehat' && missileSoundPlayed0) continue;
           s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
           missileSoundPlayed0 = true;
@@ -1030,6 +1031,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else
       if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk' && s.weaponType !== 'chmmr_satellite') {
+          if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[1] === 'yehat' && missileSoundPlayed1) continue;
           s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);
           missileSoundPlayed1 = true;

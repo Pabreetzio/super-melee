@@ -49,6 +49,7 @@ export interface ShipState {
   melnormeSeed?: number;
   thraddashPrevSpecialHeld?: boolean;
   zoqTongueFrames?: number;
+  zoqSpitCycle?: number;
 }
 
 // ─── Spawn requests (produced by update(); consumed by simulateFrame()) ───────
@@ -137,6 +138,7 @@ export interface BattleMissile {
   weaponWait?: number;   // fighters: frames until next laser shot
   orbitDir?: -1 | 1;     // fighters: preferred attack lane around enemy
   satelliteAngle?: number;
+  zoqSpitAngle?: number;
 }
 
 export interface LaserFlash {
