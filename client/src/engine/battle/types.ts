@@ -3,7 +3,7 @@ import type { ShipState, BattleMissile, LaserFlash } from '../ships/types';
 
 // Cosmetic explosion animation (not included in checksum; purely visual)
 export interface BattleExplosion {
-  type: 'boom' | 'blast' | 'splinter' | 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob' | 'orz_howitzer';
+  type: 'boom' | 'blast' | 'splinter' | 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob' | 'orz_howitzer' | 'shofixti_glory';
   x: number;
   y: number;
   frame: number;

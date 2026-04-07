@@ -307,6 +307,7 @@ export function advanceExplosions(
       : e.type === 'boom' ? e.frame < 9
       : e.type === 'orz_howitzer' ? e.frame < 6
       : e.type === 'supox_glob' ? e.frame < 5
+      : e.type === 'shofixti_glory' ? e.frame < 8
       : e.frame < 8;
   });
 }

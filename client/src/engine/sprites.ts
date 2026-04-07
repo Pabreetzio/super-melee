@@ -116,6 +116,42 @@ export async function loadSpriteSet(
   return { frames, count };
 }
 
+export async function loadCenteredSpriteSet(
+  path: string,
+  size: 'big' | 'med' | 'sml',
+  count: number,
+): Promise<SpriteSet> {
+  const frames: (SpriteFrame | null)[] = Array(count).fill(null);
+
+  await Promise.all(
+    Array.from({ length: count }, (_, i) => {
+      const url = `/ships/${path}-${size}-${pad3(i)}.png`;
+      return getAtlasFrameForUrl(url)
+        .then(frame => {
+          if (!frame) {
+            console.warn(`Sprite not found in atlas: ${url} (run the atlas generator)`);
+            throw new Error(`Failed to load ${url}`);
+          }
+          frames[i] = {
+            img: frame.img,
+            width: frame.width,
+            height: frame.height,
+            hotX: Math.floor(frame.width / 2),
+            hotY: Math.floor(frame.height / 2),
+            sourceX: frame.x,
+            sourceY: frame.y,
+            sourceW: frame.width,
+            sourceH: frame.height,
+            mask: frame.mask,
+          };
+        })
+        .catch(() => { /* frame stays null; placeholder rendered */ });
+    }),
+  );
+
+  return { frames, count };
+}
+
 // ─── Spathi hotspot tables ────────────────────────────────────────────────────
 
 // eluder-big.ani — 16 rotation frames
@@ -302,6 +338,7 @@ export interface ShofixtiSprites {
   med: SpriteSet;
   sml: SpriteSet;
   missile: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
+  destruct: { big: SpriteSet; med: SpriteSet; sml: SpriteSet };
 }
 
 export async function loadShofixtiSprites(): Promise<ShofixtiSprites> {
@@ -315,9 +352,15 @@ export async function loadShofixtiSprites(): Promise<ShofixtiSprites> {
     loadSpriteSet('shofixti/missile', 'med', 16, SHOFIXTI_MISSILE_MED_HOTSPOTS),
     loadSpriteSet('shofixti/missile', 'sml', 16, SHOFIXTI_MISSILE_SML_HOTSPOTS),
   ]);
+  const [destructBig, destructMed, destructSml] = await Promise.all([
+    loadCenteredSpriteSet('shofixti/destruct', 'big', 8),
+    loadCenteredSpriteSet('shofixti/destruct', 'med', 8),
+    loadCenteredSpriteSet('shofixti/destruct', 'sml', 8),
+  ]);
   return {
     big, med, sml,
     missile: { big: missileBig, med: missileMed, sml: missileSml },
+    destruct: { big: destructBig, med: destructMed, sml: destructSml },
   };
 }
 

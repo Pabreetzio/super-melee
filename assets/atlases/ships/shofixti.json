@@ -2,10 +2,274 @@
   "id": "ships/shofixti",
   "imageUrl": "/atlases/ships/shofixti.png",
   "frames": {
+    "/ships/shofixti/destruct-big-000.png": {
+      "key": "/ships/shofixti/destruct-big-000.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 16,
+      "h": 16,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-000.png"
+    },
+    "/ships/shofixti/destruct-big-001.png": {
+      "key": "/ships/shofixti/destruct-big-001.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-001.png",
+      "x": 20,
+      "y": 2,
+      "w": 46,
+      "h": 46,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-001.png"
+    },
+    "/ships/shofixti/destruct-big-002.png": {
+      "key": "/ships/shofixti/destruct-big-002.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-002.png",
+      "x": 68,
+      "y": 2,
+      "w": 80,
+      "h": 80,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-002.png"
+    },
+    "/ships/shofixti/destruct-big-003.png": {
+      "key": "/ships/shofixti/destruct-big-003.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-003.png",
+      "x": 150,
+      "y": 2,
+      "w": 100,
+      "h": 100,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-003.png"
+    },
+    "/ships/shofixti/destruct-big-004.png": {
+      "key": "/ships/shofixti/destruct-big-004.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-004.png",
+      "x": 252,
+      "y": 2,
+      "w": 116,
+      "h": 116,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-004.png"
+    },
+    "/ships/shofixti/destruct-big-005.png": {
+      "key": "/ships/shofixti/destruct-big-005.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-005.png",
+      "x": 370,
+      "y": 2,
+      "w": 123,
+      "h": 123,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-005.png"
+    },
+    "/ships/shofixti/destruct-big-006.png": {
+      "key": "/ships/shofixti/destruct-big-006.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-006.png",
+      "x": 495,
+      "y": 2,
+      "w": 129,
+      "h": 129,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-006.png"
+    },
+    "/ships/shofixti/destruct-big-007.png": {
+      "key": "/ships/shofixti/destruct-big-007.png",
+      "sourceUrl": "/ships/shofixti/destruct-big-007.png",
+      "x": 626,
+      "y": 2,
+      "w": 132,
+      "h": 132,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-big-007.png"
+    },
+    "/ships/shofixti/destruct-med-000.png": {
+      "key": "/ships/shofixti/destruct-med-000.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-000.png",
+      "x": 760,
+      "y": 2,
+      "w": 8,
+      "h": 9,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-000.png"
+    },
+    "/ships/shofixti/destruct-med-001.png": {
+      "key": "/ships/shofixti/destruct-med-001.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-001.png",
+      "x": 770,
+      "y": 2,
+      "w": 22,
+      "h": 23,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-001.png"
+    },
+    "/ships/shofixti/destruct-med-002.png": {
+      "key": "/ships/shofixti/destruct-med-002.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-002.png",
+      "x": 794,
+      "y": 2,
+      "w": 40,
+      "h": 40,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-002.png"
+    },
+    "/ships/shofixti/destruct-med-003.png": {
+      "key": "/ships/shofixti/destruct-med-003.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-003.png",
+      "x": 836,
+      "y": 2,
+      "w": 48,
+      "h": 48,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-003.png"
+    },
+    "/ships/shofixti/destruct-med-004.png": {
+      "key": "/ships/shofixti/destruct-med-004.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-004.png",
+      "x": 886,
+      "y": 2,
+      "w": 58,
+      "h": 57,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-004.png"
+    },
+    "/ships/shofixti/destruct-med-005.png": {
+      "key": "/ships/shofixti/destruct-med-005.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-005.png",
+      "x": 946,
+      "y": 2,
+      "w": 60,
+      "h": 60,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-005.png"
+    },
+    "/ships/shofixti/destruct-med-006.png": {
+      "key": "/ships/shofixti/destruct-med-006.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-006.png",
+      "x": 1008,
+      "y": 2,
+      "w": 59,
+      "h": 63,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-006.png"
+    },
+    "/ships/shofixti/destruct-med-007.png": {
+      "key": "/ships/shofixti/destruct-med-007.png",
+      "sourceUrl": "/ships/shofixti/destruct-med-007.png",
+      "x": 1069,
+      "y": 2,
+      "w": 65,
+      "h": 65,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-med-007.png"
+    },
+    "/ships/shofixti/destruct-sml-000.png": {
+      "key": "/ships/shofixti/destruct-sml-000.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-000.png",
+      "x": 1136,
+      "y": 2,
+      "w": 5,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-000.png"
+    },
+    "/ships/shofixti/destruct-sml-001.png": {
+      "key": "/ships/shofixti/destruct-sml-001.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-001.png",
+      "x": 1143,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-001.png"
+    },
+    "/ships/shofixti/destruct-sml-002.png": {
+      "key": "/ships/shofixti/destruct-sml-002.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-002.png",
+      "x": 1156,
+      "y": 2,
+      "w": 20,
+      "h": 19,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-002.png"
+    },
+    "/ships/shofixti/destruct-sml-003.png": {
+      "key": "/ships/shofixti/destruct-sml-003.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-003.png",
+      "x": 1178,
+      "y": 2,
+      "w": 25,
+      "h": 24,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-003.png"
+    },
+    "/ships/shofixti/destruct-sml-004.png": {
+      "key": "/ships/shofixti/destruct-sml-004.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-004.png",
+      "x": 1205,
+      "y": 2,
+      "w": 27,
+      "h": 28,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-004.png"
+    },
+    "/ships/shofixti/destruct-sml-005.png": {
+      "key": "/ships/shofixti/destruct-sml-005.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-005.png",
+      "x": 1234,
+      "y": 2,
+      "w": 29,
+      "h": 26,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-005.png"
+    },
+    "/ships/shofixti/destruct-sml-006.png": {
+      "key": "/ships/shofixti/destruct-sml-006.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-006.png",
+      "x": 1265,
+      "y": 2,
+      "w": 25,
+      "h": 26,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-006.png"
+    },
+    "/ships/shofixti/destruct-sml-007.png": {
+      "key": "/ships/shofixti/destruct-sml-007.png",
+      "sourceUrl": "/ships/shofixti/destruct-sml-007.png",
+      "x": 1292,
+      "y": 2,
+      "w": 31,
+      "h": 31,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/ships/shofixti/destruct-sml-007.png"
+    },
     "/ships/shofixti/missile-big-000.png": {
       "key": "/ships/shofixti/missile-big-000.png",
       "sourceUrl": "/ships/shofixti/missile-big-000.png",
-      "x": 2,
+      "x": 1325,
       "y": 2,
       "w": 3,
       "h": 4,
@@ -16,7 +280,7 @@
     "/ships/shofixti/missile-big-001.png": {
       "key": "/ships/shofixti/missile-big-001.png",
       "sourceUrl": "/ships/shofixti/missile-big-001.png",
-      "x": 7,
+      "x": 1330,
       "y": 2,
       "w": 2,
       "h": 3,
@@ -27,7 +291,7 @@
     "/ships/shofixti/missile-big-002.png": {
       "key": "/ships/shofixti/missile-big-002.png",
       "sourceUrl": "/ships/shofixti/missile-big-002.png",
-      "x": 11,
+      "x": 1334,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -38,7 +302,7 @@
     "/ships/shofixti/missile-big-003.png": {
       "key": "/ships/shofixti/missile-big-003.png",
       "sourceUrl": "/ships/shofixti/missile-big-003.png",
-      "x": 16,
+      "x": 1339,
       "y": 2,
       "w": 3,
       "h": 2,
@@ -49,7 +313,7 @@
     "/ships/shofixti/missile-big-004.png": {
       "key": "/ships/shofixti/missile-big-004.png",
       "sourceUrl": "/ships/shofixti/missile-big-004.png",
-      "x": 21,
+      "x": 1344,
       "y": 2,
       "w": 4,
       "h": 3,
@@ -60,7 +324,7 @@
     "/ships/shofixti/missile-big-005.png": {
       "key": "/ships/shofixti/missile-big-005.png",
       "sourceUrl": "/ships/shofixti/missile-big-005.png",
-      "x": 27,
+      "x": 1350,
       "y": 2,
       "w": 3,
       "h": 2,
@@ -71,7 +335,7 @@
     "/ships/shofixti/missile-big-006.png": {
       "key": "/ships/shofixti/missile-big-006.png",
       "sourceUrl": "/ships/shofixti/missile-big-006.png",
-      "x": 32,
+      "x": 1355,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -82,7 +346,7 @@
     "/ships/shofixti/missile-big-007.png": {
       "key": "/ships/shofixti/missile-big-007.png",
       "sourceUrl": "/ships/shofixti/missile-big-007.png",
-      "x": 37,
+      "x": 1360,
       "y": 2,
       "w": 2,
       "h": 3,
@@ -93,7 +357,7 @@
     "/ships/shofixti/missile-big-008.png": {
       "key": "/ships/shofixti/missile-big-008.png",
       "sourceUrl": "/ships/shofixti/missile-big-008.png",
-      "x": 41,
+      "x": 1364,
       "y": 2,
       "w": 3,
       "h": 4,
@@ -104,7 +368,7 @@
     "/ships/shofixti/missile-big-009.png": {
       "key": "/ships/shofixti/missile-big-009.png",
       "sourceUrl": "/ships/shofixti/missile-big-009.png",
-      "x": 46,
+      "x": 1369,
       "y": 2,
       "w": 2,
       "h": 3,
@@ -115,7 +379,7 @@
     "/ships/shofixti/missile-big-010.png": {
       "key": "/ships/shofixti/missile-big-010.png",
       "sourceUrl": "/ships/shofixti/missile-big-010.png",
-      "x": 50,
+      "x": 1373,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -126,7 +390,7 @@
     "/ships/shofixti/missile-big-011.png": {
       "key": "/ships/shofixti/missile-big-011.png",
       "sourceUrl": "/ships/shofixti/missile-big-011.png",
-      "x": 55,
+      "x": 1378,
       "y": 2,
       "w": 3,
       "h": 2,
@@ -137,7 +401,7 @@
     "/ships/shofixti/missile-big-012.png": {
       "key": "/ships/shofixti/missile-big-012.png",
       "sourceUrl": "/ships/shofixti/missile-big-012.png",
-      "x": 60,
+      "x": 1383,
       "y": 2,
       "w": 4,
       "h": 3,
@@ -148,7 +412,7 @@
     "/ships/shofixti/missile-big-013.png": {
       "key": "/ships/shofixti/missile-big-013.png",
       "sourceUrl": "/ships/shofixti/missile-big-013.png",
-      "x": 66,
+      "x": 1389,
       "y": 2,
       "w": 3,
       "h": 2,
@@ -159,7 +423,7 @@
     "/ships/shofixti/missile-big-014.png": {
       "key": "/ships/shofixti/missile-big-014.png",
       "sourceUrl": "/ships/shofixti/missile-big-014.png",
-      "x": 71,
+      "x": 1394,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -170,7 +434,7 @@
     "/ships/shofixti/missile-big-015.png": {
       "key": "/ships/shofixti/missile-big-015.png",
       "sourceUrl": "/ships/shofixti/missile-big-015.png",
-      "x": 76,
+      "x": 1399,
       "y": 2,
       "w": 2,
       "h": 3,
@@ -181,7 +445,7 @@
     "/ships/shofixti/missile-med-000.png": {
       "key": "/ships/shofixti/missile-med-000.png",
       "sourceUrl": "/ships/shofixti/missile-med-000.png",
-      "x": 80,
+      "x": 1403,
       "y": 2,
       "w": 1,
       "h": 2,
@@ -192,7 +456,7 @@
     "/ships/shofixti/missile-med-001.png": {
       "key": "/ships/shofixti/missile-med-001.png",
       "sourceUrl": "/ships/shofixti/missile-med-001.png",
-      "x": 83,
+      "x": 1406,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -203,7 +467,7 @@
     "/ships/shofixti/missile-med-002.png": {
       "key": "/ships/shofixti/missile-med-002.png",
       "sourceUrl": "/ships/shofixti/missile-med-002.png",
-      "x": 87,
+      "x": 1410,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -214,7 +478,7 @@
     "/ships/shofixti/missile-med-003.png": {
       "key": "/ships/shofixti/missile-med-003.png",
       "sourceUrl": "/ships/shofixti/missile-med-003.png",
-      "x": 91,
+      "x": 1414,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -225,7 +489,7 @@
     "/ships/shofixti/missile-med-004.png": {
       "key": "/ships/shofixti/missile-med-004.png",
       "sourceUrl": "/ships/shofixti/missile-med-004.png",
-      "x": 95,
+      "x": 1418,
       "y": 2,
       "w": 2,
       "h": 1,
@@ -236,7 +500,7 @@
     "/ships/shofixti/missile-med-005.png": {
       "key": "/ships/shofixti/missile-med-005.png",
       "sourceUrl": "/ships/shofixti/missile-med-005.png",
-      "x": 99,
+      "x": 1422,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -247,7 +511,7 @@
     "/ships/shofixti/missile-med-006.png": {
       "key": "/ships/shofixti/missile-med-006.png",
       "sourceUrl": "/ships/shofixti/missile-med-006.png",
-      "x": 103,
+      "x": 1426,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -258,7 +522,7 @@
     "/ships/shofixti/missile-med-007.png": {
       "key": "/ships/shofixti/missile-med-007.png",
       "sourceUrl": "/ships/shofixti/missile-med-007.png",
-      "x": 107,
+      "x": 1430,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -269,7 +533,7 @@
     "/ships/shofixti/missile-med-008.png": {
       "key": "/ships/shofixti/missile-med-008.png",
       "sourceUrl": "/ships/shofixti/missile-med-008.png",
-      "x": 111,
+      "x": 1434,
       "y": 2,
       "w": 1,
       "h": 2,
@@ -280,7 +544,7 @@
     "/ships/shofixti/missile-med-009.png": {
       "key": "/ships/shofixti/missile-med-009.png",
       "sourceUrl": "/ships/shofixti/missile-med-009.png",
-      "x": 114,
+      "x": 1437,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -291,7 +555,7 @@
     "/ships/shofixti/missile-med-010.png": {
       "key": "/ships/shofixti/missile-med-010.png",
       "sourceUrl": "/ships/shofixti/missile-med-010.png",
-      "x": 118,
+      "x": 1441,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -302,7 +566,7 @@
     "/ships/shofixti/missile-med-011.png": {
       "key": "/ships/shofixti/missile-med-011.png",
       "sourceUrl": "/ships/shofixti/missile-med-011.png",
-      "x": 122,
+      "x": 1445,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -313,7 +577,7 @@
     "/ships/shofixti/missile-med-012.png": {
       "key": "/ships/shofixti/missile-med-012.png",
       "sourceUrl": "/ships/shofixti/missile-med-012.png",
-      "x": 126,
+      "x": 1449,
       "y": 2,
       "w": 2,
       "h": 1,
@@ -324,7 +588,7 @@
     "/ships/shofixti/missile-med-013.png": {
       "key": "/ships/shofixti/missile-med-013.png",
       "sourceUrl": "/ships/shofixti/missile-med-013.png",
-      "x": 130,
+      "x": 1453,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -335,7 +599,7 @@
     "/ships/shofixti/missile-med-014.png": {
       "key": "/ships/shofixti/missile-med-014.png",
       "sourceUrl": "/ships/shofixti/missile-med-014.png",
-      "x": 134,
+      "x": 1457,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -346,7 +610,7 @@
     "/ships/shofixti/missile-med-015.png": {
       "key": "/ships/shofixti/missile-med-015.png",
       "sourceUrl": "/ships/shofixti/missile-med-015.png",
-      "x": 138,
+      "x": 1461,
       "y": 2,
       "w": 2,
       "h": 2,
@@ -357,7 +621,7 @@
     "/ships/shofixti/missile-sml-000.png": {
       "key": "/ships/shofixti/missile-sml-000.png",
       "sourceUrl": "/ships/shofixti/missile-sml-000.png",
-      "x": 142,
+      "x": 1465,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -368,7 +632,7 @@
     "/ships/shofixti/missile-sml-001.png": {
       "key": "/ships/shofixti/missile-sml-001.png",
       "sourceUrl": "/ships/shofixti/missile-sml-001.png",
-      "x": 145,
+      "x": 1468,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -379,7 +643,7 @@
     "/ships/shofixti/missile-sml-002.png": {
       "key": "/ships/shofixti/missile-sml-002.png",
       "sourceUrl": "/ships/shofixti/missile-sml-002.png",
-      "x": 148,
+      "x": 1471,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -390,7 +654,7 @@
     "/ships/shofixti/missile-sml-003.png": {
       "key": "/ships/shofixti/missile-sml-003.png",
       "sourceUrl": "/ships/shofixti/missile-sml-003.png",
-      "x": 151,
+      "x": 1474,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -401,7 +665,7 @@
     "/ships/shofixti/missile-sml-004.png": {
       "key": "/ships/shofixti/missile-sml-004.png",
       "sourceUrl": "/ships/shofixti/missile-sml-004.png",
-      "x": 154,
+      "x": 1477,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -412,7 +676,7 @@
     "/ships/shofixti/missile-sml-005.png": {
       "key": "/ships/shofixti/missile-sml-005.png",
       "sourceUrl": "/ships/shofixti/missile-sml-005.png",
-      "x": 157,
+      "x": 1480,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -423,7 +687,7 @@
     "/ships/shofixti/missile-sml-006.png": {
       "key": "/ships/shofixti/missile-sml-006.png",
       "sourceUrl": "/ships/shofixti/missile-sml-006.png",
-      "x": 160,
+      "x": 1483,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -434,7 +698,7 @@
     "/ships/shofixti/missile-sml-007.png": {
       "key": "/ships/shofixti/missile-sml-007.png",
       "sourceUrl": "/ships/shofixti/missile-sml-007.png",
-      "x": 163,
+      "x": 1486,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -445,7 +709,7 @@
     "/ships/shofixti/missile-sml-008.png": {
       "key": "/ships/shofixti/missile-sml-008.png",
       "sourceUrl": "/ships/shofixti/missile-sml-008.png",
-      "x": 166,
+      "x": 1489,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -456,7 +720,7 @@
     "/ships/shofixti/missile-sml-009.png": {
       "key": "/ships/shofixti/missile-sml-009.png",
       "sourceUrl": "/ships/shofixti/missile-sml-009.png",
-      "x": 169,
+      "x": 1492,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -467,7 +731,7 @@
     "/ships/shofixti/missile-sml-010.png": {
       "key": "/ships/shofixti/missile-sml-010.png",
       "sourceUrl": "/ships/shofixti/missile-sml-010.png",
-      "x": 172,
+      "x": 1495,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -478,7 +742,7 @@
     "/ships/shofixti/missile-sml-011.png": {
       "key": "/ships/shofixti/missile-sml-011.png",
       "sourceUrl": "/ships/shofixti/missile-sml-011.png",
-      "x": 175,
+      "x": 1498,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -489,7 +753,7 @@
     "/ships/shofixti/missile-sml-012.png": {
       "key": "/ships/shofixti/missile-sml-012.png",
       "sourceUrl": "/ships/shofixti/missile-sml-012.png",
-      "x": 178,
+      "x": 1501,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -500,7 +764,7 @@
     "/ships/shofixti/missile-sml-013.png": {
       "key": "/ships/shofixti/missile-sml-013.png",
       "sourceUrl": "/ships/shofixti/missile-sml-013.png",
-      "x": 181,
+      "x": 1504,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -511,7 +775,7 @@
     "/ships/shofixti/missile-sml-014.png": {
       "key": "/ships/shofixti/missile-sml-014.png",
       "sourceUrl": "/ships/shofixti/missile-sml-014.png",
-      "x": 184,
+      "x": 1507,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -522,7 +786,7 @@
     "/ships/shofixti/missile-sml-015.png": {
       "key": "/ships/shofixti/missile-sml-015.png",
       "sourceUrl": "/ships/shofixti/missile-sml-015.png",
-      "x": 187,
+      "x": 1510,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -533,7 +797,7 @@
     "/ships/shofixti/scout-big-000.png": {
       "key": "/ships/shofixti/scout-big-000.png",
       "sourceUrl": "/ships/shofixti/scout-big-000.png",
-      "x": 190,
+      "x": 1513,
       "y": 2,
       "w": 9,
       "h": 15,
@@ -544,7 +808,7 @@
     "/ships/shofixti/scout-big-001.png": {
       "key": "/ships/shofixti/scout-big-001.png",
       "sourceUrl": "/ships/shofixti/scout-big-001.png",
-      "x": 201,
+      "x": 1524,
       "y": 2,
       "w": 7,
       "h": 13,
@@ -555,7 +819,7 @@
     "/ships/shofixti/scout-big-002.png": {
       "key": "/ships/shofixti/scout-big-002.png",
       "sourceUrl": "/ships/shofixti/scout-big-002.png",
-      "x": 210,
+      "x": 1533,
       "y": 2,
       "w": 11,
       "h": 11,
@@ -566,7 +830,7 @@
     "/ships/shofixti/scout-big-003.png": {
       "key": "/ships/shofixti/scout-big-003.png",
       "sourceUrl": "/ships/shofixti/scout-big-003.png",
-      "x": 223,
+      "x": 1546,
       "y": 2,
       "w": 13,
       "h": 8,
@@ -577,7 +841,7 @@
     "/ships/shofixti/scout-big-004.png": {
       "key": "/ships/shofixti/scout-big-004.png",
       "sourceUrl": "/ships/shofixti/scout-big-004.png",
-      "x": 238,
+      "x": 1561,
       "y": 2,
       "w": 16,
       "h": 9,
@@ -588,7 +852,7 @@
     "/ships/shofixti/scout-big-005.png": {
       "key": "/ships/shofixti/scout-big-005.png",
       "sourceUrl": "/ships/shofixti/scout-big-005.png",
-      "x": 256,
+      "x": 1579,
       "y": 2,
       "w": 13,
       "h": 8,
@@ -599,7 +863,7 @@
     "/ships/shofixti/scout-big-006.png": {
       "key": "/ships/shofixti/scout-big-006.png",
       "sourceUrl": "/ships/shofixti/scout-big-006.png",
-      "x": 271,
+      "x": 1594,
       "y": 2,
       "w": 11,
       "h": 11,
@@ -610,7 +874,7 @@
     "/ships/shofixti/scout-big-007.png": {
       "key": "/ships/shofixti/scout-big-007.png",
       "sourceUrl": "/ships/shofixti/scout-big-007.png",
-      "x": 284,
+      "x": 1607,
       "y": 2,
       "w": 8,
       "h": 13,
@@ -621,7 +885,7 @@
     "/ships/shofixti/scout-big-008.png": {
       "key": "/ships/shofixti/scout-big-008.png",
       "sourceUrl": "/ships/shofixti/scout-big-008.png",
-      "x": 294,
+      "x": 1617,
       "y": 2,
       "w": 9,
       "h": 15,
@@ -632,7 +896,7 @@
     "/ships/shofixti/scout-big-009.png": {
       "key": "/ships/shofixti/scout-big-009.png",
       "sourceUrl": "/ships/shofixti/scout-big-009.png",
-      "x": 305,
+      "x": 1628,
       "y": 2,
       "w": 8,
       "h": 13,
@@ -643,7 +907,7 @@
     "/ships/shofixti/scout-big-010.png": {
       "key": "/ships/shofixti/scout-big-010.png",
       "sourceUrl": "/ships/shofixti/scout-big-010.png",
-      "x": 315,
+      "x": 1638,
       "y": 2,
       "w": 11,
       "h": 11,
@@ -654,7 +918,7 @@
     "/ships/shofixti/scout-big-011.png": {
       "key": "/ships/shofixti/scout-big-011.png",
       "sourceUrl": "/ships/shofixti/scout-big-011.png",
-      "x": 328,
+      "x": 1651,
       "y": 2,
       "w": 13,
       "h": 8,
@@ -665,7 +929,7 @@
     "/ships/shofixti/scout-big-012.png": {
       "key": "/ships/shofixti/scout-big-012.png",
       "sourceUrl": "/ships/shofixti/scout-big-012.png",
-      "x": 343,
+      "x": 1666,
       "y": 2,
       "w": 16,
       "h": 9,
@@ -676,7 +940,7 @@
     "/ships/shofixti/scout-big-013.png": {
       "key": "/ships/shofixti/scout-big-013.png",
       "sourceUrl": "/ships/shofixti/scout-big-013.png",
-      "x": 361,
+      "x": 1684,
       "y": 2,
       "w": 13,
       "h": 8,
@@ -687,7 +951,7 @@
     "/ships/shofixti/scout-big-014.png": {
       "key": "/ships/shofixti/scout-big-014.png",
       "sourceUrl": "/ships/shofixti/scout-big-014.png",
-      "x": 376,
+      "x": 1699,
       "y": 2,
       "w": 11,
       "h": 11,
@@ -698,7 +962,7 @@
     "/ships/shofixti/scout-big-015.png": {
       "key": "/ships/shofixti/scout-big-015.png",
       "sourceUrl": "/ships/shofixti/scout-big-015.png",
-      "x": 389,
+      "x": 1712,
       "y": 2,
       "w": 8,
       "h": 13,
@@ -709,7 +973,7 @@
     "/ships/shofixti/scout-cap-000.png": {
       "key": "/ships/shofixti/scout-cap-000.png",
       "sourceUrl": "/ships/shofixti/scout-cap-000.png",
-      "x": 399,
+      "x": 1722,
       "y": 2,
       "w": 55,
       "h": 30,
@@ -720,7 +984,7 @@
     "/ships/shofixti/scout-cap-001.png": {
       "key": "/ships/shofixti/scout-cap-001.png",
       "sourceUrl": "/ships/shofixti/scout-cap-001.png",
-      "x": 456,
+      "x": 1779,
       "y": 2,
       "w": 14,
       "h": 10,
@@ -731,7 +995,7 @@
     "/ships/shofixti/scout-cap-002.png": {
       "key": "/ships/shofixti/scout-cap-002.png",
       "sourceUrl": "/ships/shofixti/scout-cap-002.png",
-      "x": 472,
+      "x": 1795,
       "y": 2,
       "w": 14,
       "h": 10,
@@ -742,7 +1006,7 @@
     "/ships/shofixti/scout-cap-003.png": {
       "key": "/ships/shofixti/scout-cap-003.png",
       "sourceUrl": "/ships/shofixti/scout-cap-003.png",
-      "x": 488,
+      "x": 1811,
       "y": 2,
       "w": 14,
       "h": 10,
@@ -753,7 +1017,7 @@
     "/ships/shofixti/scout-cap-004.png": {
       "key": "/ships/shofixti/scout-cap-004.png",
       "sourceUrl": "/ships/shofixti/scout-cap-004.png",
-      "x": 504,
+      "x": 1827,
       "y": 2,
       "w": 14,
       "h": 10,
@@ -764,7 +1028,7 @@
     "/ships/shofixti/scout-cap-005.png": {
       "key": "/ships/shofixti/scout-cap-005.png",
       "sourceUrl": "/ships/shofixti/scout-cap-005.png",
-      "x": 520,
+      "x": 1843,
       "y": 2,
       "w": 14,
       "h": 10,
@@ -775,7 +1039,7 @@
     "/ships/shofixti/scout-cap-006.png": {
       "key": "/ships/shofixti/scout-cap-006.png",
       "sourceUrl": "/ships/shofixti/scout-cap-006.png",
-      "x": 536,
+      "x": 1859,
       "y": 2,
       "w": 25,
       "h": 19,
@@ -786,7 +1050,7 @@
     "/ships/shofixti/scout-cap-007.png": {
       "key": "/ships/shofixti/scout-cap-007.png",
       "sourceUrl": "/ships/shofixti/scout-cap-007.png",
-      "x": 563,
+      "x": 1886,
       "y": 2,
       "w": 25,
       "h": 19,
@@ -797,7 +1061,7 @@
     "/ships/shofixti/scout-cap-008.png": {
       "key": "/ships/shofixti/scout-cap-008.png",
       "sourceUrl": "/ships/shofixti/scout-cap-008.png",
-      "x": 590,
+      "x": 1913,
       "y": 2,
       "w": 25,
       "h": 19,
@@ -808,7 +1072,7 @@
     "/ships/shofixti/scout-cap-009.png": {
       "key": "/ships/shofixti/scout-cap-009.png",
       "sourceUrl": "/ships/shofixti/scout-cap-009.png",
-      "x": 617,
+      "x": 1940,
       "y": 2,
       "w": 9,
       "h": 10,
@@ -819,7 +1083,7 @@
     "/ships/shofixti/scout-cap-010.png": {
       "key": "/ships/shofixti/scout-cap-010.png",
       "sourceUrl": "/ships/shofixti/scout-cap-010.png",
-      "x": 628,
+      "x": 1951,
       "y": 2,
       "w": 9,
       "h": 10,
@@ -830,7 +1094,7 @@
     "/ships/shofixti/scout-cap-011.png": {
       "key": "/ships/shofixti/scout-cap-011.png",
       "sourceUrl": "/ships/shofixti/scout-cap-011.png",
-      "x": 639,
+      "x": 1962,
       "y": 2,
       "w": 9,
       "h": 10,
@@ -841,7 +1105,7 @@
     "/ships/shofixti/scout-cap-012.png": {
       "key": "/ships/shofixti/scout-cap-012.png",
       "sourceUrl": "/ships/shofixti/scout-cap-012.png",
-      "x": 650,
+      "x": 1973,
       "y": 2,
       "w": 55,
       "h": 7,
@@ -852,8 +1116,8 @@
     "/ships/shofixti/scout-cap-013.png": {
       "key": "/ships/shofixti/scout-cap-013.png",
       "sourceUrl": "/ships/shofixti/scout-cap-013.png",
-      "x": 707,
-      "y": 2,
+      "x": 2,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -863,8 +1127,8 @@
     "/ships/shofixti/scout-cap-014.png": {
       "key": "/ships/shofixti/scout-cap-014.png",
       "sourceUrl": "/ships/shofixti/scout-cap-014.png",
-      "x": 764,
-      "y": 2,
+      "x": 59,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -874,8 +1138,8 @@
     "/ships/shofixti/scout-cap-015.png": {
       "key": "/ships/shofixti/scout-cap-015.png",
       "sourceUrl": "/ships/shofixti/scout-cap-015.png",
-      "x": 821,
-      "y": 2,
+      "x": 116,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -885,8 +1149,8 @@
     "/ships/shofixti/scout-cap-016.png": {
       "key": "/ships/shofixti/scout-cap-016.png",
       "sourceUrl": "/ships/shofixti/scout-cap-016.png",
-      "x": 878,
-      "y": 2,
+      "x": 173,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -896,8 +1160,8 @@
     "/ships/shofixti/scout-cap-017.png": {
       "key": "/ships/shofixti/scout-cap-017.png",
       "sourceUrl": "/ships/shofixti/scout-cap-017.png",
-      "x": 935,
-      "y": 2,
+      "x": 230,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -907,8 +1171,8 @@
     "/ships/shofixti/scout-cap-018.png": {
       "key": "/ships/shofixti/scout-cap-018.png",
       "sourceUrl": "/ships/shofixti/scout-cap-018.png",
-      "x": 992,
-      "y": 2,
+      "x": 287,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -918,8 +1182,8 @@
     "/ships/shofixti/scout-cap-019.png": {
       "key": "/ships/shofixti/scout-cap-019.png",
       "sourceUrl": "/ships/shofixti/scout-cap-019.png",
-      "x": 1049,
-      "y": 2,
+      "x": 344,
+      "y": 136,
       "w": 55,
       "h": 7,
       "hotX": 0,
@@ -929,8 +1193,8 @@
     "/ships/shofixti/scout-icons-001.png": {
       "key": "/ships/shofixti/scout-icons-001.png",
       "sourceUrl": "/ships/shofixti/scout-icons-001.png",
-      "x": 1106,
-      "y": 2,
+      "x": 401,
+      "y": 136,
       "w": 31,
       "h": 42,
       "hotX": 0,
@@ -940,8 +1204,8 @@
     "/ships/shofixti/scout-med-000.png": {
       "key": "/ships/shofixti/scout-med-000.png",
       "sourceUrl": "/ships/shofixti/scout-med-000.png",
-      "x": 1139,
-      "y": 2,
+      "x": 434,
+      "y": 136,
       "w": 5,
       "h": 8,
       "hotX": 0,
@@ -951,8 +1215,8 @@
     "/ships/shofixti/scout-med-001.png": {
       "key": "/ships/shofixti/scout-med-001.png",
       "sourceUrl": "/ships/shofixti/scout-med-001.png",
-      "x": 1146,
-      "y": 2,
+      "x": 441,
+      "y": 136,
       "w": 5,
       "h": 8,
       "hotX": 0,
@@ -962,8 +1226,8 @@
     "/ships/shofixti/scout-med-002.png": {
       "key": "/ships/shofixti/scout-med-002.png",
       "sourceUrl": "/ships/shofixti/scout-med-002.png",
-      "x": 1153,
-      "y": 2,
+      "x": 448,
+      "y": 136,
       "w": 6,
       "h": 6,
       "hotX": 0,
@@ -973,8 +1237,8 @@
     "/ships/shofixti/scout-med-003.png": {
       "key": "/ships/shofixti/scout-med-003.png",
       "sourceUrl": "/ships/shofixti/scout-med-003.png",
-      "x": 1161,
-      "y": 2,
+      "x": 456,
+      "y": 136,
       "w": 8,
       "h": 5,
       "hotX": 0,
@@ -984,8 +1248,8 @@
     "/ships/shofixti/scout-med-004.png": {
       "key": "/ships/shofixti/scout-med-004.png",
       "sourceUrl": "/ships/shofixti/scout-med-004.png",
-      "x": 1171,
-      "y": 2,
+      "x": 466,
+      "y": 136,
       "w": 10,
       "h": 5,
       "hotX": 0,
@@ -995,8 +1259,8 @@
     "/ships/shofixti/scout-med-005.png": {
       "key": "/ships/shofixti/scout-med-005.png",
       "sourceUrl": "/ships/shofixti/scout-med-005.png",
-      "x": 1183,
-      "y": 2,
+      "x": 478,
+      "y": 136,
       "w": 8,
       "h": 5,
       "hotX": 0,
@@ -1006,8 +1270,8 @@
     "/ships/shofixti/scout-med-006.png": {
       "key": "/ships/shofixti/scout-med-006.png",
       "sourceUrl": "/ships/shofixti/scout-med-006.png",
-      "x": 1193,
-      "y": 2,
+      "x": 488,
+      "y": 136,
       "w": 6,
       "h": 6,
       "hotX": 0,
@@ -1017,8 +1281,8 @@
     "/ships/shofixti/scout-med-007.png": {
       "key": "/ships/shofixti/scout-med-007.png",
       "sourceUrl": "/ships/shofixti/scout-med-007.png",
-      "x": 1201,
-      "y": 2,
+      "x": 496,
+      "y": 136,
       "w": 5,
       "h": 8,
       "hotX": 0,
@@ -1028,8 +1292,8 @@
     "/ships/shofixti/scout-med-008.png": {
       "key": "/ships/shofixti/scout-med-008.png",
       "sourceUrl": "/ships/shofixti/scout-med-008.png",
-      "x": 1208,
-      "y": 2,
+      "x": 503,
+      "y": 136,
       "w": 4,
       "h": 8,
       "hotX": 0,
@@ -1039,8 +1303,8 @@
     "/ships/shofixti/scout-med-009.png": {
       "key": "/ships/shofixti/scout-med-009.png",
       "sourceUrl": "/ships/shofixti/scout-med-009.png",
-      "x": 1214,
-      "y": 2,
+      "x": 509,
+      "y": 136,
       "w": 5,
       "h": 8,
       "hotX": 0,
@@ -1050,8 +1314,8 @@
     "/ships/shofixti/scout-med-010.png": {
       "key": "/ships/shofixti/scout-med-010.png",
       "sourceUrl": "/ships/shofixti/scout-med-010.png",
-      "x": 1221,
-      "y": 2,
+      "x": 516,
+      "y": 136,
       "w": 6,
       "h": 6,
       "hotX": 0,
@@ -1061,8 +1325,8 @@
     "/ships/shofixti/scout-med-011.png": {
       "key": "/ships/shofixti/scout-med-011.png",
       "sourceUrl": "/ships/shofixti/scout-med-011.png",
-      "x": 1229,
-      "y": 2,
+      "x": 524,
+      "y": 136,
       "w": 8,
       "h": 5,
       "hotX": 0,
@@ -1072,8 +1336,8 @@
     "/ships/shofixti/scout-med-012.png": {
       "key": "/ships/shofixti/scout-med-012.png",
       "sourceUrl": "/ships/shofixti/scout-med-012.png",
-      "x": 1239,
-      "y": 2,
+      "x": 534,
+      "y": 136,
       "w": 10,
       "h": 5,
       "hotX": 0,
@@ -1083,8 +1347,8 @@
     "/ships/shofixti/scout-med-013.png": {
       "key": "/ships/shofixti/scout-med-013.png",
       "sourceUrl": "/ships/shofixti/scout-med-013.png",
-      "x": 1251,
-      "y": 2,
+      "x": 546,
+      "y": 136,
       "w": 8,
       "h": 5,
       "hotX": 0,
@@ -1094,8 +1358,8 @@
     "/ships/shofixti/scout-med-014.png": {
       "key": "/ships/shofixti/scout-med-014.png",
       "sourceUrl": "/ships/shofixti/scout-med-014.png",
-      "x": 1261,
-      "y": 2,
+      "x": 556,
+      "y": 136,
       "w": 6,
       "h": 6,
       "hotX": 0,
@@ -1105,8 +1369,8 @@
     "/ships/shofixti/scout-med-015.png": {
       "key": "/ships/shofixti/scout-med-015.png",
       "sourceUrl": "/ships/shofixti/scout-med-015.png",
-      "x": 1269,
-      "y": 2,
+      "x": 564,
+      "y": 136,
       "w": 5,
       "h": 8,
       "hotX": 0,
@@ -1116,8 +1380,8 @@
     "/ships/shofixti/scout-sml-000.png": {
       "key": "/ships/shofixti/scout-sml-000.png",
       "sourceUrl": "/ships/shofixti/scout-sml-000.png",
-      "x": 1276,
-      "y": 2,
+      "x": 571,
+      "y": 136,
       "w": 3,
       "h": 6,
       "hotX": 0,
@@ -1127,8 +1391,8 @@
     "/ships/shofixti/scout-sml-001.png": {
       "key": "/ships/shofixti/scout-sml-001.png",
       "sourceUrl": "/ships/shofixti/scout-sml-001.png",
-      "x": 1281,
-      "y": 2,
+      "x": 576,
+      "y": 136,
       "w": 3,
       "h": 5,
       "hotX": 0,
@@ -1138,8 +1402,8 @@
     "/ships/shofixti/scout-sml-002.png": {
       "key": "/ships/shofixti/scout-sml-002.png",
       "sourceUrl": "/ships/shofixti/scout-sml-002.png",
-      "x": 1286,
-      "y": 2,
+      "x": 581,
+      "y": 136,
       "w": 4,
       "h": 4,
       "hotX": 0,
@@ -1149,8 +1413,8 @@
     "/ships/shofixti/scout-sml-003.png": {
       "key": "/ships/shofixti/scout-sml-003.png",
       "sourceUrl": "/ships/shofixti/scout-sml-003.png",
-      "x": 1292,
-      "y": 2,
+      "x": 587,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1160,8 +1424,8 @@
     "/ships/shofixti/scout-sml-004.png": {
       "key": "/ships/shofixti/scout-sml-004.png",
       "sourceUrl": "/ships/shofixti/scout-sml-004.png",
-      "x": 1299,
-      "y": 2,
+      "x": 594,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1171,8 +1435,8 @@
     "/ships/shofixti/scout-sml-005.png": {
       "key": "/ships/shofixti/scout-sml-005.png",
       "sourceUrl": "/ships/shofixti/scout-sml-005.png",
-      "x": 1306,
-      "y": 2,
+      "x": 601,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1182,8 +1446,8 @@
     "/ships/shofixti/scout-sml-006.png": {
       "key": "/ships/shofixti/scout-sml-006.png",
       "sourceUrl": "/ships/shofixti/scout-sml-006.png",
-      "x": 1313,
-      "y": 2,
+      "x": 608,
+      "y": 136,
       "w": 4,
       "h": 4,
       "hotX": 0,
@@ -1193,8 +1457,8 @@
     "/ships/shofixti/scout-sml-007.png": {
       "key": "/ships/shofixti/scout-sml-007.png",
       "sourceUrl": "/ships/shofixti/scout-sml-007.png",
-      "x": 1319,
-      "y": 2,
+      "x": 614,
+      "y": 136,
       "w": 3,
       "h": 5,
       "hotX": 0,
@@ -1204,8 +1468,8 @@
     "/ships/shofixti/scout-sml-008.png": {
       "key": "/ships/shofixti/scout-sml-008.png",
       "sourceUrl": "/ships/shofixti/scout-sml-008.png",
-      "x": 1324,
-      "y": 2,
+      "x": 619,
+      "y": 136,
       "w": 3,
       "h": 6,
       "hotX": 0,
@@ -1215,8 +1479,8 @@
     "/ships/shofixti/scout-sml-009.png": {
       "key": "/ships/shofixti/scout-sml-009.png",
       "sourceUrl": "/ships/shofixti/scout-sml-009.png",
-      "x": 1329,
-      "y": 2,
+      "x": 624,
+      "y": 136,
       "w": 3,
       "h": 5,
       "hotX": 0,
@@ -1226,8 +1490,8 @@
     "/ships/shofixti/scout-sml-010.png": {
       "key": "/ships/shofixti/scout-sml-010.png",
       "sourceUrl": "/ships/shofixti/scout-sml-010.png",
-      "x": 1334,
-      "y": 2,
+      "x": 629,
+      "y": 136,
       "w": 4,
       "h": 4,
       "hotX": 0,
@@ -1237,8 +1501,8 @@
     "/ships/shofixti/scout-sml-011.png": {
       "key": "/ships/shofixti/scout-sml-011.png",
       "sourceUrl": "/ships/shofixti/scout-sml-011.png",
-      "x": 1340,
-      "y": 2,
+      "x": 635,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1248,8 +1512,8 @@
     "/ships/shofixti/scout-sml-012.png": {
       "key": "/ships/shofixti/scout-sml-012.png",
       "sourceUrl": "/ships/shofixti/scout-sml-012.png",
-      "x": 1347,
-      "y": 2,
+      "x": 642,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1259,8 +1523,8 @@
     "/ships/shofixti/scout-sml-013.png": {
       "key": "/ships/shofixti/scout-sml-013.png",
       "sourceUrl": "/ships/shofixti/scout-sml-013.png",
-      "x": 1354,
-      "y": 2,
+      "x": 649,
+      "y": 136,
       "w": 5,
       "h": 3,
       "hotX": 0,
@@ -1270,8 +1534,8 @@
     "/ships/shofixti/scout-sml-014.png": {
       "key": "/ships/shofixti/scout-sml-014.png",
       "sourceUrl": "/ships/shofixti/scout-sml-014.png",
-      "x": 1361,
-      "y": 2,
+      "x": 656,
+      "y": 136,
       "w": 4,
       "h": 4,
       "hotX": 0,
@@ -1281,8 +1545,8 @@
     "/ships/shofixti/scout-sml-015.png": {
       "key": "/ships/shofixti/scout-sml-015.png",
       "sourceUrl": "/ships/shofixti/scout-sml-015.png",
-      "x": 1367,
-      "y": 2,
+      "x": 662,
+      "y": 136,
       "w": 3,
       "h": 5,
       "hotX": 0,

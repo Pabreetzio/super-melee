@@ -41,7 +41,7 @@ export const SHOFIXTI_MISSILE_DAMAGE = 1;
 export const SHOFIXTI_DESTRUCT_RANGE = 180;
 export const SHOFIXTI_MAX_DESTRUCTION = SHOFIXTI_DESTRUCT_RANGE / 10;
 export const SHOFIXTI_GLORY_FRAMES = 3;
-export const SHOFIXTI_SAFETY_STAGES = 3;
+export const SHOFIXTI_ARMING_PRESSES = 2;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(SHOFIXTI_MAX_THRUST) ** 2;
 
@@ -158,12 +158,10 @@ export function updateShofixtiShip(ship: ShipState, input: number): SpawnRequest
       ship.shofixtiSafetyLevel = 0;
     }
   } else if (specialPressed && ship.crew > 0) {
-    if (safetyLevel + 1 >= SHOFIXTI_SAFETY_STAGES) {
-      ship.shofixtiSafetyLevel = SHOFIXTI_SAFETY_STAGES;
+    if (safetyLevel >= SHOFIXTI_ARMING_PRESSES) {
       ship.shofixtiGloryFrames = SHOFIXTI_GLORY_FRAMES;
     } else {
       ship.shofixtiSafetyLevel = safetyLevel + 1;
-      spawns.push({ type: 'sound', sound: 'secondary' });
     }
   }
 
@@ -181,42 +179,20 @@ export const shofixtiController: ShipController = {
 
   drawShip(dc: DrawContext, ship: ShipState, sprites: unknown): void {
     const sp = sprites as ShofixtiSprites | null;
-    const set = sp
-      ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
-      : null;
     const gloryFrames = ship.shofixtiGloryFrames ?? 0;
-    const safetyLevel = ship.shofixtiSafetyLevel ?? 0;
-    if (set) {
-      drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
+    if (gloryFrames > 0 && sp?.destruct) {
+      const set = dc.reduction >= 2 ? sp.destruct.sml : dc.reduction === 1 ? sp.destruct.med : sp.destruct.big;
+      const frame = Math.min(7, SHOFIXTI_GLORY_FRAMES - gloryFrames);
+      drawSprite(dc.ctx, set, frame, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
     } else {
-      placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#ffd28a', dc.reduction, dc.worldW, dc.worldH);
-    }
-
-    if (safetyLevel > 0) {
-      const sx = (((ship.x - dc.camX) % dc.worldW) + dc.worldW) % dc.worldW;
-      const sy = (((ship.y - dc.camY) % dc.worldH) + dc.worldH) % dc.worldH;
-      const px = Math.floor((sx > dc.worldW / 2 ? sx - dc.worldW : sx) / (1 << (2 + dc.reduction)));
-      const py = Math.floor((sy > dc.worldH / 2 ? sy - dc.worldH : sy) / (1 << (2 + dc.reduction)));
-      dc.ctx.save();
-      for (let i = 0; i < SHOFIXTI_SAFETY_STAGES; i++) {
-        dc.ctx.fillStyle = i < safetyLevel ? '#ffcf6a' : 'rgba(80,40,20,0.55)';
-        dc.ctx.fillRect(px - 8 + i * 6, py - 14, 4, 4);
+      const set = sp
+        ? (dc.reduction >= 2 ? sp.sml : dc.reduction === 1 ? sp.med : sp.big)
+        : null;
+      if (set) {
+        drawSprite(dc.ctx, set, ship.facing, ship.x, ship.y, dc.canvasW, dc.canvasH, dc.camX, dc.camY, dc.reduction, dc.worldW, dc.worldH);
+      } else {
+        placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#ffd28a', dc.reduction, dc.worldW, dc.worldH);
       }
-      dc.ctx.restore();
-    }
-
-    if (gloryFrames > 0) {
-      const sx = (((ship.x - dc.camX) % dc.worldW) + dc.worldW) % dc.worldW;
-      const sy = (((ship.y - dc.camY) % dc.worldH) + dc.worldH) % dc.worldH;
-      const px = Math.floor((sx > dc.worldW / 2 ? sx - dc.worldW : sx) / (1 << (2 + dc.reduction)));
-      const py = Math.floor((sy > dc.worldH / 2 ? sy - dc.worldH : sy) / (1 << (2 + dc.reduction)));
-      dc.ctx.save();
-      dc.ctx.globalAlpha = 0.35 + (4 - gloryFrames) * 0.15;
-      dc.ctx.fillStyle = gloryFrames === 1 ? '#fff4a0' : '#ff9b4a';
-      dc.ctx.beginPath();
-      dc.ctx.arc(px, py, Math.max(6, (16 - gloryFrames * 2) >> dc.reduction), 0, Math.PI * 2);
-      dc.ctx.fill();
-      dc.ctx.restore();
     }
   },
 

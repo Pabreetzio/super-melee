@@ -327,8 +327,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // Seed the status panel so its data is ready once assets finish preloading.
     statusRef.current = [
-      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, orzBoardSlots: s0.orzBoardSlots ?? [], orzBoardDamageFlash: s0.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[0] },
-      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, orzBoardSlots: s1.orzBoardSlots ?? [], orzBoardDamageFlash: s1.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[1] },
+      { shipId: type0, crew: s0.crew, maxCrew: SHIP_REGISTRY[type0].maxCrew, energy: s0.energy, maxEnergy: SHIP_REGISTRY[type0].maxEnergy, limpetCount: 0, orzBoardSlots: s0.orzBoardSlots ?? [], orzBoardDamageFlash: s0.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[0], shofixtiSafetyLevel: s0.shofixtiSafetyLevel ?? 0, shofixtiGloryFrames: s0.shofixtiGloryFrames ?? 0 },
+      { shipId: type1, crew: s1.crew, maxCrew: SHIP_REGISTRY[type1].maxCrew, energy: s1.energy, maxEnergy: SHIP_REGISTRY[type1].maxEnergy, limpetCount: 0, orzBoardSlots: s1.orzBoardSlots ?? [], orzBoardDamageFlash: s1.orzBoardDamageFlash ?? [], inputs: 0, captainIdx: captainIdxRef.current[1], shofixtiSafetyLevel: s1.shofixtiSafetyLevel ?? 0, shofixtiGloryFrames: s1.shofixtiGloryFrames ?? 0 },
     ];
 
     void (async () => {
@@ -668,6 +668,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         orzBoardDamageFlash: bs.ships[0].orzBoardDamageFlash ?? [],
         inputs:     i0,
         captainIdx: captainIdxRef.current[0],
+        shofixtiSafetyLevel: bs.ships[0].shofixtiSafetyLevel ?? 0,
+        shofixtiGloryFrames: bs.ships[0].shofixtiGloryFrames ?? 0,
       },
       {
         shipId:     bs.shipTypes[1],
@@ -680,6 +682,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         orzBoardDamageFlash: bs.ships[1].orzBoardDamageFlash ?? [],
         inputs:     i1,
         captainIdx: captainIdxRef.current[1],
+        shofixtiSafetyLevel: bs.ships[1].shofixtiSafetyLevel ?? 0,
+        shofixtiGloryFrames: bs.ships[1].shofixtiGloryFrames ?? 0,
       },
     ];
   }
@@ -772,6 +776,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         });
       } else if (s.type === 'sound') {
         // Pure side-effect request; handled by the sound dispatch below.
+      } else if (s.type === 'shofixti_glory') {
+        bs.explosions.push({ type: 'shofixti_glory', x: s.x, y: s.y, frame: 0 });
       } else if (s.type === 'buzzsaw') {
         // FIFO cap: controller specifies the limit via weaponCap.
         if (s.weaponCap !== undefined) {

@@ -91,6 +91,8 @@ export interface SideStatus {
   orzBoardDamageFlash?: number[];
   inputs:    number;   // current input bit flags (INPUT_THRUST | INPUT_LEFT …)
   captainIdx: number;  // which captain name to show (stable per match)
+  shofixtiSafetyLevel?: number;
+  shofixtiGloryFrames?: number;
   caption?:  string;   // optional override for the center status caption
 }
 
@@ -348,7 +350,7 @@ function drawSection(
 
     // Captain animation overlays based on current inputs
     if (def && sprite && def.capCount > 0) {
-      drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def);
+      drawCaptainOverlays(ctx, shipBase, sprite, capTop, side.inputs, def, side.shofixtiSafetyLevel ?? 0, side.shofixtiGloryFrames ?? 0);
     }
 
     if (options.captainDefeatStartedAt !== null) {
@@ -506,6 +508,8 @@ function drawCaptainOverlays(
   capTop: number,
   inputs: number,
   def: ShipStatusDef,
+  shofixtiSafetyLevel: number,
+  shofixtiGloryFrames: number,
 ) {
   // Clip to portrait bounds so overlays never escape
   ctx.save();
@@ -535,7 +539,18 @@ function drawCaptainOverlays(
   if (inputs & INPUT_FIRE1)      overlay(10);
 
   // Special
-  if (inputs & INPUT_FIRE2)      overlay(13);
+  if (sprite === 'scout') {
+    const shofixtiFrame = shofixtiGloryFrames > 0
+      ? (shofixtiGloryFrames >= 2 ? 18 : 19)
+      : shofixtiSafetyLevel >= 2
+        ? 16
+        : shofixtiSafetyLevel === 1
+          ? 14
+          : 12;
+    overlay(shofixtiFrame);
+  } else if (inputs & INPUT_FIRE2) {
+    overlay(13);
+  }
 
   ctx.restore();
 }
