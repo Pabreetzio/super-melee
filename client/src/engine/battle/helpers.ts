@@ -227,6 +227,23 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.utwigShieldDrainWait ?? 0);
     h = hashStep(h, ship.utwigShieldCycle ?? 0);
   }
+  h = hashStep(h, bs.asteroids.length);
+  for (const asteroid of bs.asteroids) {
+    h = hashStep(h, asteroid.prevX);
+    h = hashStep(h, asteroid.prevY);
+    h = hashStep(h, asteroid.x);
+    h = hashStep(h, asteroid.y);
+    h = hashStep(h, asteroid.facing);
+    h = hashStep(h, asteroid.velocity.vx);
+    h = hashStep(h, asteroid.velocity.vy);
+    h = hashStep(h, asteroid.velocity.ex);
+    h = hashStep(h, asteroid.velocity.ey);
+    h = hashStep(h, asteroid.velocity.travelAngle);
+    h = hashStep(h, asteroid.turnWait);
+    h = hashStep(h, asteroid.spinRate);
+    h = hashStep(h, asteroid.spinReverse ? 1 : 0);
+    h = hashStep(h, asteroid.rubbleFrames);
+  }
   h = hashStep(h, bs.missiles.length);
   for (const m of bs.missiles) {
     h = hashStep(h, m.prevX);

@@ -197,6 +197,10 @@ export interface DamageAbsorbEffect {
   sound?: EffectSound;
 }
 
+export interface EnvironmentContext {
+  harvestNearbyJunk(x: number, y: number, rangeW: number): boolean;
+}
+
 // ─── Per-missile effect returned by processMissile() ─────────────────────────
 
 /**
@@ -361,6 +365,12 @@ export interface ShipController {
     enemyType: ShipId,
     emitCrewPod?: (pod: CrewPod) => void,
   ): void;
+
+  interactWithEnvironment?(
+    ship: ShipState,
+    input: number,
+    env: EnvironmentContext,
+  ): { sounds?: SoundSpawnKey[] } | void;
 
   /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
   isIntangible?(ship: ShipState): boolean;

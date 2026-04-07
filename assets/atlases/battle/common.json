@@ -2,10 +2,703 @@
   "id": "battle/common",
   "imageUrl": "/atlases/battle/common.png",
   "frames": {
+    "/battle/asteroid-big-000.png": {
+      "key": "/battle/asteroid-big-000.png",
+      "sourceUrl": "/battle/asteroid-big-000.png",
+      "x": 2,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-000.png"
+    },
+    "/battle/asteroid-big-001.png": {
+      "key": "/battle/asteroid-big-001.png",
+      "sourceUrl": "/battle/asteroid-big-001.png",
+      "x": 26,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-001.png"
+    },
+    "/battle/asteroid-big-002.png": {
+      "key": "/battle/asteroid-big-002.png",
+      "sourceUrl": "/battle/asteroid-big-002.png",
+      "x": 50,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-002.png"
+    },
+    "/battle/asteroid-big-003.png": {
+      "key": "/battle/asteroid-big-003.png",
+      "sourceUrl": "/battle/asteroid-big-003.png",
+      "x": 74,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-003.png"
+    },
+    "/battle/asteroid-big-004.png": {
+      "key": "/battle/asteroid-big-004.png",
+      "sourceUrl": "/battle/asteroid-big-004.png",
+      "x": 98,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-004.png"
+    },
+    "/battle/asteroid-big-005.png": {
+      "key": "/battle/asteroid-big-005.png",
+      "sourceUrl": "/battle/asteroid-big-005.png",
+      "x": 122,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-005.png"
+    },
+    "/battle/asteroid-big-006.png": {
+      "key": "/battle/asteroid-big-006.png",
+      "sourceUrl": "/battle/asteroid-big-006.png",
+      "x": 146,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-006.png"
+    },
+    "/battle/asteroid-big-007.png": {
+      "key": "/battle/asteroid-big-007.png",
+      "sourceUrl": "/battle/asteroid-big-007.png",
+      "x": 170,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-007.png"
+    },
+    "/battle/asteroid-big-008.png": {
+      "key": "/battle/asteroid-big-008.png",
+      "sourceUrl": "/battle/asteroid-big-008.png",
+      "x": 194,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-008.png"
+    },
+    "/battle/asteroid-big-009.png": {
+      "key": "/battle/asteroid-big-009.png",
+      "sourceUrl": "/battle/asteroid-big-009.png",
+      "x": 218,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-009.png"
+    },
+    "/battle/asteroid-big-010.png": {
+      "key": "/battle/asteroid-big-010.png",
+      "sourceUrl": "/battle/asteroid-big-010.png",
+      "x": 242,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-010.png"
+    },
+    "/battle/asteroid-big-011.png": {
+      "key": "/battle/asteroid-big-011.png",
+      "sourceUrl": "/battle/asteroid-big-011.png",
+      "x": 266,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-011.png"
+    },
+    "/battle/asteroid-big-012.png": {
+      "key": "/battle/asteroid-big-012.png",
+      "sourceUrl": "/battle/asteroid-big-012.png",
+      "x": 290,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-012.png"
+    },
+    "/battle/asteroid-big-013.png": {
+      "key": "/battle/asteroid-big-013.png",
+      "sourceUrl": "/battle/asteroid-big-013.png",
+      "x": 314,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-013.png"
+    },
+    "/battle/asteroid-big-014.png": {
+      "key": "/battle/asteroid-big-014.png",
+      "sourceUrl": "/battle/asteroid-big-014.png",
+      "x": 338,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-014.png"
+    },
+    "/battle/asteroid-big-015.png": {
+      "key": "/battle/asteroid-big-015.png",
+      "sourceUrl": "/battle/asteroid-big-015.png",
+      "x": 362,
+      "y": 2,
+      "w": 22,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-015.png"
+    },
+    "/battle/asteroid-big-016.png": {
+      "key": "/battle/asteroid-big-016.png",
+      "sourceUrl": "/battle/asteroid-big-016.png",
+      "x": 386,
+      "y": 2,
+      "w": 21,
+      "h": 22,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-016.png"
+    },
+    "/battle/asteroid-big-017.png": {
+      "key": "/battle/asteroid-big-017.png",
+      "sourceUrl": "/battle/asteroid-big-017.png",
+      "x": 409,
+      "y": 2,
+      "w": 25,
+      "h": 26,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-017.png"
+    },
+    "/battle/asteroid-big-018.png": {
+      "key": "/battle/asteroid-big-018.png",
+      "sourceUrl": "/battle/asteroid-big-018.png",
+      "x": 436,
+      "y": 2,
+      "w": 26,
+      "h": 28,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-018.png"
+    },
+    "/battle/asteroid-big-019.png": {
+      "key": "/battle/asteroid-big-019.png",
+      "sourceUrl": "/battle/asteroid-big-019.png",
+      "x": 464,
+      "y": 2,
+      "w": 30,
+      "h": 30,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-019.png"
+    },
+    "/battle/asteroid-big-020.png": {
+      "key": "/battle/asteroid-big-020.png",
+      "sourceUrl": "/battle/asteroid-big-020.png",
+      "x": 496,
+      "y": 2,
+      "w": 32,
+      "h": 32,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-big-020.png"
+    },
+    "/battle/asteroid-med-000.png": {
+      "key": "/battle/asteroid-med-000.png",
+      "sourceUrl": "/battle/asteroid-med-000.png",
+      "x": 530,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-000.png"
+    },
+    "/battle/asteroid-med-001.png": {
+      "key": "/battle/asteroid-med-001.png",
+      "sourceUrl": "/battle/asteroid-med-001.png",
+      "x": 543,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-001.png"
+    },
+    "/battle/asteroid-med-002.png": {
+      "key": "/battle/asteroid-med-002.png",
+      "sourceUrl": "/battle/asteroid-med-002.png",
+      "x": 556,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-002.png"
+    },
+    "/battle/asteroid-med-003.png": {
+      "key": "/battle/asteroid-med-003.png",
+      "sourceUrl": "/battle/asteroid-med-003.png",
+      "x": 569,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-003.png"
+    },
+    "/battle/asteroid-med-004.png": {
+      "key": "/battle/asteroid-med-004.png",
+      "sourceUrl": "/battle/asteroid-med-004.png",
+      "x": 582,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-004.png"
+    },
+    "/battle/asteroid-med-005.png": {
+      "key": "/battle/asteroid-med-005.png",
+      "sourceUrl": "/battle/asteroid-med-005.png",
+      "x": 595,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-005.png"
+    },
+    "/battle/asteroid-med-006.png": {
+      "key": "/battle/asteroid-med-006.png",
+      "sourceUrl": "/battle/asteroid-med-006.png",
+      "x": 608,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-006.png"
+    },
+    "/battle/asteroid-med-007.png": {
+      "key": "/battle/asteroid-med-007.png",
+      "sourceUrl": "/battle/asteroid-med-007.png",
+      "x": 621,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-007.png"
+    },
+    "/battle/asteroid-med-008.png": {
+      "key": "/battle/asteroid-med-008.png",
+      "sourceUrl": "/battle/asteroid-med-008.png",
+      "x": 634,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-008.png"
+    },
+    "/battle/asteroid-med-009.png": {
+      "key": "/battle/asteroid-med-009.png",
+      "sourceUrl": "/battle/asteroid-med-009.png",
+      "x": 647,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-009.png"
+    },
+    "/battle/asteroid-med-010.png": {
+      "key": "/battle/asteroid-med-010.png",
+      "sourceUrl": "/battle/asteroid-med-010.png",
+      "x": 660,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-010.png"
+    },
+    "/battle/asteroid-med-011.png": {
+      "key": "/battle/asteroid-med-011.png",
+      "sourceUrl": "/battle/asteroid-med-011.png",
+      "x": 673,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-011.png"
+    },
+    "/battle/asteroid-med-012.png": {
+      "key": "/battle/asteroid-med-012.png",
+      "sourceUrl": "/battle/asteroid-med-012.png",
+      "x": 686,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-012.png"
+    },
+    "/battle/asteroid-med-013.png": {
+      "key": "/battle/asteroid-med-013.png",
+      "sourceUrl": "/battle/asteroid-med-013.png",
+      "x": 699,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-013.png"
+    },
+    "/battle/asteroid-med-014.png": {
+      "key": "/battle/asteroid-med-014.png",
+      "sourceUrl": "/battle/asteroid-med-014.png",
+      "x": 712,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-014.png"
+    },
+    "/battle/asteroid-med-015.png": {
+      "key": "/battle/asteroid-med-015.png",
+      "sourceUrl": "/battle/asteroid-med-015.png",
+      "x": 725,
+      "y": 2,
+      "w": 11,
+      "h": 11,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-015.png"
+    },
+    "/battle/asteroid-med-016.png": {
+      "key": "/battle/asteroid-med-016.png",
+      "sourceUrl": "/battle/asteroid-med-016.png",
+      "x": 738,
+      "y": 2,
+      "w": 11,
+      "h": 12,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-016.png"
+    },
+    "/battle/asteroid-med-017.png": {
+      "key": "/battle/asteroid-med-017.png",
+      "sourceUrl": "/battle/asteroid-med-017.png",
+      "x": 751,
+      "y": 2,
+      "w": 13,
+      "h": 13,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-017.png"
+    },
+    "/battle/asteroid-med-018.png": {
+      "key": "/battle/asteroid-med-018.png",
+      "sourceUrl": "/battle/asteroid-med-018.png",
+      "x": 766,
+      "y": 2,
+      "w": 13,
+      "h": 15,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-018.png"
+    },
+    "/battle/asteroid-med-019.png": {
+      "key": "/battle/asteroid-med-019.png",
+      "sourceUrl": "/battle/asteroid-med-019.png",
+      "x": 781,
+      "y": 2,
+      "w": 15,
+      "h": 16,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-019.png"
+    },
+    "/battle/asteroid-med-020.png": {
+      "key": "/battle/asteroid-med-020.png",
+      "sourceUrl": "/battle/asteroid-med-020.png",
+      "x": 798,
+      "y": 2,
+      "w": 17,
+      "h": 17,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-med-020.png"
+    },
+    "/battle/asteroid-sml-000.png": {
+      "key": "/battle/asteroid-sml-000.png",
+      "sourceUrl": "/battle/asteroid-sml-000.png",
+      "x": 817,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-000.png"
+    },
+    "/battle/asteroid-sml-001.png": {
+      "key": "/battle/asteroid-sml-001.png",
+      "sourceUrl": "/battle/asteroid-sml-001.png",
+      "x": 827,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-001.png"
+    },
+    "/battle/asteroid-sml-002.png": {
+      "key": "/battle/asteroid-sml-002.png",
+      "sourceUrl": "/battle/asteroid-sml-002.png",
+      "x": 837,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-002.png"
+    },
+    "/battle/asteroid-sml-003.png": {
+      "key": "/battle/asteroid-sml-003.png",
+      "sourceUrl": "/battle/asteroid-sml-003.png",
+      "x": 847,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-003.png"
+    },
+    "/battle/asteroid-sml-004.png": {
+      "key": "/battle/asteroid-sml-004.png",
+      "sourceUrl": "/battle/asteroid-sml-004.png",
+      "x": 857,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-004.png"
+    },
+    "/battle/asteroid-sml-005.png": {
+      "key": "/battle/asteroid-sml-005.png",
+      "sourceUrl": "/battle/asteroid-sml-005.png",
+      "x": 867,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-005.png"
+    },
+    "/battle/asteroid-sml-006.png": {
+      "key": "/battle/asteroid-sml-006.png",
+      "sourceUrl": "/battle/asteroid-sml-006.png",
+      "x": 877,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-006.png"
+    },
+    "/battle/asteroid-sml-007.png": {
+      "key": "/battle/asteroid-sml-007.png",
+      "sourceUrl": "/battle/asteroid-sml-007.png",
+      "x": 887,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-007.png"
+    },
+    "/battle/asteroid-sml-008.png": {
+      "key": "/battle/asteroid-sml-008.png",
+      "sourceUrl": "/battle/asteroid-sml-008.png",
+      "x": 897,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-008.png"
+    },
+    "/battle/asteroid-sml-009.png": {
+      "key": "/battle/asteroid-sml-009.png",
+      "sourceUrl": "/battle/asteroid-sml-009.png",
+      "x": 907,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-009.png"
+    },
+    "/battle/asteroid-sml-010.png": {
+      "key": "/battle/asteroid-sml-010.png",
+      "sourceUrl": "/battle/asteroid-sml-010.png",
+      "x": 917,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-010.png"
+    },
+    "/battle/asteroid-sml-011.png": {
+      "key": "/battle/asteroid-sml-011.png",
+      "sourceUrl": "/battle/asteroid-sml-011.png",
+      "x": 927,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-011.png"
+    },
+    "/battle/asteroid-sml-012.png": {
+      "key": "/battle/asteroid-sml-012.png",
+      "sourceUrl": "/battle/asteroid-sml-012.png",
+      "x": 937,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-012.png"
+    },
+    "/battle/asteroid-sml-013.png": {
+      "key": "/battle/asteroid-sml-013.png",
+      "sourceUrl": "/battle/asteroid-sml-013.png",
+      "x": 947,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-013.png"
+    },
+    "/battle/asteroid-sml-014.png": {
+      "key": "/battle/asteroid-sml-014.png",
+      "sourceUrl": "/battle/asteroid-sml-014.png",
+      "x": 957,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-014.png"
+    },
+    "/battle/asteroid-sml-015.png": {
+      "key": "/battle/asteroid-sml-015.png",
+      "sourceUrl": "/battle/asteroid-sml-015.png",
+      "x": 967,
+      "y": 2,
+      "w": 8,
+      "h": 7,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-015.png"
+    },
+    "/battle/asteroid-sml-016.png": {
+      "key": "/battle/asteroid-sml-016.png",
+      "sourceUrl": "/battle/asteroid-sml-016.png",
+      "x": 977,
+      "y": 2,
+      "w": 7,
+      "h": 6,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-016.png"
+    },
+    "/battle/asteroid-sml-017.png": {
+      "key": "/battle/asteroid-sml-017.png",
+      "sourceUrl": "/battle/asteroid-sml-017.png",
+      "x": 986,
+      "y": 2,
+      "w": 9,
+      "h": 8,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-017.png"
+    },
+    "/battle/asteroid-sml-018.png": {
+      "key": "/battle/asteroid-sml-018.png",
+      "sourceUrl": "/battle/asteroid-sml-018.png",
+      "x": 997,
+      "y": 2,
+      "w": 10,
+      "h": 10,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-018.png"
+    },
+    "/battle/asteroid-sml-019.png": {
+      "key": "/battle/asteroid-sml-019.png",
+      "sourceUrl": "/battle/asteroid-sml-019.png",
+      "x": 1009,
+      "y": 2,
+      "w": 10,
+      "h": 10,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-019.png"
+    },
+    "/battle/asteroid-sml-020.png": {
+      "key": "/battle/asteroid-sml-020.png",
+      "sourceUrl": "/battle/asteroid-sml-020.png",
+      "x": 1021,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "hotX": 0,
+      "hotY": 0,
+      "maskSource": "/battle/asteroid-sml-020.png"
+    },
     "/battle/blast-big-000.png": {
       "key": "/battle/blast-big-000.png",
       "sourceUrl": "/battle/blast-big-000.png",
-      "x": 2,
+      "x": 1024,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -16,7 +709,7 @@
     "/battle/blast-big-001.png": {
       "key": "/battle/blast-big-001.png",
       "sourceUrl": "/battle/blast-big-001.png",
-      "x": 15,
+      "x": 1037,
       "y": 2,
       "w": 10,
       "h": 9,
@@ -27,7 +720,7 @@
     "/battle/blast-big-002.png": {
       "key": "/battle/blast-big-002.png",
       "sourceUrl": "/battle/blast-big-002.png",
-      "x": 27,
+      "x": 1049,
       "y": 2,
       "w": 7,
       "h": 11,
@@ -38,7 +731,7 @@
     "/battle/blast-big-003.png": {
       "key": "/battle/blast-big-003.png",
       "sourceUrl": "/battle/blast-big-003.png",
-      "x": 36,
+      "x": 1058,
       "y": 2,
       "w": 10,
       "h": 10,
@@ -49,7 +742,7 @@
     "/battle/blast-big-004.png": {
       "key": "/battle/blast-big-004.png",
       "sourceUrl": "/battle/blast-big-004.png",
-      "x": 48,
+      "x": 1070,
       "y": 2,
       "w": 11,
       "h": 7,
@@ -60,7 +753,7 @@
     "/battle/blast-big-005.png": {
       "key": "/battle/blast-big-005.png",
       "sourceUrl": "/battle/blast-big-005.png",
-      "x": 61,
+      "x": 1083,
       "y": 2,
       "w": 10,
       "h": 9,
@@ -71,7 +764,7 @@
     "/battle/blast-big-006.png": {
       "key": "/battle/blast-big-006.png",
       "sourceUrl": "/battle/blast-big-006.png",
-      "x": 73,
+      "x": 1095,
       "y": 2,
       "w": 7,
       "h": 11,
@@ -82,7 +775,7 @@
     "/battle/blast-big-007.png": {
       "key": "/battle/blast-big-007.png",
       "sourceUrl": "/battle/blast-big-007.png",
-      "x": 82,
+      "x": 1104,
       "y": 2,
       "w": 10,
       "h": 9,
@@ -93,7 +786,7 @@
     "/battle/blast-med-000.png": {
       "key": "/battle/blast-med-000.png",
       "sourceUrl": "/battle/blast-med-000.png",
-      "x": 94,
+      "x": 1116,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -104,7 +797,7 @@
     "/battle/blast-med-001.png": {
       "key": "/battle/blast-med-001.png",
       "sourceUrl": "/battle/blast-med-001.png",
-      "x": 103,
+      "x": 1125,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -115,7 +808,7 @@
     "/battle/blast-med-002.png": {
       "key": "/battle/blast-med-002.png",
       "sourceUrl": "/battle/blast-med-002.png",
-      "x": 112,
+      "x": 1134,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -126,7 +819,7 @@
     "/battle/blast-med-003.png": {
       "key": "/battle/blast-med-003.png",
       "sourceUrl": "/battle/blast-med-003.png",
-      "x": 121,
+      "x": 1143,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -137,7 +830,7 @@
     "/battle/blast-med-004.png": {
       "key": "/battle/blast-med-004.png",
       "sourceUrl": "/battle/blast-med-004.png",
-      "x": 130,
+      "x": 1152,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -148,7 +841,7 @@
     "/battle/blast-med-005.png": {
       "key": "/battle/blast-med-005.png",
       "sourceUrl": "/battle/blast-med-005.png",
-      "x": 139,
+      "x": 1161,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -159,7 +852,7 @@
     "/battle/blast-med-006.png": {
       "key": "/battle/blast-med-006.png",
       "sourceUrl": "/battle/blast-med-006.png",
-      "x": 148,
+      "x": 1170,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -170,7 +863,7 @@
     "/battle/blast-med-007.png": {
       "key": "/battle/blast-med-007.png",
       "sourceUrl": "/battle/blast-med-007.png",
-      "x": 157,
+      "x": 1179,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -181,7 +874,7 @@
     "/battle/blast-sml-000.png": {
       "key": "/battle/blast-sml-000.png",
       "sourceUrl": "/battle/blast-sml-000.png",
-      "x": 166,
+      "x": 1188,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -192,7 +885,7 @@
     "/battle/blast-sml-001.png": {
       "key": "/battle/blast-sml-001.png",
       "sourceUrl": "/battle/blast-sml-001.png",
-      "x": 171,
+      "x": 1193,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -203,7 +896,7 @@
     "/battle/blast-sml-002.png": {
       "key": "/battle/blast-sml-002.png",
       "sourceUrl": "/battle/blast-sml-002.png",
-      "x": 176,
+      "x": 1198,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -214,7 +907,7 @@
     "/battle/blast-sml-003.png": {
       "key": "/battle/blast-sml-003.png",
       "sourceUrl": "/battle/blast-sml-003.png",
-      "x": 181,
+      "x": 1203,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -225,7 +918,7 @@
     "/battle/blast-sml-004.png": {
       "key": "/battle/blast-sml-004.png",
       "sourceUrl": "/battle/blast-sml-004.png",
-      "x": 186,
+      "x": 1208,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -236,7 +929,7 @@
     "/battle/blast-sml-005.png": {
       "key": "/battle/blast-sml-005.png",
       "sourceUrl": "/battle/blast-sml-005.png",
-      "x": 191,
+      "x": 1213,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -247,7 +940,7 @@
     "/battle/blast-sml-006.png": {
       "key": "/battle/blast-sml-006.png",
       "sourceUrl": "/battle/blast-sml-006.png",
-      "x": 196,
+      "x": 1218,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -258,7 +951,7 @@
     "/battle/blast-sml-007.png": {
       "key": "/battle/blast-sml-007.png",
       "sourceUrl": "/battle/blast-sml-007.png",
-      "x": 201,
+      "x": 1223,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -269,7 +962,7 @@
     "/battle/boom-big-000.png": {
       "key": "/battle/boom-big-000.png",
       "sourceUrl": "/battle/boom-big-000.png",
-      "x": 206,
+      "x": 1228,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -280,7 +973,7 @@
     "/battle/boom-big-001.png": {
       "key": "/battle/boom-big-001.png",
       "sourceUrl": "/battle/boom-big-001.png",
-      "x": 209,
+      "x": 1231,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -291,7 +984,7 @@
     "/battle/boom-big-002.png": {
       "key": "/battle/boom-big-002.png",
       "sourceUrl": "/battle/boom-big-002.png",
-      "x": 214,
+      "x": 1236,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -302,7 +995,7 @@
     "/battle/boom-big-003.png": {
       "key": "/battle/boom-big-003.png",
       "sourceUrl": "/battle/boom-big-003.png",
-      "x": 223,
+      "x": 1245,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -313,7 +1006,7 @@
     "/battle/boom-big-004.png": {
       "key": "/battle/boom-big-004.png",
       "sourceUrl": "/battle/boom-big-004.png",
-      "x": 232,
+      "x": 1254,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -324,7 +1017,7 @@
     "/battle/boom-big-005.png": {
       "key": "/battle/boom-big-005.png",
       "sourceUrl": "/battle/boom-big-005.png",
-      "x": 241,
+      "x": 1263,
       "y": 2,
       "w": 7,
       "h": 7,
@@ -335,7 +1028,7 @@
     "/battle/boom-big-006.png": {
       "key": "/battle/boom-big-006.png",
       "sourceUrl": "/battle/boom-big-006.png",
-      "x": 250,
+      "x": 1272,
       "y": 2,
       "w": 5,
       "h": 5,
@@ -346,7 +1039,7 @@
     "/battle/boom-big-007.png": {
       "key": "/battle/boom-big-007.png",
       "sourceUrl": "/battle/boom-big-007.png",
-      "x": 257,
+      "x": 1279,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -357,7 +1050,7 @@
     "/battle/boom-big-008.png": {
       "key": "/battle/boom-big-008.png",
       "sourceUrl": "/battle/boom-big-008.png",
-      "x": 262,
+      "x": 1284,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -368,7 +1061,7 @@
     "/battle/boom-med-000.png": {
       "key": "/battle/boom-med-000.png",
       "sourceUrl": "/battle/boom-med-000.png",
-      "x": 265,
+      "x": 1287,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -379,7 +1072,7 @@
     "/battle/boom-med-001.png": {
       "key": "/battle/boom-med-001.png",
       "sourceUrl": "/battle/boom-med-001.png",
-      "x": 268,
+      "x": 1290,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -390,7 +1083,7 @@
     "/battle/boom-med-002.png": {
       "key": "/battle/boom-med-002.png",
       "sourceUrl": "/battle/boom-med-002.png",
-      "x": 271,
+      "x": 1293,
       "y": 2,
       "w": 4,
       "h": 4,
@@ -401,7 +1094,7 @@
     "/battle/boom-med-003.png": {
       "key": "/battle/boom-med-003.png",
       "sourceUrl": "/battle/boom-med-003.png",
-      "x": 277,
+      "x": 1299,
       "y": 2,
       "w": 4,
       "h": 4,
@@ -412,7 +1105,7 @@
     "/battle/boom-med-004.png": {
       "key": "/battle/boom-med-004.png",
       "sourceUrl": "/battle/boom-med-004.png",
-      "x": 283,
+      "x": 1305,
       "y": 2,
       "w": 4,
       "h": 4,
@@ -423,7 +1116,7 @@
     "/battle/boom-med-005.png": {
       "key": "/battle/boom-med-005.png",
       "sourceUrl": "/battle/boom-med-005.png",
-      "x": 289,
+      "x": 1311,
       "y": 2,
       "w": 4,
       "h": 4,
@@ -434,7 +1127,7 @@
     "/battle/boom-med-006.png": {
       "key": "/battle/boom-med-006.png",
       "sourceUrl": "/battle/boom-med-006.png",
-      "x": 295,
+      "x": 1317,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -445,7 +1138,7 @@
     "/battle/boom-med-007.png": {
       "key": "/battle/boom-med-007.png",
       "sourceUrl": "/battle/boom-med-007.png",
-      "x": 300,
+      "x": 1322,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -456,7 +1149,7 @@
     "/battle/boom-med-008.png": {
       "key": "/battle/boom-med-008.png",
       "sourceUrl": "/battle/boom-med-008.png",
-      "x": 303,
+      "x": 1325,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -467,7 +1160,7 @@
     "/battle/boom-sml-000.png": {
       "key": "/battle/boom-sml-000.png",
       "sourceUrl": "/battle/boom-sml-000.png",
-      "x": 306,
+      "x": 1328,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -478,7 +1171,7 @@
     "/battle/boom-sml-001.png": {
       "key": "/battle/boom-sml-001.png",
       "sourceUrl": "/battle/boom-sml-001.png",
-      "x": 309,
+      "x": 1331,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -489,7 +1182,7 @@
     "/battle/boom-sml-002.png": {
       "key": "/battle/boom-sml-002.png",
       "sourceUrl": "/battle/boom-sml-002.png",
-      "x": 312,
+      "x": 1334,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -500,7 +1193,7 @@
     "/battle/boom-sml-003.png": {
       "key": "/battle/boom-sml-003.png",
       "sourceUrl": "/battle/boom-sml-003.png",
-      "x": 317,
+      "x": 1339,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -511,7 +1204,7 @@
     "/battle/boom-sml-004.png": {
       "key": "/battle/boom-sml-004.png",
       "sourceUrl": "/battle/boom-sml-004.png",
-      "x": 322,
+      "x": 1344,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -522,7 +1215,7 @@
     "/battle/boom-sml-005.png": {
       "key": "/battle/boom-sml-005.png",
       "sourceUrl": "/battle/boom-sml-005.png",
-      "x": 327,
+      "x": 1349,
       "y": 2,
       "w": 3,
       "h": 3,
@@ -533,7 +1226,7 @@
     "/battle/boom-sml-006.png": {
       "key": "/battle/boom-sml-006.png",
       "sourceUrl": "/battle/boom-sml-006.png",
-      "x": 332,
+      "x": 1354,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -544,7 +1237,7 @@
     "/battle/boom-sml-007.png": {
       "key": "/battle/boom-sml-007.png",
       "sourceUrl": "/battle/boom-sml-007.png",
-      "x": 335,
+      "x": 1357,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -555,7 +1248,7 @@
     "/battle/boom-sml-008.png": {
       "key": "/battle/boom-sml-008.png",
       "sourceUrl": "/battle/boom-sml-008.png",
-      "x": 338,
+      "x": 1360,
       "y": 2,
       "w": 1,
       "h": 1,
@@ -566,7 +1259,7 @@
     "/battle/oolite-big-000.png": {
       "key": "/battle/oolite-big-000.png",
       "sourceUrl": "/battle/oolite-big-000.png",
-      "x": 341,
+      "x": 1363,
       "y": 2,
       "w": 75,
       "h": 67,
@@ -577,7 +1270,7 @@
     "/battle/oolite-med-000.png": {
       "key": "/battle/oolite-med-000.png",
       "sourceUrl": "/battle/oolite-med-000.png",
-      "x": 418,
+      "x": 1440,
       "y": 2,
       "w": 38,
       "h": 34,
@@ -588,7 +1281,7 @@
     "/battle/oolite-sml-000.png": {
       "key": "/battle/oolite-sml-000.png",
       "sourceUrl": "/battle/oolite-sml-000.png",
-      "x": 458,
+      "x": 1480,
       "y": 2,
       "w": 19,
       "h": 17,
@@ -599,7 +1292,7 @@
     "/battle/stars-000.png": {
       "key": "/battle/stars-000.png",
       "sourceUrl": "/battle/stars-000.png",
-      "x": 479,
+      "x": 1501,
       "y": 2,
       "w": 5,
       "h": 5,
@@ -610,7 +1303,7 @@
     "/battle/stars-001.png": {
       "key": "/battle/stars-001.png",
       "sourceUrl": "/battle/stars-001.png",
-      "x": 486,
+      "x": 1508,
       "y": 2,
       "w": 11,
       "h": 11,
@@ -621,7 +1314,7 @@
     "/battle/stars-002.png": {
       "key": "/battle/stars-002.png",
       "sourceUrl": "/battle/stars-002.png",
-      "x": 499,
+      "x": 1521,
       "y": 2,
       "w": 1,
       "h": 1,

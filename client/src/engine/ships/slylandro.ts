@@ -14,6 +14,8 @@ const SLYLANDRO_SHIP_MASS = 1;
 const SLYLANDRO_WEAPON_COST = 2;
 const SLYLANDRO_WEAPON_WAIT = 17;
 const SLYLANDRO_LIGHTNING_RANGE = DISPLAY_TO_WORLD(36);
+const SLYLANDRO_SPECIAL_WAIT = 20;
+const SLYLANDRO_HARVEST_RANGE = DISPLAY_TO_WORLD(78);
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -73,16 +75,13 @@ export function updateSlylandroShip(ship: ShipState, input: number): SpawnReques
   advancePosition(ship);
 
   if (ship.weaponWait > 0) ship.weaponWait--;
-  else if ((input & INPUT_FIRE1) && ship.energy >= SLYLANDRO_WEAPON_COST) {
+  if (ship.specialWait > 0) ship.specialWait--;
+  if (ship.weaponWait === 0 && (input & INPUT_FIRE1) && ship.energy >= SLYLANDRO_WEAPON_COST) {
     ship.energy -= SLYLANDRO_WEAPON_COST;
     ship.weaponWait = SLYLANDRO_WEAPON_WAIT;
     ship.slylandroLightningCycle = ((ship.slylandroLightningCycle ?? 0) + 1) & 3;
     spawns.push({ type: 'point_defense', x: ship.x, y: ship.y });
     spawns.push({ type: 'sound', sound: 'primary' });
-  }
-
-  if ((input & INPUT_FIRE2) && ship.energy < SLYLANDRO_MAX_ENERGY) {
-    // Super Melee does not currently simulate free-floating space junk.
   }
 
   return spawns;
@@ -164,6 +163,18 @@ export const slylandroController: ShipController = {
 
   getCollisionMass(): number {
     return SLYLANDRO_SHIP_MASS;
+  },
+
+  interactWithEnvironment(ship, input, env) {
+    if (!(input & INPUT_FIRE2) || ship.specialWait > 0 || ship.energy >= SLYLANDRO_MAX_ENERGY) {
+      return;
+    }
+    if (!env.harvestNearbyJunk(ship.x, ship.y, SLYLANDRO_HARVEST_RANGE)) {
+      return;
+    }
+    ship.energy = SLYLANDRO_MAX_ENERGY;
+    ship.specialWait = SLYLANDRO_SPECIAL_WAIT;
+    return { sounds: ['secondary'] };
   },
 
   computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {

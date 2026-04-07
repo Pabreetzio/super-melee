@@ -36,6 +36,19 @@ export interface CrewPod {
   blink: boolean;
 }
 
+export interface BattleAsteroid {
+  prevX: number;
+  prevY: number;
+  x: number;
+  y: number;
+  facing: number;
+  velocity: import('../velocity').VelocityDesc;
+  turnWait: number;
+  spinRate: number;
+  spinReverse: boolean;
+  rubbleFrames: number;
+}
+
 export interface TractorShadow {
   targetSide: 0 | 1;
   angle: number;
@@ -58,6 +71,7 @@ export interface WinnerShipState {
 export interface BattleState {
   ships:     [ShipState, ShipState];
   shipTypes: [ShipId, ShipId];
+  asteroids: BattleAsteroid[];
   missiles:  BattleMissile[];
   lasers:    LaserFlash[];
   tractorShadows: TractorShadow[];

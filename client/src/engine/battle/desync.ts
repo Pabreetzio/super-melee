@@ -15,6 +15,12 @@ export interface FrameSnap {
     thrustWait: number; turnWait: number; weaponWait: number;
     specialWait: number; energyWait: number; thrusting: boolean;
   }>;
+  asteroids: Array<{
+    x: number; y: number;
+    vx: number; vy: number;
+    facing: number;
+    rubbleFrames: number;
+  }>;
   missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
   warpIn:   [number, number];
   rebirth:  [number, number];
@@ -34,6 +40,12 @@ export function captureSnap(bs: BattleState, i0: number, i1: number): FrameSnap 
       thrustWait: s.thrustWait, turnWait: s.turnWait,
       weaponWait: s.weaponWait, specialWait: s.specialWait,
       energyWait: s.energyWait, thrusting: s.thrusting,
+    })),
+    asteroids: bs.asteroids.map(a => ({
+      x: a.x, y: a.y,
+      vx: a.velocity.vx, vy: a.velocity.vy,
+      facing: a.facing,
+      rubbleFrames: a.rubbleFrames,
     })),
     missiles: bs.missiles.map(m => ({
       x: m.x, y: m.y, facing: m.facing, life: m.life,
@@ -77,6 +89,7 @@ export function logDesyncEvent(
   if (snap) {
     console.log('SHIP 0:', JSON.stringify(snap.ships[0]));
     console.log('SHIP 1:', JSON.stringify(snap.ships[1]));
+    console.log('ASTEROIDS:', snap.asteroids.length, JSON.stringify(snap.asteroids));
     console.log('MISSILES:', snap.missiles.length, JSON.stringify(snap.missiles));
     console.log('warpIn:', snap.warpIn, ' inputs(i0,i1):', snap.i0, snap.i1);
   } else {

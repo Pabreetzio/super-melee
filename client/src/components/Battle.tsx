@@ -39,6 +39,16 @@ import {
 import { handleShipPlanetCollisions, handleShipShipCollision } from '../engine/battle/collision';
 import { spriteMaskContainsWorldPoint } from '../engine/battle/maskCollision';
 import {
+  advanceAsteroids,
+  handleAsteroidMissileCollisions,
+  handleAsteroidShipCollisions,
+  harvestNearbyAsteroids,
+  loadAsteroidSprites,
+  renderAsteroids,
+  spawnInitialAsteroids,
+  type AsteroidSprites,
+} from '../engine/battle/asteroids';
+import {
   advanceShipDestruction,
   beginShipDestruction,
   shouldRenderExplodingShip,
@@ -146,6 +156,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   // Planet sprite images (type determined by parent, stable across ship fights); null until loaded
   const planetImgRef = useRef<{ big: { source: CanvasImageSource; width: number; height: number }; med: { source: CanvasImageSource; width: number; height: number }; sml: { source: CanvasImageSource; width: number; height: number } } | null>(null);
+  const asteroidSpritesRef = useRef<AsteroidSprites | null>(null);
   // Live status panel data — updated each sim frame via ref to avoid React re-render cost.
   // StatusPanel reads directly from this ref in its own rAF loop.
   const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
@@ -310,6 +321,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     stateRef.current = {
       ships: [s0, s1],
       shipTypes: [type0, type1],
+      asteroids: spawnInitialAsteroids((n) => rng.rand(n), WORLD_W, WORLD_H),
       missiles: initMissiles,
       lasers: [],
       tractorShadows: [],
@@ -356,6 +368,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         explosionSpritesRef.current = await loadExplosionSprites();
       } catch {
         explosionSpritesRef.current = null;
+      }
+
+      try {
+        asteroidSpritesRef.current = await loadAsteroidSprites();
+      } catch {
+        asteroidSpritesRef.current = null;
       }
 
       const [big, med, sml] = await Promise.all([
@@ -691,6 +709,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
     bs.tractorShadows = [];
+    const rng = rngRef.current;
 
     for (const ship of bs.ships) {
       if (!ship.orzBoardDamageFlash) continue;
@@ -736,6 +755,18 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const spawns1 = updateShip(bs.ships[1], input1, bs.shipTypes[1], inactive1);
     applyAttachedLimpetPenalty(bs.ships[0], preShip0);
     applyAttachedLimpetPenalty(bs.ships[1], preShip1);
+
+    const env = {
+      harvestNearbyJunk: (x: number, y: number, rangeW: number) => harvestNearbyAsteroids(bs.asteroids, x, y, rangeW, WORLD_W, WORLD_H),
+    };
+    const envFx0 = inactive0 ? undefined : SHIP_REGISTRY[bs.shipTypes[0]].interactWithEnvironment?.(bs.ships[0], input0, env);
+    const envFx1 = inactive1 ? undefined : SHIP_REGISTRY[bs.shipTypes[1]].interactWithEnvironment?.(bs.ships[1], input1, env);
+    if (envFx0?.sounds) {
+      for (const sound of envFx0.sounds) playSpawnSound(bs.shipTypes[0], sound);
+    }
+    if (envFx1?.sounds) {
+      for (const sound of envFx1.sounds) playSpawnSound(bs.shipTypes[1], sound);
+    }
 
     // Wrap positions
     bs.ships[0].x = ((bs.ships[0].x % WORLD_W) + WORLD_W) % WORLD_W;
@@ -921,7 +952,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 
+    if (rng) {
+      advanceAsteroids(bs.asteroids, (n) => rng.rand(n), WORLD_W, WORLD_H);
+    }
     processMissiles(bs, shipSpritesRef.current, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
+    handleAsteroidMissileCollisions(bs, bs.asteroids);
     updateCrewPods(bs, bs.warpIn, WORLD_W, WORLD_H);
 
     // Advance cosmetic explosions (advance 1 frame per sim tick, remove when done)
@@ -951,6 +986,15 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       [
         bs.rebirth[0] > 0 || bs.shipDestructions[0] !== null || bs.ships[0].crew <= 0,
         bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null || bs.ships[1].crew <= 0,
+      ],
+    );
+    handleAsteroidShipCollisions(
+      bs.asteroids,
+      bs.ships,
+      bs.shipTypes,
+      [
+        bs.rebirth[0] > 0 || bs.shipDestructions[0] !== null || bs.ships[0].crew <= 0 || bs.warpIn[0] > 0,
+        bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null || bs.ships[1].crew <= 0 || bs.warpIn[1] > 0,
       ],
     );
 
@@ -1139,6 +1183,14 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         }
       }
     }
+
+    renderAsteroids(
+      { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+      bs.asteroids,
+      tw2dx,
+      tw2dy,
+      asteroidSpritesRef.current,
+    );
 
     // ── Missiles ─────────────────────────────────────────────────────────
     {

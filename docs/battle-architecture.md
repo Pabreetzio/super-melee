@@ -212,10 +212,10 @@ If a new weapon bypasses all three, defensive ships will silently stop working.
 
 ## Known Caveats
 
-- Slylandro's `SPECIAL` harvest behavior is intentionally deferred. The current
-  melee arena does not simulate neutral space junk/asteroids yet, so the
-  controller leaves that path inert for now. Revisit this when asteroid/junk
-  objects are introduced to battle state.
+- Neutral asteroids now live in shared battle state and are updated by
+  `engine/battle/asteroids.ts`. Keep ship-specific interactions with them in
+  controller hooks such as `interactWithEnvironment(...)` rather than adding
+  ship branches to `Battle.tsx`.
 
 ## Smells To Avoid
 

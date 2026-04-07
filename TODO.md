@@ -91,7 +91,7 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 - [ ] Ship radar / minimap (shows both ships across the large toroidal arena)
 
 ### Gameplay
-- [ ] Asteroid hazards (sprites available: `asteroid-big/med/sml` in battle assets)
+- [x] Asteroid hazards — neutral drifting asteroids spawn at arena edges, collide with ships/missiles, can be harvested by Slylandro, and now render from the original UQM asteroid frames packed into the battle atlas
 - [x] Fleet progression: winner keeps ship, loser queues next; match ends when one fleet is gone
 - [x] Between-round ship selection UI (loser picks next ship from remaining fleet)
 - [x] Winner preserves state (crew/energy/position/velocity/facing) across rounds; only new ship warps in
