@@ -14,6 +14,8 @@ Reference: http://sc2.sourceforge.net/content.php (check for current license ter
 All 25 ships have 16-frame big rotation sprites extracted:
 - [x] `human/cruiser-big-000..015.png` + hotspot data baked into `sprites.ts`
 - [x] All 24 other ships: big rotation frames extracted (hotspot data still needed — see below)
+- [x] Dedicated melee setup / menu icon frames extracted as `*-meleeicons-*.png`
+      for use in fleet grids, ship pickers, and load/save previews
 
 Hotspot data (center offset per frame) is required for correct rendering. Currently only the
 Earthling Cruiser has hotspot data. Other ships render at (0,0) until their `.ani` files are
@@ -72,15 +74,35 @@ planet sprites are extracted.
 - [x] Victory ditties (`assets/music/ditty/*.mod`)
 - [ ] Full background music / remaining audio outside the current battle flow
 
+### Melee Menu Icons
+
+The fleet builder and ship selection UI do **not** use the same art as the
+in-battle ship sprites. UQM ships in setup menus use dedicated
+`ship.<race>.meleeicons` resources, which often differ in angle and framing
+from the battle rotations.
+
+These have now been copied into `assets/ships/*/*-meleeicons-*` and packed into
+a mixed atlas under `assets/atlases/ui/meleeicons.*`.
+
+Current usage:
+- fleet builder slots
+- ship picker grid
+- load popup fleet previews
+
+When validating the menu art, use the Ur-Quan dreadnought as a quick check:
+the correct melee-menu icon set is visibly different from the battle sprite set.
+
 ## Fonts (`assets/fonts/`)
 
-UQM uses custom bitmap fonts for all in-game UI text. Three fonts are relevant to the battle status panel:
+UQM uses custom bitmap fonts for all in-game UI text. Four fonts are currently
+converted for the web port:
 
 | File | Source (content package) | Used for |
 |------|--------------------------|----------|
 | `starcon.woff2` / `.ttf` | `base/fonts/startcon.fon` | Race name header in status panel |
 | `tiny.woff2` / `.ttf`    | `base/fonts/micro2.fon`  | Captain name between gauge bars |
-| `micro.woff2` / `.ttf`   | `base/fonts/micro.fon`   | Small labels (reserved, not yet used) |
+| `micro.woff2` / `.ttf`   | `base/fonts/micro.fon`   | Small labels such as `CREW` / `BATT` |
+| `slides.woff2` / `.ttf`  | `base/fonts/slides.fon`  | Super Melee title / slide-style headings |
 
 ### Extraction / Conversion
 
@@ -88,18 +110,28 @@ The `.fon` files are Windows bitmap font resources. Conversion to web fonts was 
 - `tools/convert-font.py` — extracts glyph bitmaps from `.fon` and builds a TTF via `fonttools`
 - `tools/font-test.html` — browser preview for verifying glyph coverage and sizing
 
+`slides.fon` required a converter fix: unlike the transparent-mask fonts, its
+glyph PNGs are stored as opaque black/white bitmaps. `tools/convert-font.py`
+now supports both transparent alpha-mask fonts and opaque luminance-based
+bitmap fonts.
+
 Converted fonts are committed to `assets/fonts/`; source `.fon` files remain in the gitignored content package.
 
 ### Usage in StatusPanel
 
-`StatusPanel.tsx` loads all three fonts at module init via the CSS Font Loading API:
+`StatusPanel.tsx` loads the status fonts at module init via the CSS Font Loading API:
 
 ```ts
 new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)')
 new FontFace('UQMTiny',    'url(/fonts/tiny.woff2)')
+new FontFace('UQMMicro',   'url(/fonts/micro.woff2)')
 ```
 
 The panel falls back to monospace until fonts are ready (`uqmFontsReady` flag), so the first frame is never blocked. Once loaded, the race name renders in **UQMStarCon** (auto-scaled to fit the panel width) and the captain name renders in **UQMTiny** (auto-scaled to fit between the crew/energy gauge columns).
+
+`SuperMelee.tsx` also loads:
+- **UQMSlides** for the `SUPER-MELEE` page title
+- **UQMTiny** for fleet labels and right-side menu labels
 
 Race name rendering matches UQM: text is drawn twice — once offset one pixel down in a lighter grey (drop shadow), then again in black on top.
 
@@ -143,3 +175,16 @@ cp uqm-content/base/battle/boom-med-*.png   assets/battle/
 cp uqm-content/base/battle/blast-big-*.png  assets/battle/
 cp uqm-content/base/battle/asteroid-big-*.png assets/battle/
 ```
+
+Melee menu icons:
+```bash
+cp uqm-content/base/ships/{species}/{shipname}-meleeicons-*.png assets/ships/{species}/
+cp uqm-content/base/ships/{species}/{shipname}-meleeicons.ani   assets/ships/{species}/
+```
+
+## App Icon
+
+The browser tab icon is currently sourced directly from:
+- `assets/ships/urquan/dreadnought-big-002.png`
+
+and referenced from `client/index.html` through Vite's public asset serving.

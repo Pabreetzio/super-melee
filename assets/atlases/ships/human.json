@@ -541,32 +541,10 @@
       "hotY": 0,
       "maskSource": "/ships/human/cruiser-med-015.png"
     },
-    "/ships/human/cruiser-meleeicons-000.png": {
-      "key": "/ships/human/cruiser-meleeicons-000.png",
-      "sourceUrl": "/ships/human/cruiser-meleeicons-000.png",
-      "x": 1143,
-      "y": 2,
-      "w": 13,
-      "h": 32,
-      "hotX": 0,
-      "hotY": 0,
-      "maskSource": "/ships/human/cruiser-meleeicons-000.png"
-    },
-    "/ships/human/cruiser-meleeicons-001.png": {
-      "key": "/ships/human/cruiser-meleeicons-001.png",
-      "sourceUrl": "/ships/human/cruiser-meleeicons-001.png",
-      "x": 1158,
-      "y": 2,
-      "w": 9,
-      "h": 8,
-      "hotX": 0,
-      "hotY": 0,
-      "maskSource": "/ships/human/cruiser-meleeicons-001.png"
-    },
     "/ships/human/cruiser-sml-000.png": {
       "key": "/ships/human/cruiser-sml-000.png",
       "sourceUrl": "/ships/human/cruiser-sml-000.png",
-      "x": 1169,
+      "x": 1143,
       "y": 2,
       "w": 3,
       "h": 10,
@@ -577,7 +555,7 @@
     "/ships/human/cruiser-sml-001.png": {
       "key": "/ships/human/cruiser-sml-001.png",
       "sourceUrl": "/ships/human/cruiser-sml-001.png",
-      "x": 1174,
+      "x": 1148,
       "y": 2,
       "w": 6,
       "h": 10,
@@ -588,7 +566,7 @@
     "/ships/human/cruiser-sml-002.png": {
       "key": "/ships/human/cruiser-sml-002.png",
       "sourceUrl": "/ships/human/cruiser-sml-002.png",
-      "x": 1182,
+      "x": 1156,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -599,7 +577,7 @@
     "/ships/human/cruiser-sml-003.png": {
       "key": "/ships/human/cruiser-sml-003.png",
       "sourceUrl": "/ships/human/cruiser-sml-003.png",
-      "x": 1193,
+      "x": 1167,
       "y": 2,
       "w": 10,
       "h": 6,
@@ -610,7 +588,7 @@
     "/ships/human/cruiser-sml-004.png": {
       "key": "/ships/human/cruiser-sml-004.png",
       "sourceUrl": "/ships/human/cruiser-sml-004.png",
-      "x": 1205,
+      "x": 1179,
       "y": 2,
       "w": 12,
       "h": 3,
@@ -621,7 +599,7 @@
     "/ships/human/cruiser-sml-005.png": {
       "key": "/ships/human/cruiser-sml-005.png",
       "sourceUrl": "/ships/human/cruiser-sml-005.png",
-      "x": 1219,
+      "x": 1193,
       "y": 2,
       "w": 10,
       "h": 6,
@@ -632,7 +610,7 @@
     "/ships/human/cruiser-sml-006.png": {
       "key": "/ships/human/cruiser-sml-006.png",
       "sourceUrl": "/ships/human/cruiser-sml-006.png",
-      "x": 1231,
+      "x": 1205,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -643,7 +621,7 @@
     "/ships/human/cruiser-sml-007.png": {
       "key": "/ships/human/cruiser-sml-007.png",
       "sourceUrl": "/ships/human/cruiser-sml-007.png",
-      "x": 1242,
+      "x": 1216,
       "y": 2,
       "w": 6,
       "h": 10,
@@ -654,7 +632,7 @@
     "/ships/human/cruiser-sml-008.png": {
       "key": "/ships/human/cruiser-sml-008.png",
       "sourceUrl": "/ships/human/cruiser-sml-008.png",
-      "x": 1250,
+      "x": 1224,
       "y": 2,
       "w": 3,
       "h": 10,
@@ -665,7 +643,7 @@
     "/ships/human/cruiser-sml-009.png": {
       "key": "/ships/human/cruiser-sml-009.png",
       "sourceUrl": "/ships/human/cruiser-sml-009.png",
-      "x": 1255,
+      "x": 1229,
       "y": 2,
       "w": 6,
       "h": 10,
@@ -676,7 +654,7 @@
     "/ships/human/cruiser-sml-010.png": {
       "key": "/ships/human/cruiser-sml-010.png",
       "sourceUrl": "/ships/human/cruiser-sml-010.png",
-      "x": 1263,
+      "x": 1237,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -687,7 +665,7 @@
     "/ships/human/cruiser-sml-011.png": {
       "key": "/ships/human/cruiser-sml-011.png",
       "sourceUrl": "/ships/human/cruiser-sml-011.png",
-      "x": 1274,
+      "x": 1248,
       "y": 2,
       "w": 10,
       "h": 6,
@@ -698,7 +676,7 @@
     "/ships/human/cruiser-sml-012.png": {
       "key": "/ships/human/cruiser-sml-012.png",
       "sourceUrl": "/ships/human/cruiser-sml-012.png",
-      "x": 1286,
+      "x": 1260,
       "y": 2,
       "w": 12,
       "h": 3,
@@ -709,7 +687,7 @@
     "/ships/human/cruiser-sml-013.png": {
       "key": "/ships/human/cruiser-sml-013.png",
       "sourceUrl": "/ships/human/cruiser-sml-013.png",
-      "x": 1300,
+      "x": 1274,
       "y": 2,
       "w": 10,
       "h": 6,
@@ -720,7 +698,7 @@
     "/ships/human/cruiser-sml-014.png": {
       "key": "/ships/human/cruiser-sml-014.png",
       "sourceUrl": "/ships/human/cruiser-sml-014.png",
-      "x": 1312,
+      "x": 1286,
       "y": 2,
       "w": 9,
       "h": 9,
@@ -731,7 +709,7 @@
     "/ships/human/cruiser-sml-015.png": {
       "key": "/ships/human/cruiser-sml-015.png",
       "sourceUrl": "/ships/human/cruiser-sml-015.png",
-      "x": 1323,
+      "x": 1297,
       "y": 2,
       "w": 6,
       "h": 10,
@@ -742,7 +720,7 @@
     "/ships/human/saturn-big-000.png": {
       "key": "/ships/human/saturn-big-000.png",
       "sourceUrl": "/ships/human/saturn-big-000.png",
-      "x": 1331,
+      "x": 1305,
       "y": 2,
       "w": 3,
       "h": 22,
@@ -753,7 +731,7 @@
     "/ships/human/saturn-big-001.png": {
       "key": "/ships/human/saturn-big-001.png",
       "sourceUrl": "/ships/human/saturn-big-001.png",
-      "x": 1336,
+      "x": 1310,
       "y": 2,
       "w": 11,
       "h": 20,
@@ -764,7 +742,7 @@
     "/ships/human/saturn-big-002.png": {
       "key": "/ships/human/saturn-big-002.png",
       "sourceUrl": "/ships/human/saturn-big-002.png",
-      "x": 1349,
+      "x": 1323,
       "y": 2,
       "w": 17,
       "h": 18,
@@ -775,7 +753,7 @@
     "/ships/human/saturn-big-003.png": {
       "key": "/ships/human/saturn-big-003.png",
       "sourceUrl": "/ships/human/saturn-big-003.png",
-      "x": 1368,
+      "x": 1342,
       "y": 2,
       "w": 22,
       "h": 12,
@@ -786,7 +764,7 @@
     "/ships/human/saturn-big-004.png": {
       "key": "/ships/human/saturn-big-004.png",
       "sourceUrl": "/ships/human/saturn-big-004.png",
-      "x": 1392,
+      "x": 1366,
       "y": 2,
       "w": 24,
       "h": 3,
@@ -797,7 +775,7 @@
     "/ships/human/saturn-big-005.png": {
       "key": "/ships/human/saturn-big-005.png",
       "sourceUrl": "/ships/human/saturn-big-005.png",
-      "x": 1418,
+      "x": 1392,
       "y": 2,
       "w": 22,
       "h": 12,
@@ -808,7 +786,7 @@
     "/ships/human/saturn-big-006.png": {
       "key": "/ships/human/saturn-big-006.png",
       "sourceUrl": "/ships/human/saturn-big-006.png",
-      "x": 1442,
+      "x": 1416,
       "y": 2,
       "w": 17,
       "h": 18,
@@ -819,7 +797,7 @@
     "/ships/human/saturn-big-007.png": {
       "key": "/ships/human/saturn-big-007.png",
       "sourceUrl": "/ships/human/saturn-big-007.png",
-      "x": 1461,
+      "x": 1435,
       "y": 2,
       "w": 11,
       "h": 20,
@@ -830,7 +808,7 @@
     "/ships/human/saturn-big-008.png": {
       "key": "/ships/human/saturn-big-008.png",
       "sourceUrl": "/ships/human/saturn-big-008.png",
-      "x": 1474,
+      "x": 1448,
       "y": 2,
       "w": 3,
       "h": 22,
@@ -841,7 +819,7 @@
     "/ships/human/saturn-big-009.png": {
       "key": "/ships/human/saturn-big-009.png",
       "sourceUrl": "/ships/human/saturn-big-009.png",
-      "x": 1479,
+      "x": 1453,
       "y": 2,
       "w": 11,
       "h": 20,
@@ -852,7 +830,7 @@
     "/ships/human/saturn-big-010.png": {
       "key": "/ships/human/saturn-big-010.png",
       "sourceUrl": "/ships/human/saturn-big-010.png",
-      "x": 1492,
+      "x": 1466,
       "y": 2,
       "w": 17,
       "h": 18,
@@ -863,7 +841,7 @@
     "/ships/human/saturn-big-011.png": {
       "key": "/ships/human/saturn-big-011.png",
       "sourceUrl": "/ships/human/saturn-big-011.png",
-      "x": 1511,
+      "x": 1485,
       "y": 2,
       "w": 22,
       "h": 12,
@@ -874,7 +852,7 @@
     "/ships/human/saturn-big-012.png": {
       "key": "/ships/human/saturn-big-012.png",
       "sourceUrl": "/ships/human/saturn-big-012.png",
-      "x": 1535,
+      "x": 1509,
       "y": 2,
       "w": 24,
       "h": 3,
@@ -885,7 +863,7 @@
     "/ships/human/saturn-big-013.png": {
       "key": "/ships/human/saturn-big-013.png",
       "sourceUrl": "/ships/human/saturn-big-013.png",
-      "x": 1561,
+      "x": 1535,
       "y": 2,
       "w": 22,
       "h": 12,
@@ -896,7 +874,7 @@
     "/ships/human/saturn-big-014.png": {
       "key": "/ships/human/saturn-big-014.png",
       "sourceUrl": "/ships/human/saturn-big-014.png",
-      "x": 1585,
+      "x": 1559,
       "y": 2,
       "w": 17,
       "h": 18,
@@ -907,7 +885,7 @@
     "/ships/human/saturn-big-015.png": {
       "key": "/ships/human/saturn-big-015.png",
       "sourceUrl": "/ships/human/saturn-big-015.png",
-      "x": 1604,
+      "x": 1578,
       "y": 2,
       "w": 11,
       "h": 20,
@@ -918,7 +896,7 @@
     "/ships/human/saturn-big-016.png": {
       "key": "/ships/human/saturn-big-016.png",
       "sourceUrl": "/ships/human/saturn-big-016.png",
-      "x": 1617,
+      "x": 1591,
       "y": 2,
       "w": 17,
       "h": 15,
@@ -929,7 +907,7 @@
     "/ships/human/saturn-big-017.png": {
       "key": "/ships/human/saturn-big-017.png",
       "sourceUrl": "/ships/human/saturn-big-017.png",
-      "x": 1636,
+      "x": 1610,
       "y": 2,
       "w": 19,
       "h": 17,
@@ -940,7 +918,7 @@
     "/ships/human/saturn-big-018.png": {
       "key": "/ships/human/saturn-big-018.png",
       "sourceUrl": "/ships/human/saturn-big-018.png",
-      "x": 1657,
+      "x": 1631,
       "y": 2,
       "w": 21,
       "h": 19,
@@ -951,7 +929,7 @@
     "/ships/human/saturn-big-019.png": {
       "key": "/ships/human/saturn-big-019.png",
       "sourceUrl": "/ships/human/saturn-big-019.png",
-      "x": 1680,
+      "x": 1654,
       "y": 2,
       "w": 23,
       "h": 21,
@@ -962,7 +940,7 @@
     "/ships/human/saturn-big-020.png": {
       "key": "/ships/human/saturn-big-020.png",
       "sourceUrl": "/ships/human/saturn-big-020.png",
-      "x": 1705,
+      "x": 1679,
       "y": 2,
       "w": 26,
       "h": 22,
@@ -973,7 +951,7 @@
     "/ships/human/saturn-big-021.png": {
       "key": "/ships/human/saturn-big-021.png",
       "sourceUrl": "/ships/human/saturn-big-021.png",
-      "x": 1733,
+      "x": 1707,
       "y": 2,
       "w": 29,
       "h": 25,
@@ -984,7 +962,7 @@
     "/ships/human/saturn-big-022.png": {
       "key": "/ships/human/saturn-big-022.png",
       "sourceUrl": "/ships/human/saturn-big-022.png",
-      "x": 1764,
+      "x": 1738,
       "y": 2,
       "w": 31,
       "h": 27,
@@ -995,7 +973,7 @@
     "/ships/human/saturn-big-023.png": {
       "key": "/ships/human/saturn-big-023.png",
       "sourceUrl": "/ships/human/saturn-big-023.png",
-      "x": 1797,
+      "x": 1771,
       "y": 2,
       "w": 35,
       "h": 29,
@@ -1006,7 +984,7 @@
     "/ships/human/saturn-big-024.png": {
       "key": "/ships/human/saturn-big-024.png",
       "sourceUrl": "/ships/human/saturn-big-024.png",
-      "x": 1834,
+      "x": 1808,
       "y": 2,
       "w": 37,
       "h": 28,
@@ -1017,7 +995,7 @@
     "/ships/human/saturn-med-000.png": {
       "key": "/ships/human/saturn-med-000.png",
       "sourceUrl": "/ships/human/saturn-med-000.png",
-      "x": 1873,
+      "x": 1847,
       "y": 2,
       "w": 2,
       "h": 13,
@@ -1028,7 +1006,7 @@
     "/ships/human/saturn-med-001.png": {
       "key": "/ships/human/saturn-med-001.png",
       "sourceUrl": "/ships/human/saturn-med-001.png",
-      "x": 1877,
+      "x": 1851,
       "y": 2,
       "w": 7,
       "h": 12,
@@ -1039,7 +1017,7 @@
     "/ships/human/saturn-med-002.png": {
       "key": "/ships/human/saturn-med-002.png",
       "sourceUrl": "/ships/human/saturn-med-002.png",
-      "x": 1886,
+      "x": 1860,
       "y": 2,
       "w": 10,
       "h": 10,
@@ -1050,7 +1028,7 @@
     "/ships/human/saturn-med-003.png": {
       "key": "/ships/human/saturn-med-003.png",
       "sourceUrl": "/ships/human/saturn-med-003.png",
-      "x": 1898,
+      "x": 1872,
       "y": 2,
       "w": 13,
       "h": 7,
@@ -1061,7 +1039,7 @@
     "/ships/human/saturn-med-004.png": {
       "key": "/ships/human/saturn-med-004.png",
       "sourceUrl": "/ships/human/saturn-med-004.png",
-      "x": 1913,
+      "x": 1887,
       "y": 2,
       "w": 14,
       "h": 2,
@@ -1072,7 +1050,7 @@
     "/ships/human/saturn-med-005.png": {
       "key": "/ships/human/saturn-med-005.png",
       "sourceUrl": "/ships/human/saturn-med-005.png",
-      "x": 1929,
+      "x": 1903,
       "y": 2,
       "w": 13,
       "h": 7,
@@ -1083,7 +1061,7 @@
     "/ships/human/saturn-med-006.png": {
       "key": "/ships/human/saturn-med-006.png",
       "sourceUrl": "/ships/human/saturn-med-006.png",
-      "x": 1944,
+      "x": 1918,
       "y": 2,
       "w": 10,
       "h": 10,
@@ -1094,7 +1072,7 @@
     "/ships/human/saturn-med-007.png": {
       "key": "/ships/human/saturn-med-007.png",
       "sourceUrl": "/ships/human/saturn-med-007.png",
-      "x": 1956,
+      "x": 1930,
       "y": 2,
       "w": 7,
       "h": 12,
@@ -1105,7 +1083,7 @@
     "/ships/human/saturn-med-008.png": {
       "key": "/ships/human/saturn-med-008.png",
       "sourceUrl": "/ships/human/saturn-med-008.png",
-      "x": 1965,
+      "x": 1939,
       "y": 2,
       "w": 2,
       "h": 13,
@@ -1116,7 +1094,7 @@
     "/ships/human/saturn-med-009.png": {
       "key": "/ships/human/saturn-med-009.png",
       "sourceUrl": "/ships/human/saturn-med-009.png",
-      "x": 1969,
+      "x": 1943,
       "y": 2,
       "w": 7,
       "h": 12,
@@ -1127,7 +1105,7 @@
     "/ships/human/saturn-med-010.png": {
       "key": "/ships/human/saturn-med-010.png",
       "sourceUrl": "/ships/human/saturn-med-010.png",
-      "x": 1978,
+      "x": 1952,
       "y": 2,
       "w": 10,
       "h": 10,
@@ -1138,7 +1116,7 @@
     "/ships/human/saturn-med-011.png": {
       "key": "/ships/human/saturn-med-011.png",
       "sourceUrl": "/ships/human/saturn-med-011.png",
-      "x": 1990,
+      "x": 1964,
       "y": 2,
       "w": 13,
       "h": 7,
@@ -1149,7 +1127,7 @@
     "/ships/human/saturn-med-012.png": {
       "key": "/ships/human/saturn-med-012.png",
       "sourceUrl": "/ships/human/saturn-med-012.png",
-      "x": 2005,
+      "x": 1979,
       "y": 2,
       "w": 14,
       "h": 2,
@@ -1160,7 +1138,7 @@
     "/ships/human/saturn-med-013.png": {
       "key": "/ships/human/saturn-med-013.png",
       "sourceUrl": "/ships/human/saturn-med-013.png",
-      "x": 2021,
+      "x": 1995,
       "y": 2,
       "w": 13,
       "h": 7,
@@ -1171,7 +1149,7 @@
     "/ships/human/saturn-med-014.png": {
       "key": "/ships/human/saturn-med-014.png",
       "sourceUrl": "/ships/human/saturn-med-014.png",
-      "x": 2036,
+      "x": 2010,
       "y": 2,
       "w": 10,
       "h": 10,
@@ -1182,8 +1160,8 @@
     "/ships/human/saturn-med-015.png": {
       "key": "/ships/human/saturn-med-015.png",
       "sourceUrl": "/ships/human/saturn-med-015.png",
-      "x": 2,
-      "y": 42,
+      "x": 2022,
+      "y": 2,
       "w": 7,
       "h": 12,
       "hotX": 0,
@@ -1193,8 +1171,8 @@
     "/ships/human/saturn-med-016.png": {
       "key": "/ships/human/saturn-med-016.png",
       "sourceUrl": "/ships/human/saturn-med-016.png",
-      "x": 11,
-      "y": 42,
+      "x": 2031,
+      "y": 2,
       "w": 9,
       "h": 8,
       "hotX": 0,
@@ -1204,7 +1182,7 @@
     "/ships/human/saturn-med-017.png": {
       "key": "/ships/human/saturn-med-017.png",
       "sourceUrl": "/ships/human/saturn-med-017.png",
-      "x": 22,
+      "x": 2,
       "y": 42,
       "w": 9,
       "h": 9,
@@ -1215,7 +1193,7 @@
     "/ships/human/saturn-med-018.png": {
       "key": "/ships/human/saturn-med-018.png",
       "sourceUrl": "/ships/human/saturn-med-018.png",
-      "x": 33,
+      "x": 13,
       "y": 42,
       "w": 10,
       "h": 10,
@@ -1226,7 +1204,7 @@
     "/ships/human/saturn-med-019.png": {
       "key": "/ships/human/saturn-med-019.png",
       "sourceUrl": "/ships/human/saturn-med-019.png",
-      "x": 45,
+      "x": 25,
       "y": 42,
       "w": 11,
       "h": 10,
@@ -1237,7 +1215,7 @@
     "/ships/human/saturn-med-020.png": {
       "key": "/ships/human/saturn-med-020.png",
       "sourceUrl": "/ships/human/saturn-med-020.png",
-      "x": 58,
+      "x": 38,
       "y": 42,
       "w": 13,
       "h": 11,
@@ -1248,7 +1226,7 @@
     "/ships/human/saturn-med-021.png": {
       "key": "/ships/human/saturn-med-021.png",
       "sourceUrl": "/ships/human/saturn-med-021.png",
-      "x": 73,
+      "x": 53,
       "y": 42,
       "w": 14,
       "h": 13,
@@ -1259,7 +1237,7 @@
     "/ships/human/saturn-med-022.png": {
       "key": "/ships/human/saturn-med-022.png",
       "sourceUrl": "/ships/human/saturn-med-022.png",
-      "x": 89,
+      "x": 69,
       "y": 42,
       "w": 16,
       "h": 13,
@@ -1270,7 +1248,7 @@
     "/ships/human/saturn-med-023.png": {
       "key": "/ships/human/saturn-med-023.png",
       "sourceUrl": "/ships/human/saturn-med-023.png",
-      "x": 107,
+      "x": 87,
       "y": 42,
       "w": 17,
       "h": 14,
@@ -1281,7 +1259,7 @@
     "/ships/human/saturn-med-024.png": {
       "key": "/ships/human/saturn-med-024.png",
       "sourceUrl": "/ships/human/saturn-med-024.png",
-      "x": 126,
+      "x": 106,
       "y": 42,
       "w": 17,
       "h": 14,
@@ -1292,7 +1270,7 @@
     "/ships/human/saturn-sml-000.png": {
       "key": "/ships/human/saturn-sml-000.png",
       "sourceUrl": "/ships/human/saturn-sml-000.png",
-      "x": 145,
+      "x": 125,
       "y": 42,
       "w": 1,
       "h": 6,
@@ -1303,7 +1281,7 @@
     "/ships/human/saturn-sml-001.png": {
       "key": "/ships/human/saturn-sml-001.png",
       "sourceUrl": "/ships/human/saturn-sml-001.png",
-      "x": 148,
+      "x": 128,
       "y": 42,
       "w": 3,
       "h": 6,
@@ -1314,7 +1292,7 @@
     "/ships/human/saturn-sml-002.png": {
       "key": "/ships/human/saturn-sml-002.png",
       "sourceUrl": "/ships/human/saturn-sml-002.png",
-      "x": 153,
+      "x": 133,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1325,7 +1303,7 @@
     "/ships/human/saturn-sml-003.png": {
       "key": "/ships/human/saturn-sml-003.png",
       "sourceUrl": "/ships/human/saturn-sml-003.png",
-      "x": 160,
+      "x": 140,
       "y": 42,
       "w": 6,
       "h": 3,
@@ -1336,7 +1314,7 @@
     "/ships/human/saturn-sml-004.png": {
       "key": "/ships/human/saturn-sml-004.png",
       "sourceUrl": "/ships/human/saturn-sml-004.png",
-      "x": 168,
+      "x": 148,
       "y": 42,
       "w": 6,
       "h": 1,
@@ -1347,7 +1325,7 @@
     "/ships/human/saturn-sml-005.png": {
       "key": "/ships/human/saturn-sml-005.png",
       "sourceUrl": "/ships/human/saturn-sml-005.png",
-      "x": 176,
+      "x": 156,
       "y": 42,
       "w": 6,
       "h": 3,
@@ -1358,7 +1336,7 @@
     "/ships/human/saturn-sml-006.png": {
       "key": "/ships/human/saturn-sml-006.png",
       "sourceUrl": "/ships/human/saturn-sml-006.png",
-      "x": 184,
+      "x": 164,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1369,7 +1347,7 @@
     "/ships/human/saturn-sml-007.png": {
       "key": "/ships/human/saturn-sml-007.png",
       "sourceUrl": "/ships/human/saturn-sml-007.png",
-      "x": 191,
+      "x": 171,
       "y": 42,
       "w": 3,
       "h": 6,
@@ -1380,7 +1358,7 @@
     "/ships/human/saturn-sml-008.png": {
       "key": "/ships/human/saturn-sml-008.png",
       "sourceUrl": "/ships/human/saturn-sml-008.png",
-      "x": 196,
+      "x": 176,
       "y": 42,
       "w": 1,
       "h": 6,
@@ -1391,7 +1369,7 @@
     "/ships/human/saturn-sml-009.png": {
       "key": "/ships/human/saturn-sml-009.png",
       "sourceUrl": "/ships/human/saturn-sml-009.png",
-      "x": 199,
+      "x": 179,
       "y": 42,
       "w": 3,
       "h": 6,
@@ -1402,7 +1380,7 @@
     "/ships/human/saturn-sml-010.png": {
       "key": "/ships/human/saturn-sml-010.png",
       "sourceUrl": "/ships/human/saturn-sml-010.png",
-      "x": 204,
+      "x": 184,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1413,7 +1391,7 @@
     "/ships/human/saturn-sml-011.png": {
       "key": "/ships/human/saturn-sml-011.png",
       "sourceUrl": "/ships/human/saturn-sml-011.png",
-      "x": 211,
+      "x": 191,
       "y": 42,
       "w": 6,
       "h": 3,
@@ -1424,7 +1402,7 @@
     "/ships/human/saturn-sml-012.png": {
       "key": "/ships/human/saturn-sml-012.png",
       "sourceUrl": "/ships/human/saturn-sml-012.png",
-      "x": 219,
+      "x": 199,
       "y": 42,
       "w": 6,
       "h": 1,
@@ -1435,7 +1413,7 @@
     "/ships/human/saturn-sml-013.png": {
       "key": "/ships/human/saturn-sml-013.png",
       "sourceUrl": "/ships/human/saturn-sml-013.png",
-      "x": 227,
+      "x": 207,
       "y": 42,
       "w": 6,
       "h": 3,
@@ -1446,7 +1424,7 @@
     "/ships/human/saturn-sml-014.png": {
       "key": "/ships/human/saturn-sml-014.png",
       "sourceUrl": "/ships/human/saturn-sml-014.png",
-      "x": 235,
+      "x": 215,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1457,7 +1435,7 @@
     "/ships/human/saturn-sml-015.png": {
       "key": "/ships/human/saturn-sml-015.png",
       "sourceUrl": "/ships/human/saturn-sml-015.png",
-      "x": 242,
+      "x": 222,
       "y": 42,
       "w": 3,
       "h": 6,
@@ -1468,7 +1446,7 @@
     "/ships/human/saturn-sml-016.png": {
       "key": "/ships/human/saturn-sml-016.png",
       "sourceUrl": "/ships/human/saturn-sml-016.png",
-      "x": 247,
+      "x": 227,
       "y": 42,
       "w": 5,
       "h": 4,
@@ -1479,7 +1457,7 @@
     "/ships/human/saturn-sml-017.png": {
       "key": "/ships/human/saturn-sml-017.png",
       "sourceUrl": "/ships/human/saturn-sml-017.png",
-      "x": 254,
+      "x": 234,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1490,7 +1468,7 @@
     "/ships/human/saturn-sml-018.png": {
       "key": "/ships/human/saturn-sml-018.png",
       "sourceUrl": "/ships/human/saturn-sml-018.png",
-      "x": 261,
+      "x": 241,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1501,7 +1479,7 @@
     "/ships/human/saturn-sml-019.png": {
       "key": "/ships/human/saturn-sml-019.png",
       "sourceUrl": "/ships/human/saturn-sml-019.png",
-      "x": 268,
+      "x": 248,
       "y": 42,
       "w": 5,
       "h": 5,
@@ -1512,7 +1490,7 @@
     "/ships/human/saturn-sml-020.png": {
       "key": "/ships/human/saturn-sml-020.png",
       "sourceUrl": "/ships/human/saturn-sml-020.png",
-      "x": 275,
+      "x": 255,
       "y": 42,
       "w": 7,
       "h": 5,
@@ -1523,7 +1501,7 @@
     "/ships/human/saturn-sml-021.png": {
       "key": "/ships/human/saturn-sml-021.png",
       "sourceUrl": "/ships/human/saturn-sml-021.png",
-      "x": 284,
+      "x": 264,
       "y": 42,
       "w": 7,
       "h": 7,
@@ -1534,7 +1512,7 @@
     "/ships/human/saturn-sml-022.png": {
       "key": "/ships/human/saturn-sml-022.png",
       "sourceUrl": "/ships/human/saturn-sml-022.png",
-      "x": 293,
+      "x": 273,
       "y": 42,
       "w": 8,
       "h": 7,
@@ -1545,7 +1523,7 @@
     "/ships/human/saturn-sml-023.png": {
       "key": "/ships/human/saturn-sml-023.png",
       "sourceUrl": "/ships/human/saturn-sml-023.png",
-      "x": 303,
+      "x": 283,
       "y": 42,
       "w": 9,
       "h": 7,
@@ -1556,7 +1534,7 @@
     "/ships/human/saturn-sml-024.png": {
       "key": "/ships/human/saturn-sml-024.png",
       "sourceUrl": "/ships/human/saturn-sml-024.png",
-      "x": 314,
+      "x": 294,
       "y": 42,
       "w": 7,
       "h": 7,

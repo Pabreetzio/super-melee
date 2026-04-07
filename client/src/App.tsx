@@ -13,7 +13,7 @@ import { SHIP_COSTS } from './components/shipSelectionData';
 import BGBuilder from './components/BGBuilder';
 import SettingsScreen from './components/Settings';
 import { getControls, codeDisplay } from './lib/controls';
-import { PreloadedImage } from './lib/preloadedImage';
+import ShipMenuImage from './components/ShipMenuImage';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
@@ -1023,11 +1023,11 @@ function ShipSelectorPane({
           cursor:  available ? 'pointer' : 'default',
           opacity: defeated ? 0.6 : 1,
           boxShadow: glowing ? '0 0 8px 2px rgba(255,220,80,0.5)' : undefined,
-        }}
-      >
-        {!isEmpty && icon && (
-          <PreloadedImage src={icon} alt={orig!} style={{ width: 40, height: 40, objectFit: 'contain', imageRendering: 'pixelated' }} />
-        )}
+          }}
+        >
+          {!isEmpty && icon && (
+            <ShipMenuImage src={icon} alt={orig!} scale={3} maxFill="98%" />
+          )}
         {!isEmpty && !icon && orig && (
           <span style={{ fontSize: 8, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1 }}>{orig.slice(0, 4)}</span>
         )}

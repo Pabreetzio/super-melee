@@ -1,90 +1,319 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>StarCon Font Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UQM Font Test</title>
 <style>
   @font-face {
-    font-family: 'StarCon';
-    src: url('/fonts/starcon.woff2') format('woff2'),
-         url('/fonts/starcon.ttf') format('truetype');
+    font-family: 'UQMSlides';
+    src: url('../client/dist/fonts/slides.woff2') format('woff2'),
+         url('../client/dist/fonts/slides.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
   }
 
+  @font-face {
+    font-family: 'UQMStarCon';
+    src: url('../client/dist/fonts/starcon.woff2') format('woff2'),
+         url('../client/dist/fonts/starcon.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'UQMTiny';
+    src: url('../client/dist/fonts/tiny.woff2') format('woff2'),
+         url('../client/dist/fonts/tiny.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'UQMMicro';
+    src: url('../client/dist/fonts/micro.woff2') format('woff2'),
+         url('../client/dist/fonts/micro.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
   body {
-    background: #000;
+    margin: 0;
+    background:
+      radial-gradient(circle at top, rgba(32, 72, 120, 0.24), transparent 38%),
+      radial-gradient(circle at bottom right, rgba(96, 24, 128, 0.18), transparent 34%),
+      #000;
     color: #fff;
-    padding: 40px;
+    padding: 32px;
     font-family: monospace;
   }
 
-  .ship-name {
-    font-family: 'StarCon', monospace;
-    font-size: 36px;
-    image-rendering: pixelated;
-    letter-spacing: 0;
-    line-height: 1;
-    color: #fff;
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 24px;
+    letter-spacing: 0.14em;
+    color: #c7d7ff;
+  }
+
+  .intro {
+    margin: 0 0 24px;
+    color: #8aa0d8;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+  }
+
+  .panel {
+    border: 1px solid #2a3352;
+    background: rgba(5, 8, 20, 0.84);
+    padding: 18px;
+  }
+
+  .panel h2 {
+    margin: 0 0 14px;
+    color: #8fb4ff;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+  }
+
+  .font-line {
     margin: 8px 0;
-  }
-
-  .scale-demo {
-    font-family: 'StarCon', monospace;
-    image-rendering: pixelated;
-    letter-spacing: 0;
     line-height: 1;
-    color: #aef;
-    margin: 4px 0;
+    image-rendering: pixelated;
   }
 
-  h2 { color: #888; font-size: 12px; margin: 24px 0 4px; letter-spacing: 2px; }
+  .starcon {
+    font-family: 'UQMStarCon', monospace;
+    letter-spacing: 0;
+  }
+
+  .slides {
+    font-family: 'UQMSlides', monospace;
+    letter-spacing: 0;
+  }
+
+  .tiny {
+    font-family: 'UQMTiny', monospace;
+    letter-spacing: 0;
+  }
+
+  .micro {
+    font-family: 'UQMMicro', monospace;
+    letter-spacing: 0;
+  }
+
+  .meta {
+    margin: 4px 0 12px;
+    color: #7182b3;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .caption {
+    color: #9fb1df;
+    font-size: 12px;
+    margin: 8px 0 4px;
+    letter-spacing: 0.06em;
+  }
+
+  .sample-box {
+    padding: 10px 12px;
+    border: 1px solid #1f2842;
+    background: rgba(0, 0, 0, 0.35);
+    margin-bottom: 10px;
+  }
+
+  .status-strip {
+    width: 128px;
+    padding: 10px 8px;
+    border: 1px solid #4f4f4f;
+    background: #525252;
+    color: #000;
+  }
+
+  .status-strip .race {
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .status-strip .captain {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 16px;
+  }
+
+  .status-strip .micro-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 8px;
+  }
+
+  .menu-btn {
+    display: inline-block;
+    padding: 8px 12px;
+    border-top: 1px solid #838383;
+    border-left: 1px solid #838383;
+    border-right: 1px solid #414141;
+    border-bottom: 1px solid #414141;
+    background: #525252;
+    color: #000;
+    margin: 6px 8px 0 0;
+    text-transform: uppercase;
+  }
+
+  .small {
+    font-size: 10px;
+  }
 </style>
 </head>
 <body>
+<main>
+  <h1>UQM Font Test</h1>
+  <p class="intro">
+    Preview of all extracted bitmap fonts currently in the repo: StarCon, Tiny, and Micro.
+    This file is wired to the built font assets directly, so you can open it as a local file.
+  </p>
 
-<h2>SHIP RACE NAMES</h2>
-<div class="ship-name">SPATHI</div>
-<div class="ship-name">ANDROSYNTH</div>
-<div class="ship-name">CHENJESU</div>
-<div class="ship-name">UR-QUAN KZER-ZA</div>
-<div class="ship-name">ZOQ-FOT-PIK</div>
-<div class="ship-name">YEHAT</div>
-<div class="ship-name">PKUNK</div>
-<div class="ship-name">MYCON</div>
-<div class="ship-name">ILWRATH</div>
-<div class="ship-name">VUX</div>
-<div class="ship-name">ARILOU LALEE'LAY</div>
-<div class="ship-name">MMRNMHRM</div>
-<div class="ship-name">CHMMR</div>
-<div class="ship-name">SYREEN</div>
-<div class="ship-name">SLYLANDRO</div>
-<div class="ship-name">DRUUGE</div>
-<div class="ship-name">THRADDASH</div>
-<div class="ship-name">SUPOX</div>
-<div class="ship-name">UTWIG</div>
-<div class="ship-name">KOHR-AH</div>
-<div class="ship-name">ORZ</div>
-<div class="ship-name">SHOFIXTI</div>
-<div class="ship-name">EARTHLING</div>
+  <div class="grid">
+    <section class="panel">
+      <h2>UQMSlides</h2>
+      <div class="meta">Slides / intro-style title font</div>
+      <div class="font-line slides" style="font-size: 60px; color: #ff66d9;">SUPER-MELEE</div>
+      <div class="font-line slides" style="font-size: 38px; color: #ffe38f;">THE UR-QUAN MASTERS</div>
+      <div class="font-line slides" style="font-size: 34px; color: #b6d9ff;">RETURN TO STARBASE</div>
 
-<h2>SCALE DEMO</h2>
-<div class="scale-demo" style="font-size:9px">9px (native pixel size)</div>
-<div class="scale-demo" style="font-size:18px">18px (2x)</div>
-<div class="scale-demo" style="font-size:27px">27px (3x)</div>
-<div class="scale-demo" style="font-size:36px">36px (4x)</div>
-<div class="scale-demo" style="font-size:54px">54px (6x)</div>
+      <div class="caption">Scale test</div>
+      <div class="sample-box">
+        <div class="font-line slides" style="font-size: 18px; color: #ffd0f2;">18px</div>
+        <div class="font-line slides" style="font-size: 28px; color: #ffd0f2;">28px</div>
+        <div class="font-line slides" style="font-size: 40px; color: #ffd0f2;">40px</div>
+        <div class="font-line slides" style="font-size: 52px; color: #ffd0f2;">52px</div>
+      </div>
+    </section>
 
-<h2>FULL ASCII</h2>
-<div class="ship-name" style="font-size:27px">
-  ABCDEFGHIJKLMNOPQRSTUVWXYZ
-</div>
-<div class="ship-name" style="font-size:27px">
-  abcdefghijklmnopqrstuvwxyz
-</div>
-<div class="ship-name" style="font-size:27px">
-  0123456789 !@#$%^&*()-+=
-</div>
+    <section class="panel">
+      <h2>UQMStarCon</h2>
+      <div class="meta">Race names / large UI headings</div>
+      <div class="font-line starcon" style="font-size: 52px; color: #ff5fff;">SUPER-MELEE</div>
+      <div class="font-line starcon" style="font-size: 36px;">SPATHI</div>
+      <div class="font-line starcon" style="font-size: 36px;">ANDROSYNTH</div>
+      <div class="font-line starcon" style="font-size: 36px;">UR-QUAN KZER-ZA</div>
+      <div class="font-line starcon" style="font-size: 36px;">ZOQ-FOT-PIK</div>
+      <div class="font-line starcon" style="font-size: 36px;">ARILOU LALEE'LAY</div>
 
+      <div class="caption">Scale test</div>
+      <div class="sample-box">
+        <div class="font-line starcon" style="font-size: 9px; color: #aef;">9px native</div>
+        <div class="font-line starcon" style="font-size: 18px; color: #aef;">18px 2x</div>
+        <div class="font-line starcon" style="font-size: 27px; color: #aef;">27px 3x</div>
+        <div class="font-line starcon" style="font-size: 36px; color: #aef;">36px 4x</div>
+      </div>
+
+      <div class="caption">Menu labels</div>
+      <div>
+        <span class="menu-btn starcon" style="font-size: 14px;">Save</span>
+        <span class="menu-btn starcon" style="font-size: 14px;">Load</span>
+        <span class="menu-btn starcon" style="font-size: 14px;">Settings</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>UQMTiny</h2>
+      <div class="meta">Captain names / compact labels</div>
+
+      <div class="sample-box">
+        <div class="font-line tiny" style="font-size: 12px; color: #fff;">ZEX'S INTERN</div>
+        <div class="font-line tiny" style="font-size: 12px; color: #fff;">COMMANDER HAYES</div>
+        <div class="font-line tiny" style="font-size: 12px; color: #fff;">FWIFFO AGAIN</div>
+        <div class="font-line tiny" style="font-size: 12px; color: #fff;">READY FOR BATTLE</div>
+      </div>
+
+      <div class="caption">Scaled up</div>
+      <div class="sample-box">
+        <div class="font-line tiny" style="font-size: 16px; color: #ffd98a;">TOP FLEET</div>
+        <div class="font-line tiny" style="font-size: 20px; color: #ffd98a;">BOTTOM FLEET</div>
+        <div class="font-line tiny" style="font-size: 24px; color: #ffd98a;">OVERWRITE EXISTING NAME</div>
+      </div>
+
+      <div class="caption">Status panel fit</div>
+      <div class="status-strip">
+        <div class="race starcon">SPATHI</div>
+        <div class="captain tiny">FWIFFO</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>UQMMicro</h2>
+      <div class="meta">Very small UI copy / labels</div>
+
+      <div class="sample-box">
+        <div class="font-line micro" style="font-size: 8px; color: #b8ffd8;">CREW</div>
+        <div class="font-line micro" style="font-size: 8px; color: #ffb8b8;">BATT</div>
+        <div class="font-line micro" style="font-size: 8px; color: #c8d6ff;">P1 OR P2 CONTROLS NAVIGATE</div>
+        <div class="font-line micro" style="font-size: 8px; color: #c8d6ff;">LEFT FROM MENU ENTERS FLEET</div>
+      </div>
+
+      <div class="caption">Micro scale ladder</div>
+      <div class="sample-box">
+        <div class="font-line micro" style="font-size: 8px; color: #9fe8ff;">8px native</div>
+        <div class="font-line micro" style="font-size: 12px; color: #9fe8ff;">12px readable</div>
+        <div class="font-line micro" style="font-size: 16px; color: #9fe8ff;">16px enlarged</div>
+      </div>
+
+      <div class="caption">Status labels</div>
+      <div class="status-strip">
+        <div class="race starcon">CHMMR</div>
+        <div class="captain tiny">CAPTAIN ZOG</div>
+        <div class="micro-labels micro">
+          <span>CREW</span>
+          <span>BATT</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top: 18px;">
+    <h2>ASCII Check</h2>
+    <div class="caption">Slides</div>
+    <div class="font-line slides" style="font-size: 30px;">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div class="font-line slides" style="font-size: 30px;">abcdefghijklmnopqrstuvwxyz</div>
+    <div class="font-line slides" style="font-size: 30px;">0123456789 !@#$%^&amp;*()-+=</div>
+
+    <div class="caption">StarCon</div>
+    <div class="font-line starcon" style="font-size: 24px;">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div class="font-line starcon" style="font-size: 24px;">abcdefghijklmnopqrstuvwxyz</div>
+    <div class="font-line starcon" style="font-size: 24px;">0123456789 !@#$%^&amp;*()-+=</div>
+
+    <div class="caption">Tiny</div>
+    <div class="font-line tiny" style="font-size: 16px;">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div class="font-line tiny" style="font-size: 16px;">abcdefghijklmnopqrstuvwxyz</div>
+    <div class="font-line tiny" style="font-size: 16px;">0123456789 !@#$%^&amp;*()-+=</div>
+
+    <div class="caption">Micro</div>
+    <div class="font-line micro small">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div class="font-line micro small">abcdefghijklmnopqrstuvwxyz</div>
+    <div class="font-line micro small">0123456789 !@#$%^&amp;*()-+=</div>
+  </section>
+</main>
 </body>
 </html>

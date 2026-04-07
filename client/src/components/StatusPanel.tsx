@@ -51,6 +51,7 @@ const COMPACT_SINGLE_H = 67 * S;  // 134 — matches doubled melee menu preview 
 
 const FONT_STARCON_PX = 7 * S;    // 14 — race name (slightly smaller than native 9px×2)
 const FONT_TINY_PX    = 12;       // 12px — captain name (sits between the gauge bars)
+const FONT_MICRO_PX   = 8;        // 8px — small status labels
 const CAPTAIN_DEFEAT_FRAME_MS = 1000 / 24;
 
 // ─── Font loading ────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ void Promise.all(
   [
     new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)'),
     new FontFace('UQMTiny',    'url(/fonts/tiny.woff2)'),
+    new FontFace('UQMMicro',   'url(/fonts/micro.woff2)'),
   ].map(face => { document.fonts.add(face); return face.load(); }),
 ).then(() => { uqmFontsReady = true; });
 
@@ -299,7 +301,11 @@ function drawSection(
 
   // ── CREW / BATT labels ────────────────────────────────────────────────────
   if (options.showStatLabels) {
-    ctx.font = `${5*S}px monospace`;
+    if (uqmFontsReady) {
+      ctx.font = `${FONT_MICRO_PX}px "UQMMicro"`;
+    } else {
+      ctx.font = `${5*S}px monospace`;
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = C_LABEL;

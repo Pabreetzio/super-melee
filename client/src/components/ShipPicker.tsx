@@ -1,7 +1,7 @@
 import type { ShipId } from 'shared/types';
 import { getAllShips } from '../engine/ships';
 import { SHIP_ICON } from './shipSelectionData';
-import { PreloadedImage } from '../lib/preloadedImage';
+import ShipMenuImage from './ShipMenuImage';
 
 interface Props {
   onPick: (ship: ShipId | null) => void;
@@ -83,14 +83,11 @@ export default function ShipPicker({ onPick, onClose, activeIndex, onActiveIndex
                 title={ship.name}
               >
                 {iconUrl ? (
-                  <PreloadedImage
+                  <ShipMenuImage
                     src={iconUrl}
                     alt={ship.name}
-                    style={{
-                      width: 40, height: 40,
-                      objectFit: 'contain',
-                      imageRendering: 'pixelated',
-                    }}
+                    scale={2.7}
+                    maxFill="96%"
                   />
                 ) : (
                   <div style={{ width: 40, height: 40, background: 'var(--bg)', borderRadius: 4 }} />

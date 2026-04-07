@@ -28,6 +28,48 @@ Each player has a **2-row × 7-column grid** (14 total ship slots) displayed on 
 
 The fleet builder is **completely shared** — both players set up their fleets on the same screen simultaneously. There's no separate lobby or waiting room between players.
 
+### Current Web Port Notes
+
+The current browser implementation intentionally leans harder into the original
+Melee composition than the first-pass React layout did:
+
+- The fleet manager is staged as a single scalable composition rather than a
+  generic responsive page. The left side mirrors the shared fleet-building area
+  and the right side mirrors the classic battle/status sidebar proportions.
+- The `SUPER-MELEE` page title now lives inside the left panel and is rendered
+  as a real `h1`, using the extracted `slides` bitmap font converted to a web
+  font.
+- Fleet grids are transparent against the starfield except for occupied slots,
+  which use the same deep blue slot background as the in-game setup screen.
+- Top and bottom fleet labels are placed relative to the center seam rather
+  than treated as ordinary section headers. The lower team name now sits under
+  the bottom fleet instead of above it.
+- Sidebar buttons are split above and below the battle preview so the overall
+  stack reads like the original right-side melee menu.
+- Control mode buttons (`HUMAN CONTROL`, `WEAK CYBORG`, etc.) use a distinct
+  dark-blue treatment with lighter blue text and halo, but share the same grey
+  beveled border language as the rest of the setup UI.
+
+### Current Save / Load Behavior
+
+The original UQM setup screen supported loading prebuilt fleets plus saved team
+files. The web port now mirrors that more closely:
+
+- Saved fleets are stored in `localStorage` under `sm_saves`.
+- If there are no saved fleets yet, the first load seeds the save list with the
+  original UQM prebuilt teams from `src/uqm/supermelee/loadmele.c`.
+- `SAVE` is immediate: it saves the active top or bottom fleet using the
+  current team name and overwrites by name if a matching entry already exists.
+- `LOAD` opens an in-stage popup over the fleet area instead of a browser-style
+  dialog. It shows fleet name left, fleet value right, then a 14-slot ship row
+  beneath, matching the original `DrawFileString()` layout in `loadmele.c`.
+- Keyboard support in the load panel matches the setup screen expectations:
+  up/down changes selection, confirm loads the selected fleet into the chosen
+  side, cancel closes, and `Delete` opens a compact `Really Delete / Yes / No`
+  confirmation.
+- Mouse hover updates the highlighted load row, and clicking a row loads it
+  immediately for the active side.
+
 **Vocabulary confirmed from source:**
 - `"Empty"` + `"Slot"` → "Empty Slot" for an unused fleet position
 - `"Team"` + `"Name"` → team name label (displayed as a combined label pair)

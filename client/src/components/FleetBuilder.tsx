@@ -4,7 +4,7 @@ import { client } from '../net/client';
 import { SHIP_NAMES } from '../engine/ships';
 import ShipPicker from './ShipPicker';
 import { SHIP_ICON, SHIP_COSTS } from './shipSelectionData';
-import { PreloadedImage } from '../lib/preloadedImage';
+import ShipMenuImage from './ShipMenuImage';
 
 const FLEET_SIZE = 14;
 const COLS = 7;
@@ -108,14 +108,15 @@ export default function FleetBuilder({
             title={editable ? 'Click to change' : undefined}
           >
             {ship ? (
-              <>
-                {icon && (
-                  <PreloadedImage
-                    src={icon}
-                    alt={ship}
-                    style={{ width: 32, height: 32, objectFit: 'contain', imageRendering: 'pixelated' }}
-                  />
-                )}
+                <>
+                  {icon && (
+                    <ShipMenuImage
+                      src={icon}
+                      alt={ship}
+                      scale={2.2}
+                      maxFill="98%"
+                    />
+                  )}
                 <span style={{ fontSize: 9, color: 'var(--text-hi)', textAlign: 'center', lineHeight: 1.2 }}>
                   {SHIP_NAMES[ship] ?? ship}
                 </span>

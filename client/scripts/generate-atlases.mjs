@@ -37,7 +37,7 @@ async function collectShipGroups() {
     if (!entry.isDirectory()) continue;
     const shipId = entry.name;
     const dir = path.join(shipsRoot, shipId);
-    const files = await readPngFiles(dir);
+    const files = (await readPngFiles(dir)).filter(file => !path.basename(file).includes('-meleeicons-'));
     if (files.length === 0) continue;
     groups.push({
       atlasId: `ships/${shipId}`,
@@ -47,6 +47,24 @@ async function collectShipGroups() {
     });
   }
   return groups;
+}
+
+async function collectMeleeIconGroup() {
+  const shipsRoot = path.join(ASSETS_DIR, 'ships');
+  const entries = await fs.readdir(shipsRoot, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = path.join(shipsRoot, entry.name);
+    const shipFiles = (await readPngFiles(dir)).filter(file => path.basename(file).includes('-meleeicons-'));
+    files.push(...shipFiles);
+  }
+  if (files.length === 0) return null;
+  return {
+    atlasId: 'ui/meleeicons',
+    kind: 'ui',
+    files: files.sort((a, b) => a.localeCompare(b)),
+  };
 }
 
 async function collectBattleGroup() {
@@ -179,9 +197,10 @@ async function main() {
   await ensureDir(ATLAS_DIR);
 
   const shipGroups = await collectShipGroups();
+  const meleeIconGroup = await collectMeleeIconGroup();
   const battleGroup = await collectBattleGroup();
   const planetGroups = await collectPlanetGroups();
-  const allGroups = [...shipGroups, ...(battleGroup ? [battleGroup] : []), ...planetGroups];
+  const allGroups = [...shipGroups, ...(meleeIconGroup ? [meleeIconGroup] : []), ...(battleGroup ? [battleGroup] : []), ...planetGroups];
 
   const atlases = {};
   const ships = {};

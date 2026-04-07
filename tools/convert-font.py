@@ -8,7 +8,9 @@ Font directory structure:
     00041.png   # U+0041 'A'
     ...
 
-Each PNG is an RGBA bitmap where alpha > 0 means "ink".
+Each PNG is either an RGBA alpha-mask bitmap or an opaque black/white bitmap.
+When transparency is present, alpha > 0 means "ink"; otherwise bright pixels
+mean "ink".
 Glyph height varies per font; width varies per character.
 
 Baseline auto-detection: scans uppercase A-Z and 0-9, finds the last row
@@ -26,6 +28,19 @@ from fontTools.ttLib import TTFont
 
 UNITS_PER_PIXEL = 100
 INTER_CHAR = 1  # 1 extra pixel of advance between characters (UQM default)
+
+
+def pixel_is_ink(pixel) -> bool:
+    """
+    Determine whether a source bitmap pixel should become glyph ink.
+
+    Most extracted UQM fonts use transparent black for background and opaque
+    white for ink, but slides.fon is stored as a fully opaque black/white
+    bitmap. Support both encodings so the converter works for either case.
+    """
+    if len(pixel) >= 4 and pixel[3] < 255:
+        return pixel[3] > 0
+    return pixel[0] >= 128
 
 
 def detect_metrics(fon_dir: Path):
@@ -49,7 +64,7 @@ def detect_metrics(fon_dir: Path):
             glyph_h = h
         pixels = img.load()
         for py in range(h - 1, -1, -1):
-            if any(pixels[px, py][3] > 0 for px in range(w)):
+            if any(pixel_is_ink(pixels[px, py]) for px in range(w)):
                 bottom_rows.append(py)
                 break
 
@@ -82,7 +97,7 @@ def detect_metrics(fon_dir: Path):
         first = None
         last  = None
         for py in range(h2):
-            if any(pixels[px2, py][3] > 0 for px2 in range(w2)):
+            if any(pixel_is_ink(pixels[px2, py]) for px2 in range(w2)):
                 if first is None:
                     first = py
                 last = py
@@ -105,7 +120,7 @@ def image_to_contours(img, baseline_row: int):
     rects = []
     for py in range(h):
         for px in range(w):
-            if pixels[px, py][3] > 0:
+            if pixel_is_ink(pixels[px, py]):
                 x1 = px * UNITS_PER_PIXEL
                 x2 = (px + 1) * UNITS_PER_PIXEL
                 y1 = (baseline_row - py - 1) * UNITS_PER_PIXEL
