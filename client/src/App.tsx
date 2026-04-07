@@ -908,6 +908,11 @@ function ShipSelectorPane({
   navLeft, navRight, navUp, navDown, navFire, navSpecial,
   isAI = false, onSelect, onForfeit,
 }: ShipSelectorPaneProps) {
+  const [viewportSize, setViewportSize] = useState(() => ({
+    w: window.innerWidth,
+    h: window.innerHeight,
+  }));
+
   // Start cursor on first available ship
   const [cursor, setCursor] = useState(() => {
     const first = fleet.findIndex(s => s !== null);
@@ -932,6 +937,12 @@ function ShipSelectorPane({
     const id = setInterval(() => setBlink(b => !b), 500);
     return () => clearInterval(id);
   }, [chosen]);
+
+  useEffect(() => {
+    const updateViewport = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   // Keep a ref so the keydown closure always reads the latest cursor/fleet
   const cursorRef = useRef(cursor);
@@ -992,7 +1003,19 @@ function ShipSelectorPane({
 
   const accent    = position === 'bottom' ? 'var(--accent)' : 'var(--accent2)';
   const bgColor   = position === 'bottom' ? '#050510'       : 'var(--bg0)';
-  const CELL = 62; // px — cell width (height = CELL + 12)
+  const isSplit = position !== 'solo';
+  const outerPad = isSplit ? 20 : 32;
+  const gap = viewportSize.w <= 700 ? 3 : 4;
+  const panelHeight = isSplit ? Math.max(220, Math.floor(viewportSize.h / 2)) : viewportSize.h;
+  const availableWidth = Math.max(260, viewportSize.w - outerPad * 2);
+  const reservedHeight = isSplit ? 68 : 96;
+  const maxCellFromWidth = Math.floor((availableWidth - gap * 7) / 8);
+  const maxCellFromHeight = Math.floor((panelHeight - reservedHeight - gap) / 2) - 12;
+  const CELL = Math.max(26, Math.min(62, maxCellFromWidth, maxCellFromHeight));
+  const gridWidth = CELL * 8 + gap * 7;
+  const headerFont = CELL <= 34 ? 9 : CELL <= 44 ? 10 : 11;
+  const footerFont = CELL <= 34 ? 10 : 11;
+  const titleWidth = Math.min(gridWidth, availableWidth);
 
   function renderShipCell(slot: number) {
     const orig      = originalFleet[slot] ?? null;
@@ -1060,7 +1083,7 @@ function ShipSelectorPane({
           border:     glowing  ? '2px solid #dd55ff'    : cursorOn ? '2px solid #8800cc'    : '2px solid #440077',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: avail ? 'pointer' : 'default', opacity: avail ? 1 : 0.35,
-          fontSize: 26, color: glowing ? '#ee88ff' : '#aa33dd', fontWeight: 'bold', userSelect: 'none',
+          fontSize: Math.max(16, Math.floor(CELL * 0.42)), color: glowing ? '#ee88ff' : '#aa33dd', fontWeight: 'bold', userSelect: 'none',
           boxShadow: glowing ? '0 0 8px 2px rgba(180,0,255,0.5)' : undefined,
         }}
       >?</div>
@@ -1082,7 +1105,7 @@ function ShipSelectorPane({
           boxShadow: glowing ? '0 0 8px 2px rgba(200,0,0,0.5)' : undefined,
         }}
       >
-        <svg viewBox="0 0 24 24" width={CELL - 10} height={CELL - 10}>
+        <svg viewBox="0 0 24 24" width={Math.max(14, CELL - 10)} height={Math.max(14, CELL - 10)}>
           <circle cx="12" cy="12" r="9" fill="none" stroke={glowing ? '#ff6666' : '#cc0000'} strokeWidth="2.5" />
           <line x1="7.5" y1="7.5" x2="16.5" y2="16.5" stroke={glowing ? '#ff6666' : '#cc0000'} strokeWidth="2.5" strokeLinecap="round" />
           <line x1="16.5" y1="7.5" x2="7.5" y2="16.5" stroke={glowing ? '#ff6666' : '#cc0000'} strokeWidth="2.5" strokeLinecap="round" />
@@ -1101,13 +1124,16 @@ function ShipSelectorPane({
     <div style={{
       flex: position !== 'solo' ? 1 : undefined,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: position === 'solo' ? '32px 16px' : '8px 12px',
+      padding: position === 'solo'
+        ? `${viewportSize.w <= 700 ? 18 : 32}px ${viewportSize.w <= 700 ? 10 : 16}px`
+        : `${viewportSize.w <= 700 ? 6 : 8}px ${viewportSize.w <= 700 ? 6 : 12}px`,
       background: bgColor,
       borderBottom: position === 'top' ? '2px solid var(--border)' : undefined,
       gap: 3, position: 'relative',
+      minHeight: 0,
     }}>
       {/* Header: total and remaining fleet value */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: (CELL + 4) * 8 - 4, fontSize: 11 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: titleWidth, fontSize: headerFont, gap: 8 }}>
         <span style={{ color: 'var(--text-dim)' }}>
           Fleet: <strong style={{ color: accent }}>{totalValue}</strong>
         </span>
@@ -1117,19 +1143,19 @@ function ShipSelectorPane({
       </div>
 
       {/* Row 0: ship slots 0–6 + random button */}
-      <div style={{ display: 'flex', gap: 4 }}>
+      <div style={{ display: 'flex', gap }}>
         {row0Slots.map(s => renderShipCell(s))}
         {renderRandomCell()}
       </div>
 
       {/* Row 1: ship slots 7–13 + forfeit button */}
-      <div style={{ display: 'flex', gap: 4 }}>
+      <div style={{ display: 'flex', gap }}>
         {row1Slots.map(s => renderShipCell(s))}
         {renderForfeitCell()}
       </div>
 
       {/* Footer: fleet name or chosen ship */}
-      <div style={{ fontSize: 11, color: chosenShip ? 'var(--success)' : accent, letterSpacing: '0.06em', marginTop: 1 }}>
+      <div style={{ fontSize: footerFont, color: chosenShip ? 'var(--success)' : accent, letterSpacing: '0.06em', marginTop: 1, maxWidth: titleWidth, textAlign: 'center' }}>
         {label}
       </div>
 
@@ -1211,7 +1237,7 @@ function SplitShipSelect({
 }: SplitShipSelectProps) {
   const { p1, p2 } = getControls();
   return (
-    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <ShipSelectorPane fleet={fleet0} originalFleet={origFleet0} label={label0} pick={pick0}
         position="top"
         navLeft={p1.bindings.turnLeft}   navRight={p1.bindings.turnRight}

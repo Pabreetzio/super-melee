@@ -59,6 +59,7 @@ import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
 import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
 import { computeAIInput } from '../engine/battle/ai';
 import PauseOverlay from './PauseOverlay';
+import MobileBattleControls from './MobileBattleControls';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 import { loadExplosionSprites, placeholderDot, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
 import { RNG } from '../engine/rng';
@@ -125,6 +126,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [isPaused, setIsPaused]        = useState(false);
   const pausedRef    = useRef(false); // mirror of isPaused readable in tick closure
   const assetsReadyRef = useRef(false);
+  const touchBitsRef = useRef(0);
 
   // Live key-map refs — initialized from getControls() at mount (not from the
   // module-level constants, which are fixed at page load and go stale if the
@@ -171,6 +173,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // needing to re-bind the tick/render closures on every resize.
   const uiScaleRef  = useRef(1);
   const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
+  const [showTouchControls, setShowTouchControls] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(() => !!document.fullscreenElement);
 
   // Debug helper — call window.__battleDebug() from the browser console
   useEffect(() => {
@@ -216,6 +220,32 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     };
     return () => { delete (window as unknown as Record<string, unknown>).__battleDebug; };
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(pointer: coarse)') as MediaQueryList & {
+      addListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+      removeListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+    };
+    const syncTouchControls = () => setShowTouchControls(media.matches && !isLocal2P);
+    const syncFullscreen = () => setIsFullscreen(!!document.fullscreenElement);
+
+    syncTouchControls();
+    syncFullscreen();
+
+    if (typeof media.addEventListener === 'function') media.addEventListener('change', syncTouchControls);
+    else media.addListener?.(syncTouchControls);
+    document.addEventListener('fullscreenchange', syncFullscreen);
+
+    return () => {
+      if (typeof media.removeEventListener === 'function') media.removeEventListener('change', syncTouchControls);
+      else media.removeListener?.(syncTouchControls);
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+    };
+  }, [isLocal2P]);
+
+  useEffect(() => {
+    if (!showTouchControls || isPaused) touchBitsRef.current = 0;
+  }, [showTouchControls, isPaused]);
 
   // Initialize battle state
   useEffect(() => {
@@ -509,6 +539,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         if (gp.buttons[1]?.pressed) bits |= INPUT_FIRE2;    // B / ○
       }
     }
+    bits |= touchBitsRef.current;
     return bits;
   }
 
@@ -1326,6 +1357,16 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     accumRef.current = 0;
   }, []);
 
+  const handleTouchBitsChange = useCallback((bits: number) => {
+    touchBitsRef.current = bits;
+  }, []);
+
+  const handleFullscreen = useCallback(() => {
+    const root = document.documentElement;
+    if (!root || !document.fullscreenEnabled || document.fullscreenElement) return;
+    void root.requestFullscreen().catch(() => {});
+  }, []);
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -1359,6 +1400,14 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           />
         )}
       </div>
+      <MobileBattleControls
+        visible={showTouchControls}
+        paused={isPaused}
+        canFullscreen={document.fullscreenEnabled}
+        isFullscreen={isFullscreen}
+        onBitsChange={handleTouchBitsChange}
+        onFullscreen={handleFullscreen}
+      />
     </div>
   );
 }

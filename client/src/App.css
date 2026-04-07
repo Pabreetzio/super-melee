@@ -25,11 +25,21 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+}
+
+html, body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  touch-action: manipulation;
 }
 
 button {
@@ -103,7 +113,7 @@ h1, h2, h3 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 20px;
 }
 
@@ -144,4 +154,159 @@ h1, h2, h3 {
 
 .dim {
   color: var(--text-dim);
+}
+
+.mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  z-index: 20;
+}
+
+.mobile-controls__stick {
+  position: absolute;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  border: 1px solid rgba(210, 235, 255, 0.16);
+  background:
+    radial-gradient(circle at center, rgba(180, 220, 255, 0.08) 0, rgba(180, 220, 255, 0.03) 48%, rgba(180, 220, 255, 0.01) 72%, rgba(180, 220, 255, 0) 100%);
+  box-shadow:
+    0 0 0 1px rgba(50, 100, 155, 0.08) inset,
+    0 10px 32px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mobile-controls__stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-radius: 50%;
+  background: rgba(214, 240, 255, 0.16);
+  border: 1px solid rgba(214, 240, 255, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 6px 18px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.mobile-controls__fire {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+.mobile-controls__fullscreen {
+  border: 1px solid rgba(173, 224, 255, 0.6);
+  background: rgba(8, 16, 36, 0.38);
+  color: #d8f3ff;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 0 1px rgba(30, 96, 150, 0.3) inset;
+  touch-action: none;
+}
+
+.mobile-controls__fire-button {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid rgba(210, 235, 255, 0.34);
+  background: rgba(214, 240, 255, 0.02);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 8px 22px rgba(0, 0, 0, 0.16);
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  color: transparent;
+  backdrop-filter: blur(6px);
+  touch-action: none;
+}
+
+.mobile-controls__fire-button:hover,
+.mobile-controls__fire-button:focus {
+  background: rgba(214, 240, 255, 0.04);
+}
+
+.mobile-controls__fire-button:active {
+  background: rgba(214, 240, 255, 0.08);
+}
+
+.mobile-controls__fire-button--primary {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 222, 160, 0.02);
+  border-color: rgba(255, 222, 160, 0.38);
+}
+
+.mobile-controls__fire-button--secondary {
+  background: rgba(255, 190, 190, 0.02);
+  border-color: rgba(255, 190, 190, 0.34);
+}
+
+.mobile-controls__fullscreen {
+  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-controls__fullscreen {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  pointer-events: auto;
+}
+
+.mobile-controls__fullscreen-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 720px) {
+  .mobile-controls__stick {
+    width: 112px;
+    height: 112px;
+  }
+
+  .mobile-controls__stick-knob {
+    width: 42px;
+    height: 42px;
+    margin-left: -21px;
+    margin-top: -21px;
+  }
+
+  .mobile-controls__fire {
+    gap: 12px;
+  }
+
+  .mobile-controls__fire-button {
+    width: 52px;
+    height: 52px;
+  }
+
+  .mobile-controls__fire-button--primary {
+    width: 58px;
+    height: 58px;
+  }
 }
