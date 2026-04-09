@@ -8,12 +8,13 @@ import Battle from './components/Battle';
 import type { WinnerShipState } from './engine/battle/types';
 import { SHIP_ICON } from './components/shipSelectionData';
 import SuperMelee from './components/SuperMelee';
-import type { BattleStartParams } from './components/SuperMelee';
+import type { BattleStartParams, ControlType } from './components/SuperMelee';
 import { SHIP_COSTS } from './components/shipSelectionData';
 import BGBuilder from './components/BGBuilder';
 import SettingsScreen from './components/Settings';
 import { getControls, codeDisplay } from './lib/controls';
 import ShipMenuImage from './components/ShipMenuImage';
+import StatusPanel, { type SideStatus } from './components/StatusPanel';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ const PLANET_TYPES = [
 ];
 function randomPlanetType() { return PLANET_TYPES[Math.floor(Math.random() * PLANET_TYPES.length)]; }
 
-type Screen = 'supermelee' | 'bgbuilder' | 'settings' | 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select';
+type Screen = 'supermelee' | 'bgbuilder' | 'settings' | 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select' | 'final_selector';
 
 interface AppState {
   screen:        Screen;
@@ -49,6 +50,7 @@ interface AppState {
   planetType:    string; // chosen once per game, stable across ship fights within same game
   inputDelay:    number;
   aiDifficulty:  AIDifficulty;
+  offlineControls: [ControlType, ControlType];
   winner:        0 | 1 | null | undefined; // undefined = not yet
   joinError:     string;
   shipSelectSide: 0 | 1 | null;
@@ -63,6 +65,7 @@ interface AppState {
   winnerState:   WinnerShipState | null;
   // Original fleets captured at first engage; used to restore on rematch
   originalFleets: { host: FleetSlot[]; opponent: FleetSlot[] } | null;
+  finalStatus: [SideStatus | null, SideStatus | null];
   // Where to go after post_battle "leave"
   battleOrigin:  'supermelee' | 'browser';
 }
@@ -77,7 +80,7 @@ type Action =
   | { type: 'join_error';     reason: string }
   | { type: 'opponent_left' }
   | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
-  | { type: 'battle_over';    winner: 0 | 1 | null; winnerState?: WinnerShipState }
+  | { type: 'battle_over';    winner: 0 | 1 | null; winnerState?: WinnerShipState; finalStatus?: [SideStatus | null, SideStatus | null] }
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'go_supermelee' }
@@ -89,6 +92,7 @@ type Action =
   | { type: 'local2p_engage'; fleet0: FleetSlot[]; fleet1: FleetSlot[] }
   | { type: 'supermelee_start'; params: BattleStartParams }
   | { type: 'forfeit_game';    side: 0 | 1 }
+  | { type: 'finish_offline_match' }
   | { type: 'go_bgbuilder' };
 
 function init(): AppState {
@@ -104,6 +108,7 @@ function init(): AppState {
     planetType:    randomPlanetType(),
     inputDelay:    2,
     aiDifficulty:  'cyborg_weak',
+    offlineControls: ['human', 'cyborg_weak'],
     winner:        undefined,
     joinError:     '',
     shipSelectSide: null,
@@ -114,6 +119,7 @@ function init(): AppState {
     activeSlot1: null,
     winnerState:   null,
     originalFleets: null,
+    finalStatus: [null, null],
     battleOrigin:  'supermelee',
   };
 }
@@ -183,6 +189,7 @@ function reducer(state: AppState, action: Action): AppState {
         inputDelay:   action.inputDelay,
         yourSide:     action.yourSide,
         winner:       undefined,
+        finalStatus:  [null, null],
         room:         patchedRoom,
         battleOrigin: 'browser',
       };
@@ -193,7 +200,7 @@ function reducer(state: AppState, action: Action): AppState {
       const isLocal2P = state.room?.code === 'LOCAL2P';
       if ((!isSolo && !isLocal2P) || !state.room) {
         // Online: server handles the multi-ship flow; go straight to post_battle
-        return { ...state, screen: 'post_battle', winner: action.winner, winnerState: null };
+        return { ...state, screen: 'post_battle', winner: action.winner, winnerState: null, finalStatus: action.finalStatus ?? state.finalStatus };
       }
 
       const winner = action.winner;
@@ -229,7 +236,20 @@ function reducer(state: AppState, action: Action): AppState {
         const finalWinner: 0 | 1 | null =
           !hostHasShips && !oppHasShips ? null
           : !hostHasShips ? 1 : 0;
-        return { ...state, room: updatedRoom, screen: 'post_battle', winner: finalWinner, winnerState: null, activeSlot0: null, activeSlot1: null };
+        return {
+          ...state,
+          room: updatedRoom,
+          screen: 'final_selector',
+          winner: finalWinner,
+          winnerState: null,
+          finalStatus: action.finalStatus ?? state.finalStatus,
+          activeSlot0: null,
+          activeSlot1: null,
+          shipSelectSide: null,
+          shipSelectBoth: false,
+          shipSelectP0Slot: null,
+          shipSelectP1Slot: null,
+        };
       }
 
       // Who needs to pick?  Loser picks; on draw, host picks first.
@@ -238,14 +258,16 @@ function reducer(state: AppState, action: Action): AppState {
       // Reset the loser's active slot; winner's persists for the next round
       const nextActiveSlot0 = winner === 0 ? state.activeSlot0 : null;
       const nextActiveSlot1 = winner === 1 ? state.activeSlot1 : null;
+      const shipSelectBoth = winner === null;
 
       return {
         ...state, room: updatedRoom,
-        screen: 'ship_select', shipSelectSide,
+        screen: 'ship_select', shipSelectSide: shipSelectBoth ? null : shipSelectSide,
         winner, // keep so ship_chosen knows if it was a draw
         winnerState: nextWinnerState,
+        finalStatus: action.finalStatus ?? state.finalStatus,
         activeSlot0: nextActiveSlot0, activeSlot1: nextActiveSlot1,
-        shipSelectBoth: false, shipSelectP0Slot: null, shipSelectP1Slot: null,
+        shipSelectBoth, shipSelectP0Slot: null, shipSelectP1Slot: null,
       };
     }
 
@@ -271,6 +293,7 @@ function reducer(state: AppState, action: Action): AppState {
             activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1,
             screen: 'battle', battleSeed: state.battleSeed,
             winner: undefined, shipSelectSide: null,
+            finalStatus: [null, null],
             shipSelectBoth: false, shipSelectP0Slot: null, shipSelectP1Slot: null,
           };
         }
@@ -289,12 +312,69 @@ function reducer(state: AppState, action: Action): AppState {
         activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1,
         screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
         winner: undefined, shipSelectSide: null,
+        finalStatus: [null, null],
       };
     }
 
     case 'forfeit_game': {
       const winner: 0 | 1 = action.side === 0 ? 1 : 0;
-      return { ...state, screen: 'post_battle', winner, winnerState: null };
+      return { ...state, screen: 'post_battle', winner, winnerState: null, finalStatus: [null, null] };
+    }
+
+    case 'finish_offline_match': {
+      if (state.battleOrigin === 'supermelee') {
+        return {
+          ...state,
+          screen: 'supermelee',
+          room: null,
+          winner: undefined,
+          winnerState: null,
+          originalFleets: null,
+          finalStatus: [null, null],
+          activeSlot0: null,
+          activeSlot1: null,
+          shipSelectSide: null,
+          shipSelectBoth: false,
+          shipSelectP0Slot: null,
+          shipSelectP1Slot: null,
+        };
+      }
+      if (!state.room) return state;
+
+      const hostFleet = [...(state.originalFleets?.host ?? state.room.host.fleet)];
+      const oppFleet = [...(state.originalFleets?.opponent ?? (state.room.opponent?.fleet ?? []))];
+      const getAliveSlots = (fleet: FleetSlot[]) =>
+        fleet.map((ship, idx) => ship !== null ? idx : -1).filter(idx => idx >= 0);
+
+      return {
+        ...state,
+        screen: 'fleet_builder',
+        room: {
+          ...state.room,
+          state: 'building',
+          host: {
+            ...state.room.host,
+            fleet: hostFleet,
+            confirmed: false,
+            shipsAlive: getAliveSlots(hostFleet),
+          },
+          opponent: state.room.opponent ? {
+            ...state.room.opponent,
+            fleet: oppFleet,
+            confirmed: state.offlineControls[1] !== 'human',
+            shipsAlive: getAliveSlots(oppFleet),
+          } : state.room.opponent,
+        },
+        winner: undefined,
+        winnerState: null,
+        finalStatus: [null, null],
+        activeSlot0: null,
+        activeSlot1: null,
+        shipSelectSide: null,
+        shipSelectBoth: false,
+        shipSelectP0Slot: null,
+        shipSelectP1Slot: null,
+      };
     }
 
     case 'go_browser':
@@ -314,8 +394,13 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'supermelee_start': {
       const { params } = action;
-      const isLocal2P = params.p2Control === 'human';
+      const humanSides = [params.p1Control, params.p2Control].filter(control => control === 'human').length;
+      const isLocal2P = humanSides === 2;
       const code = isLocal2P ? 'LOCAL2P' : 'SOLO';
+      const yourSide: 0 | 1 =
+        params.p1Control === 'human' ? 0
+        : params.p2Control === 'human' ? 1
+        : 0;
 
       // Calculate actual alive ship slots (all non-null slots initially)
       const getAliveSlots = (fleet: FleetSlot[]) =>
@@ -336,8 +421,8 @@ function reducer(state: AppState, action: Action): AppState {
           shipsAlive: getAliveSlots(params.fleet1),
         },
         opponent: {
-          sessionId: isLocal2P ? 'p2' : 'ai',
-          commanderName: isLocal2P ? 'Commander 2' : 'AI Commander',
+          sessionId: isLocal2P ? 'p2' : (params.p2Control === 'human' ? 'player2' : 'ai'),
+          commanderName: isLocal2P ? 'Commander 2' : (params.p2Control === 'human' ? (state.commanderName || 'Commander') : 'AI Commander'),
           teamName: params.teamName2,
           fleet: params.fleet2,
           confirmed: true,
@@ -353,12 +438,13 @@ function reducer(state: AppState, action: Action): AppState {
         planetType:       randomPlanetType(),
         inputDelay:       0,
         aiDifficulty:     params.p2Control === 'human' ? 'cyborg_weak' : params.p2Control,
-        yourSide:         0,
+        offlineControls:  [params.p1Control, params.p2Control],
+        yourSide,
         winner:           undefined,
         winnerState:      null,
         originalFleets:   { host: params.fleet1, opponent: params.fleet2 },
         battleOrigin:     'supermelee',
-        // LOCAL2P: both players pick simultaneously; SOLO: only human (side 0) picks
+        // SuperMelee always starts with both pick panes visible; cyborg sides auto-pick.
         shipSelectSide:   0,
         shipSelectBoth:   true, // always show both sides at game start
         shipSelectP0Slot: null,
@@ -390,7 +476,15 @@ function reducer(state: AppState, action: Action): AppState {
           shipsAlive: [],
         },
       };
-      return { ...state, screen: 'fleet_builder', room: localRoom, yourSide: 0, winner: undefined, originalFleets: null };
+      return {
+        ...state,
+        screen: 'fleet_builder',
+        room: localRoom,
+        yourSide: 0,
+        offlineControls: ['human', 'human'],
+        winner: undefined,
+        originalFleets: null,
+      };
     }
 
     case 'local2p_engage': {
@@ -420,6 +514,7 @@ function reducer(state: AppState, action: Action): AppState {
           yourSide: 0,
           winner: undefined,
           winnerState: null,
+          finalStatus: [null, null],
           originalFleets: newOriginal,
           shipSelectSide:   0,
           shipSelectBoth:   true,
@@ -437,6 +532,7 @@ function reducer(state: AppState, action: Action): AppState {
         yourSide: 0,
         winner: undefined,
         winnerState: null,
+        finalStatus: [null, null],
         originalFleets: newOriginal,
       };
     }
@@ -477,6 +573,7 @@ function reducer(state: AppState, action: Action): AppState {
         screen: 'fleet_builder',
         room: soloRoom,
         yourSide: 0,
+        offlineControls: ['human', 'cyborg_weak'],
         winner: undefined,
         originalFleets: null,
       };
@@ -513,6 +610,7 @@ function reducer(state: AppState, action: Action): AppState {
           yourSide: 0,
           winner: undefined,
           winnerState: null,
+          finalStatus: [null, null],
           originalFleets: newOriginal,
           shipSelectSide:   0,
           shipSelectBoth:   false,
@@ -530,6 +628,7 @@ function reducer(state: AppState, action: Action): AppState {
         yourSide: 0,
         winner: undefined,
         winnerState: null,
+        finalStatus: [null, null],
         originalFleets: newOriginal,
       };
     }
@@ -751,13 +850,17 @@ export default function App() {
           seed={state.battleSeed}
           planetType={state.planetType}
           inputDelay={state.inputDelay}
-          isAI={battleRoom.code === 'SOLO'}
-          aiDifficulty={state.aiDifficulty}
+          aiSides={battleRoom.code === 'SOLO'
+            ? [
+                state.offlineControls[0] === 'human' ? null : state.offlineControls[0],
+                state.offlineControls[1] === 'human' ? null : state.offlineControls[1],
+              ]
+            : [null, null]}
           isLocal2P={battleRoom.code === 'LOCAL2P'}
           winnerState={state.winnerState}
           activeSlot0={state.activeSlot0}
           activeSlot1={state.activeSlot1}
-          onBattleEnd={(winner, ws) => dispatch({ type: 'battle_over', winner, winnerState: ws })}
+          onBattleEnd={(winner, ws, finalStatus) => dispatch({ type: 'battle_over', winner, winnerState: ws, finalStatus })}
         />
       ) : null;
     }
@@ -767,53 +870,39 @@ export default function App() {
       const isSolo = state.room.code === 'SOLO';
       const origHost = state.originalFleets?.host ?? state.room.host.fleet;
       const origOpp  = state.originalFleets?.opponent ?? (state.room.opponent?.fleet ?? []);
+      const showStatus = state.finalStatus[0] !== null || state.finalStatus[1] !== null;
 
-      // Simultaneous pick: split-screen (both SOLO and LOCAL2P at game start)
-      if (state.shipSelectBoth) {
-        return (
-          <SplitShipSelect
-            fleet0={state.room.host.fleet}          origFleet0={origHost}
-            label0={state.room.host.teamName || 'Player 1'}
-            pick0={state.shipSelectP0Slot}
-            fleet1={state.room.opponent?.fleet ?? []} origFleet1={origOpp}
-            label1={state.room.opponent?.teamName || 'Player 2'}
-            pick1={state.shipSelectP1Slot}
-            isAI1={isSolo}
-            onSelect0={slot => dispatch({ type: 'ship_chosen', side: 0, slot })}
-            onSelect1={slot => dispatch({ type: 'ship_chosen', side: 1, slot })}
-            onForfeit0={() => dispatch({ type: 'forfeit_game', side: 0 })}
-            onForfeit1={() => dispatch({ type: 'forfeit_game', side: 1 })}
-          />
-        );
-      }
-
-      // Normal single-side picker (mid-game: only the losing side picks)
-      if (state.shipSelectSide === null) return null;
-      const side  = state.shipSelectSide;
-      const fleet = side === 0 ? state.room.host.fleet : (state.room.opponent?.fleet ?? []);
-      const origF = side === 0 ? origHost : origOpp;
-      const label = side === 0 ? state.room.host.teamName : (state.room.opponent?.teamName ?? 'Opponent');
-      // LOCAL2P sequential draws: side 1 uses P2 bindings; all other cases use P1.
-      const isLocal2P = state.room.code === 'LOCAL2P';
-      const selCtrl   = getControls();
-      const selB      = (isLocal2P && side === 1) ? selCtrl.p2.bindings : selCtrl.p1.bindings;
+      const interactive0 = state.shipSelectBoth ? true : state.shipSelectSide === 0;
+      const interactive1 = state.shipSelectBoth ? true : state.shipSelectSide === 1;
+      const showPane0 = state.shipSelectBoth || interactive0;
+      const showPane1 = state.shipSelectBoth || interactive1;
+      const pick0 = interactive0 ? state.shipSelectP0Slot : state.activeSlot0;
+      const pick1 = interactive1 ? state.shipSelectP1Slot : state.activeSlot1;
       return (
-        <div className="screen">
-          <ShipSelectorPane
-            fleet={fleet}
-            originalFleet={origF}
-            label={label}
-            pick={null}
-            position="solo"
-            navLeft={selB.turnLeft}   navRight={selB.turnRight}
-            navUp={selB.thrust}       navDown={selB.down}
-            navFire={[selB.weapon, selB.weaponAlt].filter(Boolean)}
-            navSpecial={selB.special}
-            isAI={isSolo && side === 1}
-            onSelect={slot => dispatch({ type: 'ship_chosen', side, slot })}
-            onForfeit={() => dispatch({ type: 'forfeit_game', side })}
-          />
-        </div>
+        <SplitShipSelect
+          fleet0={state.room.host.fleet}
+          origFleet0={origHost}
+          label0={state.room.host.teamName || 'Player 1'}
+          pick0={pick0}
+          fleet1={state.room.opponent?.fleet ?? []}
+          origFleet1={origOpp}
+          label1={state.room.opponent?.teamName || 'Player 2'}
+          pick1={pick1}
+          isAI0={interactive0 && isSolo && state.offlineControls[0] !== 'human'}
+          isAI1={interactive1 && isSolo && state.offlineControls[1] !== 'human'}
+          interactive0={interactive0}
+          interactive1={interactive1}
+          showPane0={showPane0}
+          showPane1={showPane1}
+          showActionCells0={interactive0}
+          showActionCells1={interactive1}
+          showStatus={showStatus}
+          statusSides={state.finalStatus}
+          onSelect0={slot => dispatch({ type: 'ship_chosen', side: 0, slot })}
+          onSelect1={slot => dispatch({ type: 'ship_chosen', side: 1, slot })}
+          onForfeit0={() => dispatch({ type: 'forfeit_game', side: 0 })}
+          onForfeit1={() => dispatch({ type: 'forfeit_game', side: 1 })}
+        />
       );
     }
 
@@ -854,6 +943,30 @@ export default function App() {
         />
       );
     }
+
+    case 'final_selector': {
+      if (!state.room) return null;
+      const origHost = state.originalFleets?.host ?? state.room.host.fleet;
+      const origOpp  = state.originalFleets?.opponent ?? (state.room.opponent?.fleet ?? []);
+      const allCyborgs = state.room.code === 'SOLO'
+        && state.offlineControls[0] !== 'human'
+        && state.offlineControls[1] !== 'human';
+
+      return (
+        <FinalFleetResult
+          fleet0={state.room.host.fleet}
+          origFleet0={origHost}
+          label0={state.room.host.teamName || 'Player 1'}
+          fleet1={state.room.opponent?.fleet ?? []}
+          origFleet1={origOpp}
+          label1={state.room.opponent?.teamName || 'Player 2'}
+          winner={state.winner}
+          finalStatus={state.finalStatus}
+          autoAdvanceMs={allCyborgs ? 6000 : undefined}
+          onDone={() => dispatch({ type: 'finish_offline_match' })}
+        />
+      );
+    }
   }
 }
 
@@ -890,6 +1003,10 @@ interface ShipSelectorPaneProps {
   label:         string;            // fleet/team name shown at bottom
   pick:          number | null;     // slot already chosen (null = still picking)
   position:      'top' | 'bottom' | 'solo';
+  interactive?:  boolean;
+  showActionCells?: boolean;
+  stretch?:      boolean;
+  maxWidth?:     number;
   // Navigation keys — derived from the player's saved control bindings so the
   // same keys used in battle work for ship selection too.
   navLeft:       string;   // turnLeft  → move cursor left
@@ -905,6 +1022,10 @@ interface ShipSelectorPaneProps {
 
 function ShipSelectorPane({
   fleet, originalFleet, label, pick, position,
+  interactive = true,
+  showActionCells = true,
+  stretch = true,
+  maxWidth,
   navLeft, navRight, navUp, navDown, navFire, navSpecial,
   isAI = false, onSelect, onForfeit,
 }: ShipSelectorPaneProps) {
@@ -925,11 +1046,11 @@ function ShipSelectorPane({
 
   // AI: immediately pick a random ship on mount (silently)
   useEffect(() => {
-    if (!isAI) return;
+    if (!interactive || !isAI) return;
     const slots = fleet.map((s: FleetSlot, i: number) => s !== null ? i : -1).filter((i: number) => i >= 0);
     if (slots.length > 0) onSelect(slots[Math.floor(Math.random() * slots.length)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [interactive, isAI]);
 
   // Blink timer — stops once a ship has been chosen
   useEffect(() => {
@@ -957,6 +1078,7 @@ function ShipSelectorPane({
 
   // ESC → toggle controls hint overlay (active even after a ship is chosen)
   useEffect(() => {
+    if (!interactive) return;
     const onEsc = (e: KeyboardEvent) => {
       if (e.code !== 'Escape') return;
       e.preventDefault();
@@ -964,11 +1086,11 @@ function ShipSelectorPane({
     };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
-  }, []);
+  }, [interactive]);
 
   // Keyboard navigation — uses the player's configured ship controls
   useEffect(() => {
-    if (chosen) return;
+    if (!interactive || chosen) return;
     const allKeys = [navLeft, navRight, navUp, navDown, ...navFireRef.current];
 
     const onKey = (e: KeyboardEvent) => {
@@ -996,23 +1118,24 @@ function ShipSelectorPane({
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [chosen, navLeft, navRight, navUp, navDown]);
+  }, [chosen, interactive, navLeft, navRight, navUp, navDown]);
 
   const totalValue  = originalFleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
   const remainValue = fleet.reduce((sum, s) => sum + (s ? (SHIP_COSTS[s] ?? 0) : 0), 0);
 
   const accent    = position === 'bottom' ? 'var(--accent)' : 'var(--accent2)';
-  const bgColor   = position === 'bottom' ? '#050510'       : 'var(--bg0)';
+  const bgColor   = '#000063';
   const isSplit = position !== 'solo';
   const outerPad = isSplit ? 20 : 32;
   const gap = viewportSize.w <= 700 ? 3 : 4;
   const panelHeight = isSplit ? Math.max(220, Math.floor(viewportSize.h / 2)) : viewportSize.h;
-  const availableWidth = Math.max(260, viewportSize.w - outerPad * 2);
+  const availableWidth = Math.max(260, Math.min(maxWidth ?? Number.MAX_SAFE_INTEGER, viewportSize.w - outerPad * 2));
   const reservedHeight = isSplit ? 68 : 96;
-  const maxCellFromWidth = Math.floor((availableWidth - gap * 7) / 8);
+  const columns = showActionCells ? 8 : 7;
+  const maxCellFromWidth = Math.floor((availableWidth - gap * (columns - 1)) / columns);
   const maxCellFromHeight = Math.floor((panelHeight - reservedHeight - gap) / 2) - 12;
   const CELL = Math.max(26, Math.min(62, maxCellFromWidth, maxCellFromHeight));
-  const gridWidth = CELL * 8 + gap * 7;
+  const gridWidth = CELL * columns + gap * (columns - 1);
   const headerFont = CELL <= 34 ? 9 : CELL <= 44 ? 10 : 11;
   const footerFont = CELL <= 34 ? 10 : 11;
   const titleWidth = Math.min(gridWidth, availableWidth);
@@ -1023,27 +1146,27 @@ function ShipSelectorPane({
     const isEmpty   = orig === null;
     const defeated  = orig !== null && cur === null;
     const available = cur !== null;
-    const cursorOn  = cursor === slot && !chosen && !isAI;
+    const cursorOn  = interactive && cursor === slot && !chosen && !isAI;
     const glowing   = cursorOn && blink;
     const icon      = orig ? SHIP_ICON[orig] : null;
 
     return (
       <div
         key={`s${slot}`}
-        onClick={() => available && onSelect(slot)}
+        onClick={() => interactive && available && onSelect(slot)}
         style={{
           position: 'relative', width: CELL, height: CELL + 12,
           background:   isEmpty   ? 'transparent'
                       : glowing   ? 'rgba(255,220,80,0.22)'
-                      : cursorOn  ? 'var(--bg2)'
-                      : 'var(--bg2)',
+                      : cursorOn  ? '#11106f'
+                      : '#000063',
           border:       isEmpty   ? '2px solid transparent'
                       : glowing   ? '2px solid #ffe040'
                       : cursorOn  ? '2px solid var(--accent2)'
                       : '2px solid var(--border)',
           borderRadius: 4, boxSizing: 'border-box',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-          cursor:  available ? 'pointer' : 'default',
+          cursor:  interactive && available ? 'pointer' : 'default',
           opacity: defeated ? 0.6 : 1,
           boxShadow: glowing ? '0 0 8px 2px rgba(255,220,80,0.5)' : undefined,
           }}
@@ -1068,12 +1191,13 @@ function ShipSelectorPane({
 
   function renderRandomCell() {
     const avail   = fleet.some(s => s !== null);
-    const cursorOn = cursor === 14 && !chosen && !isAI;
+    const cursorOn = interactive && cursor === 14 && !chosen && !isAI;
     const glowing  = cursorOn && blink;
     return (
       <div
         key="random"
         onClick={() => {
+          if (!interactive) return;
           const slots = fleet.map((s, i) => s !== null ? i : -1).filter(i => i >= 0);
           if (slots.length > 0) onSelect(slots[Math.floor(Math.random() * slots.length)]);
         }}
@@ -1082,7 +1206,7 @@ function ShipSelectorPane({
           background: glowing  ? 'rgba(160,0,255,0.35)' : cursorOn ? 'rgba(120,0,200,0.2)' : 'rgba(60,0,120,0.2)',
           border:     glowing  ? '2px solid #dd55ff'    : cursorOn ? '2px solid #8800cc'    : '2px solid #440077',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: avail ? 'pointer' : 'default', opacity: avail ? 1 : 0.35,
+          cursor: interactive && avail ? 'pointer' : 'default', opacity: interactive ? (avail ? 1 : 0.35) : 0.18,
           fontSize: Math.max(16, Math.floor(CELL * 0.42)), color: glowing ? '#ee88ff' : '#aa33dd', fontWeight: 'bold', userSelect: 'none',
           boxShadow: glowing ? '0 0 8px 2px rgba(180,0,255,0.5)' : undefined,
         }}
@@ -1091,17 +1215,18 @@ function ShipSelectorPane({
   }
 
   function renderForfeitCell() {
-    const cursorOn = cursor === 15 && !chosen && !isAI;
+    const cursorOn = interactive && cursor === 15 && !chosen && !isAI;
     const glowing  = cursorOn && blink;
     return (
       <div
         key="forfeit"
-        onClick={() => !isAI && setShowForfeit(true)}
+        onClick={() => interactive && !isAI && setShowForfeit(true)}
         style={{
           width: CELL, height: CELL + 10, borderRadius: 4, boxSizing: 'border-box',
           background: glowing  ? 'rgba(200,0,0,0.35)' : cursorOn ? 'rgba(150,0,0,0.2)' : 'rgba(60,0,0,0.2)',
           border:     glowing  ? '2px solid #ff5555'  : cursorOn ? '2px solid #cc0000'  : '2px solid #440000',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: interactive ? 'pointer' : 'default',
+          opacity: interactive ? 1 : 0.18,
           boxShadow: glowing ? '0 0 8px 2px rgba(200,0,0,0.5)' : undefined,
         }}
       >
@@ -1122,8 +1247,10 @@ function ShipSelectorPane({
 
   return (
     <div style={{
-      flex: position !== 'solo' ? 1 : undefined,
+      flex: stretch && position !== 'solo' ? 1 : undefined,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      width: Math.min(availableWidth, gridWidth + (viewportSize.w <= 700 ? 20 : 32)),
+      maxWidth: '100%',
       padding: position === 'solo'
         ? `${viewportSize.w <= 700 ? 18 : 32}px ${viewportSize.w <= 700 ? 10 : 16}px`
         : `${viewportSize.w <= 700 ? 6 : 8}px ${viewportSize.w <= 700 ? 6 : 12}px`,
@@ -1145,13 +1272,13 @@ function ShipSelectorPane({
       {/* Row 0: ship slots 0–6 + random button */}
       <div style={{ display: 'flex', gap }}>
         {row0Slots.map(s => renderShipCell(s))}
-        {renderRandomCell()}
+        {showActionCells ? renderRandomCell() : null}
       </div>
 
       {/* Row 1: ship slots 7–13 + forfeit button */}
       <div style={{ display: 'flex', gap }}>
         {row1Slots.map(s => renderShipCell(s))}
-        {renderForfeitCell()}
+        {showActionCells ? renderForfeitCell() : null}
       </div>
 
       {/* Footer: fleet name or chosen ship */}
@@ -1160,7 +1287,7 @@ function ShipSelectorPane({
       </div>
 
       {/* Forfeit confirmation overlay */}
-      {showForfeit && (
+      {interactive && showForfeit && (
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -1178,7 +1305,7 @@ function ShipSelectorPane({
       )}
 
       {/* Controls hint overlay (ESC to toggle) */}
-      {showControls && (
+      {interactive && showControls && (
         <div
           onClick={() => setShowControls(false)}
           style={{
@@ -1224,7 +1351,18 @@ function ShipSelectorPane({
 interface SplitShipSelectProps {
   fleet0: FleetSlot[]; origFleet0: FleetSlot[]; label0: string; pick0: number | null;
   fleet1: FleetSlot[]; origFleet1: FleetSlot[]; label1: string; pick1: number | null;
+  isAI0?: boolean;
   isAI1?: boolean;
+  interactive0?: boolean;
+  interactive1?: boolean;
+  showPane0?: boolean;
+  showPane1?: boolean;
+  showStatus?: boolean;
+  statusSides?: [SideStatus | null, SideStatus | null];
+  showActionCells0?: boolean;
+  showActionCells1?: boolean;
+  overlayTitle?: string;
+  overlaySubtitle?: string;
   onSelect0: (slot: number) => void;
   onSelect1: (slot: number) => void;
   onForfeit0: () => void;
@@ -1233,25 +1371,232 @@ interface SplitShipSelectProps {
 
 function SplitShipSelect({
   fleet0, origFleet0, label0, pick0, onSelect0, onForfeit0,
-  fleet1, origFleet1, label1, pick1, onSelect1, onForfeit1, isAI1 = false,
+  fleet1, origFleet1, label1, pick1, onSelect1, onForfeit1,
+  isAI0 = false, isAI1 = false,
+  interactive0 = true, interactive1 = true,
+  showPane0 = true, showPane1 = true,
+  showStatus = false, statusSides = [null, null],
+  showActionCells0 = interactive0, showActionCells1 = interactive1,
+  overlayTitle,
+  overlaySubtitle,
 }: SplitShipSelectProps) {
   const { p1, p2 } = getControls();
+  const statusRef = useRef<[SideStatus | null, SideStatus | null]>(statusSides);
+  statusRef.current = statusSides;
+  const [viewportSize, setViewportSize] = useState(() => ({
+    w: window.innerWidth,
+    h: window.innerHeight,
+  }));
+
+  useEffect(() => {
+    const updateViewport = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  const outerPad = viewportSize.w <= 700 ? 12 : 20;
+  const stageH = viewportSize.h - outerPad * 2;
+  const stageW = viewportSize.w - outerPad * 2;
+  const statusWidth = showStatus ? Math.round(stageH * (128 / 480)) : 0;
+  const gap = showStatus ? 14 : 0;
+  const fleetAreaW = Math.max(280, stageW - statusWidth - gap);
+  const fleetColumnW = Math.min(fleetAreaW, Math.max(viewportSize.w <= 700 ? 360 : 440, Math.round(stageH * 0.78)));
+  const fleetBlockHalf = fleetColumnW / 2;
+  const visiblePaneCount = (showPane0 ? 1 : 0) + (showPane1 ? 1 : 0);
+  const paneGap = visiblePaneCount > 1 ? 12 : 0;
+
   return (
-    <div style={{ width: '100%', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <ShipSelectorPane fleet={fleet0} originalFleet={origFleet0} label={label0} pick={pick0}
-        position="top"
-        navLeft={p1.bindings.turnLeft}   navRight={p1.bindings.turnRight}
-        navUp={p1.bindings.thrust}       navDown={p1.bindings.down}
-        navFire={[p1.bindings.weapon, p1.bindings.weaponAlt].filter(Boolean)}
-        navSpecial={p1.bindings.special}
-        isAI={false} onSelect={onSelect0} onForfeit={onForfeit0} />
-      <ShipSelectorPane fleet={fleet1} originalFleet={origFleet1} label={label1} pick={pick1}
-        position="bottom"
-        navLeft={p2.bindings.turnLeft}   navRight={p2.bindings.turnRight}
-        navUp={p2.bindings.thrust}       navDown={p2.bindings.down}
-        navFire={[p2.bindings.weapon, p2.bindings.weaponAlt].filter(Boolean)}
-        navSpecial={p2.bindings.special}
-        isAI={isAI1} onSelect={onSelect1} onForfeit={onForfeit1} />
+    <div style={{
+      width: '100vw',
+      height: '100dvh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#000',
+      padding: outerPad,
+    }}>
+      <div style={{
+        position: 'relative',
+        width: stageW,
+        height: stageH,
+      }}>
+        {overlayTitle && (
+          <div style={{
+            position: 'absolute',
+            left: '50%',
+            top: 18,
+            width: fleetColumnW,
+            transform: 'translateX(-50%)',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              color: '#ff44ff',
+              fontSize: 32,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              textShadow: '0 0 18px #ff00ff60, 0 2px 0 #660066, 2px 2px 0 #330033',
+            }}>
+              {overlayTitle}
+            </div>
+            {overlaySubtitle && (
+              <div style={{ color: '#2a2a44', fontSize: 11, letterSpacing: '0.1em', textAlign: 'center', textTransform: 'uppercase' }}>
+                {overlaySubtitle}
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: fleetColumnW,
+          transform: 'translate(-50%, -50%)',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: paneGap,
+        }}>
+          {showPane0 && (
+            <ShipSelectorPane fleet={fleet0} originalFleet={origFleet0} label={label0} pick={pick0}
+              position={visiblePaneCount === 1 ? 'solo' : 'top'}
+              interactive={interactive0}
+              showActionCells={showActionCells0}
+              stretch={false}
+              maxWidth={fleetColumnW}
+              navLeft={p1.bindings.turnLeft}   navRight={p1.bindings.turnRight}
+              navUp={p1.bindings.thrust}       navDown={p1.bindings.down}
+              navFire={[p1.bindings.weapon, p1.bindings.weaponAlt].filter(Boolean)}
+              navSpecial={p1.bindings.special}
+              isAI={isAI0} onSelect={onSelect0} onForfeit={onForfeit0} />
+          )}
+          {showPane1 && (
+            <ShipSelectorPane fleet={fleet1} originalFleet={origFleet1} label={label1} pick={pick1}
+              position={visiblePaneCount === 1 ? 'solo' : 'bottom'}
+              interactive={interactive1}
+              showActionCells={showActionCells1}
+              stretch={false}
+              maxWidth={fleetColumnW}
+              navLeft={p2.bindings.turnLeft}   navRight={p2.bindings.turnRight}
+              navUp={p2.bindings.thrust}       navDown={p2.bindings.down}
+              navFire={[p2.bindings.weapon, p2.bindings.weaponAlt].filter(Boolean)}
+              navSpecial={p2.bindings.special}
+              isAI={isAI1} onSelect={onSelect1} onForfeit={onForfeit1} />
+          )}
+        </div>
+        {showStatus && (
+          <div style={{
+            position: 'absolute',
+            left: `calc(50% + ${fleetBlockHalf + gap}px)`,
+            top: '50%',
+            width: statusWidth,
+            minWidth: statusWidth,
+            height: stageH,
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            background: '#000',
+          }}>
+            <StatusPanel sidesRef={statusRef} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface FinalFleetResultProps {
+  fleet0: FleetSlot[];
+  origFleet0: FleetSlot[];
+  label0: string;
+  fleet1: FleetSlot[];
+  origFleet1: FleetSlot[];
+  label1: string;
+  winner: 0 | 1 | null | undefined;
+  finalStatus: [SideStatus | null, SideStatus | null];
+  autoAdvanceMs?: number;
+  onDone: () => void;
+}
+
+function FinalFleetResult({
+  fleet0, origFleet0, label0,
+  fleet1, origFleet1, label1,
+  winner,
+  finalStatus,
+  autoAdvanceMs,
+  onDone,
+}: FinalFleetResultProps) {
+  const [fading, setFading] = useState(false);
+  const finishingRef = useRef(false);
+
+  useEffect(() => {
+    const finish = () => {
+      if (finishingRef.current) return;
+      finishingRef.current = true;
+      setFading(true);
+      window.setTimeout(onDone, 450);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      finish();
+    };
+    const onMouse = () => finish();
+    const onTouch = () => finish();
+
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onMouse);
+    window.addEventListener('touchstart', onTouch, { passive: true });
+
+    const timer = autoAdvanceMs != null ? window.setTimeout(finish, autoAdvanceMs) : null;
+
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onMouse);
+      window.removeEventListener('touchstart', onTouch);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [autoAdvanceMs, onDone]);
+
+  const title = winner === null ? 'Mutual Annihilation' : winner === 0 ? `${label0} Wins` : `${label1} Wins`;
+  const subtitle = autoAdvanceMs != null
+    ? 'Returning to fleet setup...'
+    : 'Press any key to return to fleet setup';
+
+  return (
+    <div style={{
+      width: '100vw',
+      height: '100dvh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#000',
+      opacity: fading ? 0 : 1,
+      transition: 'opacity 0.45s linear',
+    }}>
+      <SplitShipSelect
+        fleet0={fleet0}
+        origFleet0={origFleet0}
+        label0={label0}
+        pick0={null}
+        fleet1={fleet1}
+        origFleet1={origFleet1}
+        label1={label1}
+        pick1={null}
+        interactive0={false}
+        interactive1={false}
+        showActionCells0={false}
+        showActionCells1={false}
+        showStatus={true}
+        statusSides={finalStatus}
+        overlayTitle={title}
+        overlaySubtitle={subtitle}
+        onSelect0={() => {}}
+        onSelect1={() => {}}
+        onForfeit0={() => {}}
+        onForfeit1={() => {}}
+      />
     </div>
   );
 }

@@ -692,9 +692,7 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
                 scale={3}
                 maxFill="98%"
               />
-            ) : (
-              <span>Empty</span>
-            )}
+            ) : null}
         </div>
       );
     });

@@ -104,19 +104,18 @@ interface Props {
   seed:        number;
   planetType:  string;
   inputDelay:  number;
-  isAI?:       boolean;
-  aiDifficulty?: AIDifficulty;
+  aiSides?:    [AIDifficulty | null, AIDifficulty | null];
   isLocal2P?:  boolean;
   winnerState?: WinnerShipState | null;
   // Active fleet slot for each side (offline modes). null = use first non-null fallback.
   activeSlot0?: number | null;
   activeSlot1?: number | null;
-  onBattleEnd: (winner: 0 | 1 | null, winnerState?: WinnerShipState) => void;
+  onBattleEnd: (winner: 0 | 1 | null, winnerState?: WinnerShipState, finalStatus?: [SideStatus | null, SideStatus | null]) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, isAI = false, aiDifficulty = 'cyborg_weak', isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, aiSides = [null, null], isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
@@ -175,6 +174,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
   const [showTouchControls, setShowTouchControls] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => !!document.fullscreenElement);
+  const hasOfflineAI = aiSides[0] !== null || aiSides[1] !== null;
 
   // Debug helper — call window.__battleDebug() from the browser console
   useEffect(() => {
@@ -428,7 +428,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     // Subscribe to net messages (not used in AI mode)
-    const unsub = isAI ? () => {} : client.onMessage(msg => {
+    const unsub = hasOfflineAI ? () => {} : client.onMessage(msg => {
       if (msg.type === 'battle_input' && stateRef.current) {
         const opSide = yourSide === 0 ? 1 : 0;
         stateRef.current.inputBuf[opSide].set(msg.frame, msg.input);
@@ -564,7 +564,6 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     if (!bs || !assetsReadyRef.current) return;
 
     const mySide = yourSide;
-    const opSide: 0 | 1 = yourSide === 0 ? 1 : 0;
     // Online: always use P1 bindings regardless of which side you're on
     const myInput = computeInput(keyMapP1Ref.current, gamepadP1Ref.current);
 
@@ -575,13 +574,22 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       // Both players on same device — P1 bindings for side 0, P2 for side 1
       i0 = computeInput(keyMapP1Ref.current, gamepadP1Ref.current);
       i1 = computeInput(keyMapP2Ref.current, gamepadP2Ref.current);
-    } else if (isAI) {
-      // AI mode: no network — compute both inputs locally, no delay
-      const aiCtrl = SHIP_REGISTRY[bs.shipTypes[opSide]];
-      const aiInput = aiCtrl.computeAIInput?.(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide, aiDifficulty)
-        ?? computeAIInput(bs.ships[opSide], bs.ships[mySide], bs.missiles, opSide, aiDifficulty);
-      i0 = mySide === 0 ? myInput : aiInput;
-      i1 = mySide === 1 ? myInput : aiInput;
+    } else if (hasOfflineAI) {
+      // Offline cyborg mode: any side marked non-human computes locally with no delay.
+      const computeSideInput = (side: 0 | 1): number => {
+        const aiLevel = aiSides[side];
+        if (aiLevel) {
+          const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+          return ctrl.computeAIInput?.(bs.ships[side], bs.ships[side ^ 1], bs.missiles, side, aiLevel)
+            ?? computeAIInput(bs.ships[side], bs.ships[side ^ 1], bs.missiles, side, aiLevel);
+        }
+        if (side === mySide) return myInput;
+        const otherKeyMap = side === 0 ? keyMapP1Ref.current : keyMapP2Ref.current;
+        const otherGamepad = side === 0 ? gamepadP1Ref.current : gamepadP2Ref.current;
+        return computeInput(otherKeyMap, otherGamepad);
+      };
+      i0 = computeSideInput(0);
+      i1 = computeSideInput(1);
     } else {
       // Lockstep: buffer my input for a future frame, wait for opponent's
       const sendFrame = bs.frame + inputDelay;
@@ -602,7 +610,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.frame++;
 
     // Record snapshot for desync diagnostics (networked mode only)
-    const isOffline = isAI || isLocal2P;
+    const isOffline = hasOfflineAI || isLocal2P;
     if (!isOffline) {
       const snaps = snapHistoryRef.current;
       snaps.push(captureSnap(bs, i0, i1));
@@ -645,11 +653,19 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         countdown: winner === null ? 1 : POST_BATTLE_PAUSE_FRAMES,
         dittyStarted: false,
       };
-      if (!isAI && !isLocal2P) {
+      if (!hasOfflineAI && !isLocal2P) {
         client.send({ type: 'battle_over_ack', winner });
       }
     }
     if (bs.pendingEnd) {
+      const resolvedWinner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : s1dead ? 0 : bs.pendingEnd.winner;
+      if (bs.pendingEnd.winner !== resolvedWinner) {
+        bs.pendingEnd.winner = resolvedWinner;
+        if (resolvedWinner === null) {
+          bs.pendingEnd.countdown = Math.min(bs.pendingEnd.countdown, 1);
+        }
+      }
+
       const deadSides: (0 | 1)[] = [];
       if (s0dead) deadSides.push(0);
       if (s1dead) deadSides.push(1);
@@ -699,7 +715,10 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         void stopVictoryDitty();
-        onBattleEnd(w, ws);
+        onBattleEnd(w, ws, [
+          statusRef.current[0] ? { ...statusRef.current[0] } : null,
+          statusRef.current[1] ? { ...statusRef.current[1] } : null,
+        ]);
         return;
       }
     }
@@ -1038,6 +1057,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const alive = bs.ships[side].crew > 0;
       if (bs.shipAlive[side] && !alive) {
         bs.shipDestructions[side] = beginShipDestruction(bs.ships[side].x, bs.ships[side].y);
+        bs.ships[side].energy = 0;
         bs.ships[side].velocity.vx = 0;
         bs.ships[side].velocity.vy = 0;
         bs.ships[side].velocity.ex = 0;
