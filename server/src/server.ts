@@ -25,14 +25,19 @@ if (process.env.NODE_ENV === 'production') {
 // Active connections: sessionId → WebSocket
 const connections = new Map<string, WebSocket>();
 
-// Per-battle state: roomCode → {hostActive, oppActive}
-const battleState = new Map<string, { hostActive: number | null; oppActive: number | null }>();
-
 // Pending checksums: roomCode → frame → {s0?, s1?}
 const pendingChecksums = new Map<string, Map<number, { s0?: number; s1?: number }>>();
 
 // Battle-over acks: roomCode → { acks, winners }
-const battleOverAcks = new Map<string, { acks: Set<string>; winners: (0 | 1 | null)[] }>();
+const battleOverAcks = new Map<string, {
+  acks: Set<string>;
+  winners: (0 | 1 | null)[];
+  timeout: ReturnType<typeof setTimeout> | null;
+}>();
+const postBattleResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const BATTLE_OVER_ACK_TIMEOUT_MS = 2500;
+const POST_BATTLE_RESET_DELAY_MS = 15000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -57,10 +62,73 @@ function broadcastRoomList() {
   }
 }
 
+function broadcastRoomState(roomCode: string) {
+  const room = rooms.getRoom(roomCode);
+  if (!room) return;
+  const fullState = rooms.toFullState(room);
+  sendTo(room.host.sessionId, { type: 'room_state', room: fullState, yourSide: 0 });
+  if (room.opponent) {
+    sendTo(room.opponent.sessionId, { type: 'room_state', room: fullState, yourSide: 1 });
+  }
+}
+
 function cleanupBattleState(roomCode: string) {
-  battleState.delete(roomCode);
+  const ack = battleOverAcks.get(roomCode);
+  if (ack?.timeout) clearTimeout(ack.timeout);
   pendingChecksums.delete(roomCode);
   battleOverAcks.delete(roomCode);
+}
+
+function cleanupRoundState(roomCode: string) {
+  const ack = battleOverAcks.get(roomCode);
+  if (ack?.timeout) clearTimeout(ack.timeout);
+  pendingChecksums.delete(roomCode);
+  battleOverAcks.delete(roomCode);
+}
+
+function clearPostBattleResetTimer(roomCode: string) {
+  const timer = postBattleResetTimers.get(roomCode);
+  if (!timer) return;
+  clearTimeout(timer);
+  postBattleResetTimers.delete(roomCode);
+}
+
+function schedulePostBattleReset(roomCode: string) {
+  clearPostBattleResetTimer(roomCode);
+  const timer = setTimeout(() => {
+    postBattleResetTimers.delete(roomCode);
+    const room = rooms.getRoom(roomCode);
+    if (!room || room.state !== 'post_battle') return;
+    rooms.rematch(room);
+    broadcastRoomState(room.code);
+    broadcastRoomList();
+  }, POST_BATTLE_RESET_DELAY_MS);
+  postBattleResetTimers.set(roomCode, timer);
+}
+
+function finalizeBattleOver(roomCode: string, agreedWinner: 0 | 1 | null) {
+  const room = rooms.getRoom(roomCode);
+  if (!room || room.state !== 'in_battle') {
+    cleanupBattleState(roomCode);
+    return;
+  }
+
+  const resolution = rooms.resolveRoundEnd(room, agreedWinner);
+
+  let overMsg: ServerMsg;
+  if (resolution.matchOver) {
+    cleanupBattleState(room.code);
+    overMsg = { type: 'battle_over', winner: agreedWinner };
+  } else {
+    cleanupRoundState(room.code);
+    overMsg = { type: 'battle_over', winner: agreedWinner, nextSeed: resolution.nextSeed };
+  }
+  broadcastRoomState(room.code);
+  sendTo(room.host.sessionId, overMsg);
+  if (room.opponent) sendTo(room.opponent.sessionId, overMsg);
+  if (resolution.matchOver) {
+    schedulePostBattleReset(room.code);
+  }
 }
 
 function sessionIdFromReq(req: IncomingMessage): string {
@@ -89,7 +157,7 @@ wss.on('connection', (ws, req) => {
   const existingRoom = rooms.getRoomBySession(sessionId);
   if (existingRoom) {
     const yourSide = rooms.getSide(existingRoom, sessionId) ?? 0;
-    send(ws, { type: 'room_joined', room: rooms.toFullState(existingRoom), yourSide });
+    send(ws, { type: 'room_joined', room: rooms.toFullState(existingRoom), yourSide, restored: true });
   } else {
     send(ws, { type: 'room_list', rooms: rooms.getPublicRooms() });
   }
@@ -143,12 +211,7 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       }
       const room = result;
       send(ws, { type: 'room_joined', room: rooms.toFullState(room), yourSide: 1 });
-      sendTo(room.host.sessionId, {
-        type: 'opponent_joined',
-        name: room.opponent!.commanderName,
-        fleet: room.opponent!.fleet,
-        teamName: room.opponent!.teamName,
-      });
+      broadcastRoomState(room.code);
       broadcastRoomList();
       break;
     }
@@ -157,10 +220,12 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       const result = rooms.leave(sessionId);
       if (!result) return;
       const { room, wasHost } = result;
+      clearPostBattleResetTimer(room.code);
       if (wasHost) {
         if (room.opponent) sendTo(room.opponent.sessionId, { type: 'opponent_left' });
       } else {
         sendTo(room.host.sessionId, { type: 'opponent_left' });
+        broadcastRoomState(room.code);
       }
       cleanupBattleState(room.code);
       broadcastRoomList();
@@ -170,89 +235,49 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
     case 'fleet_update': {
       const room = rooms.updateFleet(sessionId, msg.slot, msg.ship);
       if (!room) return;
-      const opSid = rooms.getOpponentSession(room, sessionId);
-      if (opSid) sendTo(opSid, { type: 'opponent_fleet', slot: msg.slot, ship: msg.ship });
+      broadcastRoomState(room.code);
       break;
     }
 
     case 'team_name': {
       const room = rooms.updateTeamName(sessionId, msg.name);
       if (!room) return;
-      const opSid = rooms.getOpponentSession(room, sessionId);
-      if (opSid) sendTo(opSid, { type: 'opponent_team_name', name: msg.name.slice(0, 20) });
+      broadcastRoomState(room.code);
       break;
     }
 
     case 'rematch_reset': {
       const room = rooms.setRematchReset(sessionId, msg.value);
       if (!room) return;
-      sendTo(room.host.sessionId, { type: 'rematch_reset', value: msg.value });
-      if (room.opponent) sendTo(room.opponent.sessionId, { type: 'rematch_reset', value: msg.value });
+      broadcastRoomState(room.code);
       break;
     }
 
     case 'confirm': {
       const room = rooms.confirm(sessionId);
       if (!room) return;
-      const opSid = rooms.getOpponentSession(room, sessionId);
-      if (opSid) sendTo(opSid, { type: 'opponent_confirmed' });
 
       if (rooms.bothConfirmed(room)) {
-        const seed = rooms.startBattle(room);
-        battleState.set(room.code, { hostActive: null, oppActive: null });
-        const hostFleet = [...room.host.fleet];
-        const oppFleet  = room.opponent ? [...room.opponent.fleet] : [];
-        sendTo(room.host.sessionId, {
-          type: 'battle_start', seed, inputDelay: room.inputDelay, yourSide: 0,
-          hostFleet, oppFleet,
-        });
-        if (room.opponent) {
-          sendTo(room.opponent.sessionId, {
-            type: 'battle_start', seed, inputDelay: room.inputDelay, yourSide: 1,
-            hostFleet, oppFleet,
-          });
-        }
+        rooms.startBattle(room);
         broadcastRoomList();
       }
+      broadcastRoomState(room.code);
       break;
     }
 
     case 'cancel_confirm': {
       const room = rooms.cancelConfirm(sessionId);
       if (!room) return;
-      const opSid = rooms.getOpponentSession(room, sessionId);
-      if (opSid) sendTo(opSid, { type: 'opponent_cancelled' });
+      broadcastRoomState(room.code);
       break;
     }
 
     case 'ship_select': {
       const room = rooms.getRoomBySession(sessionId);
       if (!room || room.state !== 'in_battle') return;
-      const side = rooms.getSide(room, sessionId);
-      if (side === null) return;
-
-      const bs = battleState.get(room.code);
-      if (!bs) return;
-
-      // Kill the player's previously active ship — it just died
-      const prevActive = side === 0 ? bs.hostActive : bs.oppActive;
-      if (prevActive !== null) {
-        rooms.shipKilled(room, side, prevActive);
-      }
-
-      // Validate the new selection is still in shipsAlive
       if (!rooms.selectShip(sessionId, msg.slot)) return;
-
-      // Record active ship
-      if (side === 0) bs.hostActive = msg.slot;
-      else bs.oppActive = msg.slot;
-
-      // Relay to opponent
-      const opSid = rooms.getOpponentSession(room, sessionId);
-      if (opSid) sendTo(opSid, { type: 'opponent_ship_select', slot: msg.slot });
-
-      // Confirm to sender
-      sendTo(sessionId, { type: 'ship_select_prompt' });
+      rooms.maybeStartRound(room);
+      broadcastRoomState(room.code);
       break;
     }
 
@@ -278,6 +303,7 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       const room = rooms.getRoomBySession(sessionId);
       if (!room || room.state !== 'post_battle') return;
       if (room.host.sessionId !== sessionId) return; // host initiates
+      clearPostBattleResetTimer(room.code);
       rooms.rematch(room);
       const fullState = rooms.toFullState(room);
       sendTo(room.host.sessionId, { type: 'room_joined', room: fullState, yourSide: 0 });
@@ -328,7 +354,7 @@ function handleBattleOverAck(sessionId: string, winner: 0 | 1 | null) {
 
   let entry = battleOverAcks.get(room.code);
   if (!entry) {
-    entry = { acks: new Set(), winners: [] };
+    entry = { acks: new Set(), winners: [], timeout: null };
     battleOverAcks.set(room.code, entry);
   }
   if (entry.acks.has(sessionId)) return; // ignore duplicate acks
@@ -339,15 +365,26 @@ function handleBattleOverAck(sessionId: string, winner: 0 | 1 | null) {
     (!room.opponent || entry.acks.has(room.opponent.sessionId));
 
   if (bothAcked) {
+    if (entry.timeout) {
+      clearTimeout(entry.timeout);
+      entry.timeout = null;
+    }
     // Both clients agree on winner; if they disagree it's a desync → null
     const w0 = entry.winners[0];
     const w1 = entry.winners[1] ?? w0;
     const agreedWinner: 0 | 1 | null = (w0 === w1) ? w0 : null;
-    cleanupBattleState(room.code);
-    rooms.endBattle(room);
-    const overMsg: ServerMsg = { type: 'battle_over', winner: agreedWinner };
-    sendTo(room.host.sessionId, overMsg);
-    if (room.opponent) sendTo(room.opponent.sessionId, overMsg);
+    finalizeBattleOver(room.code, agreedWinner);
+    return;
+  }
+
+  if (!entry.timeout) {
+    entry.timeout = setTimeout(() => {
+      const pending = battleOverAcks.get(room.code);
+      if (!pending) return;
+      const fallbackWinner = pending.winners[0] ?? null;
+      console.warn(`[battle_over_ack timeout] room=${room.code} acks=${pending.acks.size} using winner=${fallbackWinner}`);
+      finalizeBattleOver(room.code, fallbackWinner);
+    }, BATTLE_OVER_ACK_TIMEOUT_MS);
   }
 }
 

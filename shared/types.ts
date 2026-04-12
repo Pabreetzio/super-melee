@@ -24,6 +24,20 @@ export type RoomState =
   | 'in_battle'   // server is relay-only
   | 'post_battle';// results, rematch prompt
 
+export type RoundPhase = 'selection' | 'battle';
+
+export type SelectionMode = 'both' | 'host' | 'opp' | 'none';
+
+export interface RoundState {
+  phase: RoundPhase;
+  seed: number;
+  selectionMode: SelectionMode;
+  hostActiveSlot: number | null;
+  oppActiveSlot: number | null;
+  hostPendingSlot: number | null;
+  oppPendingSlot: number | null;
+}
+
 export interface RoomSummary {
   code: string;
   visibility: RoomVisibility;
@@ -49,9 +63,11 @@ export interface FullRoomState {
   visibility: RoomVisibility;
   state: RoomState;
   rematchReset: boolean;      // true = reset to original fleets (default)
+  presentationSeed: number | null;
   host: PlayerState;
   opponent?: PlayerState;
   inputDelay: number;
+  round: RoundState | null;
 }
 
 // ─── Lobby WebSocket Messages (JSON) ─────────────────────────────────────────
@@ -78,7 +94,8 @@ export type ServerMsg =
   | { type: 'session';             sessionId: string; commanderName: string }
   | { type: 'room_list';           rooms: RoomSummary[] }
   | { type: 'room_created';        room: FullRoomState }
-  | { type: 'room_joined';         room: FullRoomState; yourSide: 0 | 1 }
+  | { type: 'room_joined';         room: FullRoomState; yourSide: 0 | 1; restored?: boolean }
+  | { type: 'room_state';          room: FullRoomState; yourSide: 0 | 1 }
   | { type: 'join_error';          reason: string }
   | { type: 'opponent_joined';     name: string; fleet: FleetSlot[]; teamName: string }
   | { type: 'opponent_left' }
@@ -88,10 +105,11 @@ export type ServerMsg =
   | { type: 'opponent_cancelled' }
   | { type: 'rematch_reset';       value: boolean }
   | { type: 'battle_start';        seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
+  | { type: 'round_start';         seed: number; hostSlot: number; oppSlot: number }
   | { type: 'battle_input';        frame: number; input: number }
   | { type: 'checksum_mismatch';   frame: number }
   | { type: 'ship_select_prompt' }
   | { type: 'opponent_ship_select';slot: number }
-  | { type: 'battle_over';         winner: 0 | 1 | null }
+  | { type: 'battle_over';         winner: 0 | 1 | null; nextSeed?: number }
   | { type: 'room_list_update';    rooms: RoomSummary[] }
   | { type: 'error';               message: string };

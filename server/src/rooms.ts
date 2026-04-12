@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   FLEET_SIZE, FleetSlot, FullRoomState, PlayerState,
-  RoomState, RoomSummary, RoomVisibility, ShipId
+  RoomState, RoomSummary, RoomVisibility, RoundState, SelectionMode, ShipId
 } from '../../shared/types';
 
 // Ship point costs — stubs until ship deep-dives are done
@@ -41,12 +41,18 @@ function genCode(): string {
   ).join('');
 }
 
+function nextSelectionModeForWinner(winner: 0 | 1 | null): SelectionMode {
+  if (winner === null) return 'both';
+  return winner === 0 ? 'opp' : 'host';
+}
+
 interface Room {
   code: string;
   visibility: RoomVisibility;
   passwordHash: string | null;  // simple plaintext for now (friends-only game)
   state: RoomState;
   rematchReset: boolean;
+  presentationSeed: number | null;
   host: PlayerState;
   opponent?: PlayerState;
   inputDelay: number;
@@ -57,6 +63,7 @@ interface Room {
   hostOrigTeamName: string;
   oppOrigFleet?: FleetSlot[];
   oppOrigTeamName?: string;
+  round: RoundState | null;
 }
 
 class RoomManager {
@@ -88,12 +95,14 @@ class RoomManager {
       passwordHash: password ?? null,
       state: 'waiting',
       rematchReset: true,
+      presentationSeed: null,
       host: makePlayer(sessionId, name),
       inputDelay: 2,
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
       hostOrigFleet: Array(FLEET_SIZE).fill(null),
       hostOrigTeamName: 'Unnamed Fleet',
+      round: null,
     };
     this.rooms.set(code, room);
     this.sessionRoom.set(sessionId, code);
@@ -133,6 +142,8 @@ class RoomManager {
     } else {
       room.opponent = undefined;
       room.state = 'waiting';
+      room.presentationSeed = null;
+      room.round = null;
       room.lastActivityAt = Date.now();
     }
     return { room, wasHost };
@@ -210,9 +221,19 @@ class RoomManager {
     room.state = 'in_battle';
     room.host.confirmed = false;
     if (room.opponent) room.opponent.confirmed = false;
+    room.presentationSeed = Math.floor(Math.random() * 0x7FFFFFFF) + 1;
 
     // Generate seed server-side — neither client controls it
     const seed = Math.floor(Math.random() * 0x7FFFFFFF) + 1;
+    room.round = {
+      phase: 'selection',
+      seed,
+      selectionMode: 'both',
+      hostActiveSlot: null,
+      oppActiveSlot: null,
+      hostPendingSlot: null,
+      oppPendingSlot: null,
+    };
     return seed;
   }
 
@@ -220,20 +241,96 @@ class RoomManager {
     const room = this.getRoomBySession(sessionId);
     if (!room) return false;
     const player = this.getPlayer(room, sessionId);
-    if (!player) return false;
+    const side = this.getSide(room, sessionId);
+    const round = room.round;
+    if (!player || side === null || !round || round.phase !== 'selection') return false;
+    if (side === 0 && !(round.selectionMode === 'both' || round.selectionMode === 'host')) return false;
+    if (side === 1 && !(round.selectionMode === 'both' || round.selectionMode === 'opp')) return false;
     // Validate slot is still alive
     if (!player.shipsAlive.includes(slot)) return false;
+    if (side === 0) round.hostPendingSlot = slot;
+    else round.oppPendingSlot = slot;
     return true;
+  }
+
+  maybeStartRound(room: Room): { seed: number; hostSlot: number; oppSlot: number } | null {
+    const round = room.round;
+    if (!round || round.phase !== 'selection') return null;
+
+    let hostSlot = round.hostActiveSlot;
+    let oppSlot = round.oppActiveSlot;
+
+    if (round.selectionMode === 'both') {
+      if (round.hostPendingSlot === null || round.oppPendingSlot === null) return null;
+      hostSlot = round.hostPendingSlot;
+      oppSlot = round.oppPendingSlot;
+    } else if (round.selectionMode === 'host') {
+      if (round.hostPendingSlot === null || round.oppActiveSlot === null) return null;
+      hostSlot = round.hostPendingSlot;
+      oppSlot = round.oppActiveSlot;
+    } else if (round.selectionMode === 'opp') {
+      if (round.oppPendingSlot === null || round.hostActiveSlot === null) return null;
+      hostSlot = round.hostActiveSlot;
+      oppSlot = round.oppPendingSlot;
+    } else {
+      return null;
+    }
+
+    if (hostSlot === null || oppSlot === null) return null;
+
+    round.phase = 'battle';
+    round.selectionMode = 'none';
+    round.hostActiveSlot = hostSlot;
+    round.oppActiveSlot = oppSlot;
+    round.hostPendingSlot = null;
+    round.oppPendingSlot = null;
+
+    return { seed: round.seed, hostSlot, oppSlot };
   }
 
   shipKilled(room: Room, side: 0 | 1, slot: number) {
     const player = side === 0 ? room.host : room.opponent;
     if (!player) return;
     player.shipsAlive = player.shipsAlive.filter(i => i !== slot);
+    if (slot >= 0 && slot < player.fleet.length) {
+      player.fleet[slot] = null;
+    }
   }
 
   endBattle(room: Room): void {
     room.state = 'post_battle';
+    room.round = null;
+  }
+
+  resolveRoundEnd(room: Room, winner: 0 | 1 | null): { matchOver: boolean; nextSeed?: number } {
+    const round = room.round;
+    if (!round) return { matchOver: true };
+
+    if (winner !== 0 && round.hostActiveSlot !== null) {
+      this.shipKilled(room, 0, round.hostActiveSlot);
+    }
+    if (winner !== 1 && round.oppActiveSlot !== null) {
+      this.shipKilled(room, 1, round.oppActiveSlot);
+    }
+
+    const hostHasShips = room.host.shipsAlive.length > 0;
+    const oppHasShips = (room.opponent?.shipsAlive.length ?? 0) > 0;
+    if (!hostHasShips || !oppHasShips) {
+      this.endBattle(room);
+      return { matchOver: true };
+    }
+
+    const nextSeed = Math.floor(Math.random() * 0x7FFFFFFF) + 1;
+    room.round = {
+      phase: 'selection',
+      seed: nextSeed,
+      selectionMode: nextSelectionModeForWinner(winner),
+      hostActiveSlot: winner === 0 ? round.hostActiveSlot : null,
+      oppActiveSlot: winner === 1 ? round.oppActiveSlot : null,
+      hostPendingSlot: null,
+      oppPendingSlot: null,
+    };
+    return { matchOver: false, nextSeed };
   }
 
   rematch(room: Room) {
@@ -241,12 +338,16 @@ class RoomManager {
     room.host.confirmed = false;
     if (room.opponent) room.opponent.confirmed = false;
     room.rematchReset = true;
+    room.presentationSeed = null;
     room.host.fleet = [...room.hostOrigFleet];
     room.host.teamName = room.hostOrigTeamName;
     if (room.opponent && room.oppOrigFleet) {
       room.opponent.fleet = [...room.oppOrigFleet];
       room.opponent.teamName = room.oppOrigTeamName ?? 'Unnamed Fleet';
     }
+    room.host.shipsAlive = [];
+    if (room.opponent) room.opponent.shipsAlive = [];
+    room.round = null;
   }
 
   setRematchReset(sessionId: string, _value: boolean): Room | null {
@@ -282,9 +383,11 @@ class RoomManager {
       visibility: room.visibility,
       state: room.state,
       rematchReset: room.rematchReset,
+      presentationSeed: room.presentationSeed,
       host: { ...room.host },
       opponent: room.opponent ? { ...room.opponent } : undefined,
       inputDelay: room.inputDelay,
+      round: room.round ? { ...room.round } : null,
     };
   }
 

@@ -37,8 +37,11 @@ const PLANET_TYPES = [
   'purplegas', 'redgas', 'violetgas', 'yellowgas',
 ];
 function randomPlanetType() { return PLANET_TYPES[Math.floor(Math.random() * PLANET_TYPES.length)]; }
+function planetTypeFromSeed(seed: number): string {
+  return PLANET_TYPES[((seed % PLANET_TYPES.length) + PLANET_TYPES.length) % PLANET_TYPES.length] ?? PLANET_TYPES[0];
+}
 
-type Screen = 'supermelee' | 'bgbuilder' | 'typography_lab' | 'settings' | 'style_lab' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select' | 'final_selector';
+type Screen = 'supermelee' | 'bgbuilder' | 'typography_lab' | 'settings' | 'style_lab' | 'browser' | 'fleet_builder' | 'battle' | 'battle_recovery' | 'post_battle' | 'ship_select' | 'final_selector';
 type UtilityReturnScreen = 'supermelee' | 'style_lab' | 'typography_lab';
 
 const UTILITY_SCREEN_PATHS: Partial<Record<Screen, string>> = {
@@ -115,6 +118,8 @@ interface AppState {
   // Original fleets captured at first engage; used to restore on rematch
   originalFleets: { host: FleetSlot[]; opponent: FleetSlot[] } | null;
   finalStatus: [SideStatus | null, SideStatus | null];
+  deferredOnlineRoom: { room: FullRoomState; side?: 0 | 1 } | null;
+  onlineBattleOutcomeCaptured: boolean;
   // Where to go after post_battle "leave"
   battleOrigin:  'supermelee' | 'browser';
   utilityReturnScreen: UtilityReturnScreen;
@@ -125,12 +130,11 @@ type Action =
   | { type: 'session';        sessionId: string; commanderName: string }
   | { type: 'name_set';       name: string }
   | { type: 'room_list';      rooms: RoomSummary[] }
-  | { type: 'room_entered';   room: FullRoomState; side: 0 | 1 }
-  | { type: 'room_updated';   room: FullRoomState }
+  | { type: 'room_entered';   room: FullRoomState; side: 0 | 1; restored?: boolean }
+  | { type: 'room_updated';   room: FullRoomState; side?: 0 | 1 }
   | { type: 'join_error';     reason: string }
   | { type: 'opponent_left' }
-  | { type: 'battle_start';   seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
-  | { type: 'battle_over';    winner: 0 | 1 | null; winnerState?: WinnerShipState; finalStatus?: [SideStatus | null, SideStatus | null] }
+  | { type: 'battle_over';    winner: 0 | 1 | null; nextSeed?: number; winnerState?: WinnerShipState; finalStatus?: [SideStatus | null, SideStatus | null] }
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'go_supermelee' }
@@ -171,6 +175,8 @@ function init(): AppState {
     winnerState:   null,
     originalFleets: null,
     finalStatus: [null, null],
+    deferredOnlineRoom: null,
+    onlineBattleOutcomeCaptured: false,
     battleOrigin:  'supermelee',
     utilityReturnScreen: 'supermelee',
   };
@@ -188,6 +194,76 @@ function isLanOrLocalHost(hostname: string): boolean {
     || hostname === '::1'
     || hostname.endsWith('.local')
     || isPrivateIpv4(hostname);
+}
+
+function isOfflineRoomCode(code: string | undefined | null): boolean {
+  return code === 'SOLO' || code === 'LOCAL2P';
+}
+
+function screenForOnlineRoom(room: FullRoomState): Screen {
+  if (room.state === 'waiting' || room.state === 'building' || room.state === 'confirmed') {
+    return 'fleet_builder';
+  }
+  if (room.state === 'post_battle') {
+    return 'final_selector';
+  }
+  return room.round?.phase === 'battle' ? 'battle' : 'ship_select';
+}
+
+function isUnrestorableOnlineBattle(room: FullRoomState): boolean {
+  return !isOfflineRoomCode(room.code) && room.state === 'in_battle' && room.round?.phase === 'battle';
+}
+
+function isLiveOnlineBattleRoom(room: FullRoomState | null | undefined): boolean {
+  return !!room && !isOfflineRoomCode(room.code) && room.state === 'in_battle' && room.round?.phase === 'battle';
+}
+
+function shouldKeepWinnerStateForRoom(room: FullRoomState): boolean {
+  return room.state === 'in_battle';
+}
+
+function nextOnlineOriginalFleets(state: AppState, room: FullRoomState): AppState['originalFleets'] {
+  if (room.state === 'waiting' || room.state === 'building' || room.state === 'confirmed') {
+    return null;
+  }
+
+  if (
+    !state.originalFleets &&
+    room.state === 'in_battle' &&
+    room.opponent &&
+    state.room &&
+    (state.room.state === 'waiting' || state.room.state === 'building' || state.room.state === 'confirmed')
+  ) {
+    return {
+      host: [...room.host.fleet],
+      opponent: [...room.opponent.fleet],
+    };
+  }
+
+  return state.originalFleets;
+}
+
+function applyResolvedOnlineRoom(
+  state: AppState,
+  room: FullRoomState,
+  side?: 0 | 1,
+): AppState {
+  return {
+    ...state,
+    room,
+    yourSide: side ?? state.yourSide,
+    screen: screenForOnlineRoom(room),
+    inputDelay: room.inputDelay,
+    battleSeed: room.round?.seed ?? state.battleSeed,
+    planetType: room.presentationSeed !== null
+      ? planetTypeFromSeed(room.presentationSeed)
+      : state.planetType,
+    battleOrigin: 'browser',
+    winnerState: shouldKeepWinnerStateForRoom(room) ? state.winnerState : null,
+    originalFleets: nextOnlineOriginalFleets(state, room),
+    deferredOnlineRoom: null,
+    onlineBattleOutcomeCaptured: false,
+  };
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -211,16 +287,59 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, rooms: action.rooms };
 
     case 'room_entered':
+      {
+        const isOfflineRoom = isOfflineRoomCode(action.room.code);
+        const blockedRestore = !isOfflineRoom && !!action.restored && isUnrestorableOnlineBattle(action.room);
+        return {
+          ...state,
+          room:     action.room,
+          yourSide: action.side,
+          screen:   isOfflineRoom ? 'fleet_builder' : blockedRestore ? 'battle_recovery' : screenForOnlineRoom(action.room),
+          joinError: '',
+          inputDelay: action.room.inputDelay,
+          battleSeed: action.room.round?.seed ?? state.battleSeed,
+          planetType: !isOfflineRoom && action.room.presentationSeed !== null
+            ? planetTypeFromSeed(action.room.presentationSeed)
+            : state.planetType,
+          battleOrigin: isOfflineRoom ? state.battleOrigin : 'browser',
+          winnerState: isOfflineRoom || shouldKeepWinnerStateForRoom(action.room) ? state.winnerState : null,
+          deferredOnlineRoom: null,
+          onlineBattleOutcomeCaptured: false,
+        };
+      }
+
+    case 'room_updated': {
+      const isOfflineRoom = isOfflineRoomCode(action.room.code);
+      if (!isOfflineRoom && state.screen === 'battle' && isLiveOnlineBattleRoom(state.room) && !isLiveOnlineBattleRoom(action.room)) {
+        if (state.onlineBattleOutcomeCaptured) {
+          return applyResolvedOnlineRoom(state, action.room, action.side);
+        }
+        return {
+          ...state,
+          yourSide: action.side ?? state.yourSide,
+          deferredOnlineRoom: { room: action.room, side: action.side },
+        };
+      }
+      const keepRecoveryScreen = !isOfflineRoom && state.screen === 'battle_recovery' && isUnrestorableOnlineBattle(action.room);
+      if (!isOfflineRoom && !keepRecoveryScreen) {
+        return applyResolvedOnlineRoom(state, action.room, action.side);
+      }
       return {
         ...state,
-        room:     action.room,
-        yourSide: action.side,
-        screen:   'fleet_builder',
-        joinError: '',
+        room: action.room,
+        yourSide: action.side ?? state.yourSide,
+        screen: isOfflineRoom ? state.screen : keepRecoveryScreen ? 'battle_recovery' : screenForOnlineRoom(action.room),
+        inputDelay: action.room.inputDelay,
+        battleSeed: action.room.round?.seed ?? state.battleSeed,
+        planetType: !isOfflineRoom && action.room.presentationSeed !== null
+          ? planetTypeFromSeed(action.room.presentationSeed)
+          : state.planetType,
+        battleOrigin: isOfflineRoom ? state.battleOrigin : 'browser',
+        winnerState: isOfflineRoom || shouldKeepWinnerStateForRoom(action.room) ? state.winnerState : null,
+        deferredOnlineRoom: null,
+        onlineBattleOutcomeCaptured: false,
       };
-
-    case 'room_updated':
-      return { ...state, room: action.room };
+    }
 
     case 'join_error':
       return { ...state, joinError: action.reason };
@@ -229,44 +348,56 @@ function reducer(state: AppState, action: Action): AppState {
       if (!state.room) return state;
       if (state.yourSide === 1) {
         // Host left → room gone → go to browser
-        return { ...state, room: null, screen: 'browser' };
+        return { ...state, room: null, screen: 'browser', winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
       }
       // Opponent left → stay in fleet builder, update room
       const updated: FullRoomState = { ...state.room, opponent: undefined, state: 'waiting' };
-      return { ...state, room: updated };
-    }
-
-    case 'battle_start': {
-      // Patch room with authoritative fleet from server so Battle.tsx sees
-      // the correct ship types on both sides (roomPatch only tracks opponent
-      // incremental updates; local fleet changes never echo back to roomPatch).
-      const patchedRoom = state.room ? {
-        ...state.room,
-        host:     { ...state.room.host,     fleet: action.hostFleet },
-        opponent: state.room.opponent
-          ? { ...state.room.opponent, fleet: action.oppFleet }
-          : state.room.opponent,
-      } : state.room;
-      return {
-        ...state,
-        screen:       'battle',
-        battleSeed:   action.seed,
-        planetType:   randomPlanetType(),
-        inputDelay:   action.inputDelay,
-        yourSide:     action.yourSide,
-        winner:       undefined,
-        finalStatus:  [null, null],
-        room:         patchedRoom,
-        battleOrigin: 'browser',
-      };
+      return { ...state, room: updated, screen: 'fleet_builder', winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
     }
 
     case 'battle_over': {
       const isSolo    = state.room?.code === 'SOLO';
       const isLocal2P = state.room?.code === 'LOCAL2P';
-      if ((!isSolo && !isLocal2P) || !state.room) {
-        // Online: server handles the multi-ship flow; go straight to post_battle
-        return { ...state, screen: 'post_battle', winner: action.winner, winnerState: null, finalStatus: action.finalStatus ?? state.finalStatus };
+      const isOnline = !isSolo && !isLocal2P;
+      if (!state.room) {
+        return {
+          ...state,
+          screen: 'post_battle',
+          winner: action.winner,
+          winnerState: null,
+          finalStatus: action.finalStatus ?? state.finalStatus,
+          deferredOnlineRoom: null,
+          onlineBattleOutcomeCaptured: false,
+        };
+      }
+
+      if (isOnline) {
+        const hasLocalOutcome = action.finalStatus !== undefined;
+        if (!hasLocalOutcome && state.screen === 'battle') {
+          return {
+            ...state,
+            winner: action.winner,
+          };
+        }
+
+        const nextState: AppState = {
+          ...state,
+          winner: action.winner,
+          winnerState: action.winner !== null ? (action.winnerState ?? state.winnerState) : null,
+          finalStatus: action.finalStatus ?? state.finalStatus,
+          battleSeed: hasLocalOutcome ? state.battleSeed : (action.nextSeed ?? state.battleSeed),
+          screen: state.room.state === 'post_battle' ? 'final_selector' : state.screen,
+        };
+        if (!hasLocalOutcome) {
+          return nextState;
+        }
+        if (state.deferredOnlineRoom) {
+          return applyResolvedOnlineRoom(nextState, state.deferredOnlineRoom.room, state.deferredOnlineRoom.side);
+        }
+        return {
+          ...nextState,
+          onlineBattleOutcomeCaptured: true,
+        };
       }
 
       const winner = action.winner;
@@ -305,7 +436,7 @@ function reducer(state: AppState, action: Action): AppState {
         return {
           ...state,
           room: updatedRoom,
-          screen: 'final_selector',
+          screen: isOnline ? 'post_battle' : 'final_selector',
           winner: finalWinner,
           winnerState: null,
           finalStatus: action.finalStatus ?? state.finalStatus,
@@ -329,6 +460,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state, room: updatedRoom,
         screen: 'ship_select', shipSelectSide: shipSelectBoth ? null : shipSelectSide,
+        battleSeed: action.nextSeed ?? state.battleSeed,
         winner, // keep so ship_chosen knows if it was a draw
         winnerState: nextWinnerState,
         finalStatus: action.finalStatus ?? state.finalStatus,
@@ -348,7 +480,8 @@ function reducer(state: AppState, action: Action): AppState {
       const newActiveSlot0 = side === 0 ? slot : state.activeSlot0;
       const newActiveSlot1 = side === 1 ? slot : state.activeSlot1;
 
-      // Simultaneous picking (LOCAL2P split-screen): wait for both sides before starting
+      // Simultaneous picking: offline LOCAL2P uses two interactive panes;
+      // online netplay uses one interactive local pane plus the remote preview.
       if (state.shipSelectBoth) {
         const p0 = side === 0 ? slot : state.shipSelectP0Slot;
         const p1 = side === 1 ? slot : state.shipSelectP1Slot;
@@ -376,7 +509,10 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         activeSlot0: newActiveSlot0, activeSlot1: newActiveSlot1,
-        screen: 'battle', battleSeed: Date.now() & 0x7FFFFFFF,
+        screen: 'battle',
+        battleSeed: state.room.code === 'SOLO' || state.room.code === 'LOCAL2P'
+          ? (Date.now() & 0x7FFFFFFF)
+          : state.battleSeed,
         winner: undefined, shipSelectSide: null,
         finalStatus: [null, null],
       };
@@ -444,10 +580,10 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'go_browser':
-      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null };
+      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
 
     case 'go_supermelee':
-      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null };
+      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
 
     case 'go_bgbuilder':
       return { ...state, screen: 'bgbuilder', utilityReturnScreen: action.returnTo ?? 'supermelee' };
@@ -480,7 +616,9 @@ function reducer(state: AppState, action: Action): AppState {
         visibility: 'public',
         state: 'in_battle',
         rematchReset: false,
+        presentationSeed: null,
         inputDelay: 0,
+        round: null,
         host: {
           sessionId: 'p1',
           commanderName: state.commanderName || 'Commander',
@@ -527,7 +665,9 @@ function reducer(state: AppState, action: Action): AppState {
         visibility: 'public',
         state: 'building',
         rematchReset: false,
+        presentationSeed: null,
         inputDelay: 0,
+        round: null,
         host: {
           sessionId: 'p1',
           commanderName: action.commanderName,
@@ -565,6 +705,7 @@ function reducer(state: AppState, action: Action): AppState {
       const updatedRoom: FullRoomState = {
         ...state.room,
         state: 'in_battle',
+        round: null,
         host:     { ...state.room.host,      fleet: action.fleet0, confirmed: true, shipsAlive: getAliveSlots(action.fleet0) },
         opponent: { ...state.room.opponent!, fleet: action.fleet1, confirmed: true, shipsAlive: getAliveSlots(action.fleet1) },
       };
@@ -619,7 +760,9 @@ function reducer(state: AppState, action: Action): AppState {
         visibility: 'public',
         state: 'building',
         rematchReset: false,
+        presentationSeed: null,
         inputDelay: 0,
+        round: null,
         host: {
           sessionId: 'player',
           commanderName: action.commanderName,
@@ -658,6 +801,7 @@ function reducer(state: AppState, action: Action): AppState {
       const updatedRoom: FullRoomState = {
         ...state.room,
         state: 'in_battle',
+        round: null,
         host: { ...state.room.host, fleet: action.fleet, confirmed: true, shipsAlive: getAliveSlots(action.fleet) },
         opponent: { ...state.room.opponent!, shipsAlive: getAliveSlots(state.room.opponent!.fleet) },
       };
@@ -722,7 +866,10 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
       dispatch({ type: 'room_entered', room: msg.room, side: 0 });
       break;
     case 'room_joined':
-      dispatch({ type: 'room_entered', room: msg.room, side: msg.yourSide });
+      dispatch({ type: 'room_entered', room: msg.room, side: msg.yourSide, restored: msg.restored });
+      break;
+    case 'room_state':
+      dispatch({ type: 'room_updated', room: msg.room, side: msg.yourSide });
       break;
     case 'join_error':
       dispatch({ type: 'join_error', reason: msg.reason });
@@ -730,17 +877,10 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
     case 'opponent_left':
       dispatch({ type: 'opponent_left' });
       break;
-    case 'battle_start':
-      dispatch({ type: 'battle_start', seed: msg.seed, inputDelay: msg.inputDelay, yourSide: msg.yourSide, hostFleet: msg.hostFleet, oppFleet: msg.oppFleet });
-      break;
     case 'battle_over':
-      dispatch({ type: 'battle_over', winner: msg.winner });
+      dispatch({ type: 'battle_over', winner: msg.winner, nextSeed: msg.nextSeed });
       break;
 
-    // Fleet/room updates — we rebuild FullRoomState from incremental patches
-    // For simplicity, we dispatch room_updated when we have the full state.
-    // Incremental patches (opponent_fleet, opponent_team_name, etc.) are handled
-    // by the FleetBuilder component reading state from a ref updated here.
     default:
       break;
   }
@@ -752,64 +892,9 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const showLocalDevLink = isLanOrLocalHost(window.location.hostname);
 
-  // We use a separate room ref so FleetBuilder can apply incremental patches
-  const [roomPatch, setRoomPatch] = useState<FullRoomState | null>(null);
-
   useEffect(() => {
     const unsubMsg = client.onMessage((msg: ServerMsg) => {
       applyServerMsg(msg, dispatch);
-
-      // Handle incremental fleet/confirmation patches (server messages only)
-      setRoomPatch(prev => {
-        // These always replace roomPatch — must be before the null guard
-        if (msg.type === 'room_joined' || msg.type === 'room_created') return msg.room;
-        if (!prev) return prev;
-        switch (msg.type) {
-          case 'opponent_joined': {
-            const opp = {
-              sessionId: '__opp__',
-              commanderName: msg.name,
-              teamName: msg.teamName,
-              fleet: msg.fleet,
-              confirmed: false,
-              shipsAlive: [],
-            };
-            return { ...prev, opponent: opp, state: 'building' };
-          }
-          case 'opponent_fleet': {
-            if (!prev.opponent) return prev;
-            const fleet = [...prev.opponent.fleet];
-            fleet[msg.slot] = msg.ship;
-            return { ...prev, opponent: { ...prev.opponent, fleet } };
-          }
-          case 'opponent_team_name': {
-            if (!prev.opponent) return prev;
-            return { ...prev, opponent: { ...prev.opponent, teamName: msg.name } };
-          }
-          case 'opponent_confirmed': {
-            if (!prev.opponent) return prev;
-            return { ...prev, opponent: { ...prev.opponent, confirmed: true } };
-          }
-          case 'opponent_cancelled': {
-            if (!prev.opponent) return prev;
-            return { ...prev, opponent: { ...prev.opponent, confirmed: false } };
-          }
-          case 'rematch_reset':
-            return { ...prev, rematchReset: msg.value };
-          case 'battle_start':
-            // Stamp authoritative fleet onto roomPatch so Battle.tsx reads the
-            // correct ship types — local fleet changes never echo back via ws.
-            return {
-              ...prev,
-              host:     { ...prev.host,     fleet: msg.hostFleet },
-              opponent: prev.opponent
-                ? { ...prev.opponent, fleet: msg.oppFleet }
-                : prev.opponent,
-            };
-          default:
-            return prev;
-        }
-      });
     });
 
     const unsubConnect = client.onConnect(() => dispatch({ type: 'connected' }));
@@ -830,12 +915,6 @@ export default function App() {
     if (!state.connected || !state.sessionId || !state.commanderName) return;
     client.send({ type: 'set_name', name: state.commanderName });
   }, [state.connected, state.sessionId, state.commanderName]);
-
-  // Sync roomPatch when room_entered fires
-  useEffect(() => {
-    if (state.room) setRoomPatch(state.room);
-    else setRoomPatch(null);
-  }, [state.room]);
 
   // Sync pathname for SPA-friendly utility routes like /styles
   useEffect(() => {
@@ -933,19 +1012,19 @@ export default function App() {
       );
 
     case 'fleet_builder': {
-      const isOfflineRoom = roomPatch?.code === 'SOLO' || roomPatch?.code === 'LOCAL2P';
-      return roomPatch ? (
+      const isOfflineRoom = isOfflineRoomCode(state.room?.code);
+      return state.room ? (
         <FleetBuilder
-          room={roomPatch}
+          room={state.room}
           yourSide={state.yourSide}
           onLeave={() => {
             if (!isOfflineRoom) client.send({ type: 'leave_room' });
             dispatch({ type: 'go_browser' });
           }}
-          onSoloEngage={roomPatch.code === 'SOLO'
+          onSoloEngage={state.room.code === 'SOLO'
             ? (fleet) => dispatch({ type: 'solo_engage', fleet })
             : undefined}
-          onLocal2PEngage={roomPatch.code === 'LOCAL2P'
+          onLocal2PEngage={state.room.code === 'LOCAL2P'
             ? (fleet0, fleet1) => dispatch({ type: 'local2p_engage', fleet0, fleet1 })
             : undefined}
         />
@@ -953,48 +1032,95 @@ export default function App() {
     }
 
     case 'battle': {
-      // Offline modes: use state.room directly — roomPatch lags one render
-      // behind and would supply stale null fleets on the first battle frame.
-      // Online modes: use roomPatch which carries incremental fleet patches
-      // applied by the server message handler.
-      const isOfflineBattle = state.room?.code === 'SOLO' || state.room?.code === 'LOCAL2P';
-      const battleRoom = isOfflineBattle ? state.room : (roomPatch ?? state.room);
-      return battleRoom ? (
+      const isOfflineBattle = isOfflineRoomCode(state.room?.code);
+      const onlineRound = !isOfflineBattle ? state.room?.round : null;
+      const battleSeed = !isOfflineBattle ? (onlineRound?.seed ?? state.battleSeed) : state.battleSeed;
+      const battlePlanetType = !isOfflineBattle && state.room?.presentationSeed !== null && state.room?.presentationSeed !== undefined
+        ? planetTypeFromSeed(state.room.presentationSeed)
+        : state.planetType;
+      return state.room ? (
         <Battle
-          key={state.battleSeed}
-          room={battleRoom}
+          key={battleSeed}
+          room={state.room}
           yourSide={state.yourSide}
-          seed={state.battleSeed}
-          planetType={state.planetType}
+          seed={battleSeed}
+          planetType={battlePlanetType}
           inputDelay={state.inputDelay}
-          aiSides={battleRoom.code === 'SOLO'
+          aiSides={state.room.code === 'SOLO'
             ? [
                 state.offlineControls[0] === 'human' ? null : state.offlineControls[0],
                 state.offlineControls[1] === 'human' ? null : state.offlineControls[1],
               ]
             : [null, null]}
-          isLocal2P={battleRoom.code === 'LOCAL2P'}
+          isLocal2P={state.room.code === 'LOCAL2P'}
           winnerState={state.winnerState}
-          activeSlot0={state.activeSlot0}
-          activeSlot1={state.activeSlot1}
+          activeSlot0={isOfflineBattle ? state.activeSlot0 : (onlineRound?.hostActiveSlot ?? null)}
+          activeSlot1={isOfflineBattle ? state.activeSlot1 : (onlineRound?.oppActiveSlot ?? null)}
           onBattleEnd={(winner, ws, finalStatus) => dispatch({ type: 'battle_over', winner, winnerState: ws, finalStatus })}
+          onQuitBattle={!isOfflineBattle
+            ? () => {
+                client.send({ type: 'leave_room' });
+                dispatch({ type: 'go_browser' });
+              }
+            : undefined}
+          onDesyncQuit={!isOfflineBattle
+            ? () => {
+                client.send({ type: 'leave_room' });
+                dispatch({ type: 'go_browser' });
+              }
+            : undefined}
         />
       ) : null;
     }
 
+    case 'battle_recovery':
+      return state.room ? (
+        <BattleRecoveryScreen
+          room={state.room}
+          onLeave={() => {
+            client.send({ type: 'leave_room' });
+            dispatch({ type: 'go_browser' });
+          }}
+        />
+      ) : null;
+
     case 'ship_select': {
       if (!state.room) return null;
       const isSolo = state.room.code === 'SOLO';
+      const isOnline = !isOfflineRoomCode(state.room.code);
+      const onlineRound = isOnline ? state.room.round : null;
       const origHost = state.originalFleets?.host ?? state.room.host.fleet;
       const origOpp  = state.originalFleets?.opponent ?? (state.room.opponent?.fleet ?? []);
       const showStatus = state.finalStatus[0] !== null || state.finalStatus[1] !== null;
 
-      const interactive0 = state.shipSelectBoth ? true : state.shipSelectSide === 0;
-      const interactive1 = state.shipSelectBoth ? true : state.shipSelectSide === 1;
-      const showPane0 = state.shipSelectBoth || interactive0;
-      const showPane1 = state.shipSelectBoth || interactive1;
-      const pick0 = interactive0 ? state.shipSelectP0Slot : state.activeSlot0;
-      const pick1 = interactive1 ? state.shipSelectP1Slot : state.activeSlot1;
+      const interactive0 = isOnline
+        ? (((onlineRound?.selectionMode === 'both') || (onlineRound?.selectionMode === 'host')) && state.yourSide === 0)
+        : (state.shipSelectBoth ? true : state.shipSelectSide === 0);
+      const interactive1 = isOnline
+        ? (((onlineRound?.selectionMode === 'both') || (onlineRound?.selectionMode === 'opp')) && state.yourSide === 1)
+        : (state.shipSelectBoth ? true : state.shipSelectSide === 1);
+      const showPane0 = isOnline ? true : (state.shipSelectBoth || interactive0);
+      const showPane1 = isOnline ? true : (state.shipSelectBoth || interactive1);
+      const pick0 = isOnline
+        ? (onlineRound?.hostPendingSlot ?? onlineRound?.hostActiveSlot ?? null)
+        : (state.shipSelectBoth ? state.shipSelectP0Slot : (interactive0 ? state.shipSelectP0Slot : state.activeSlot0));
+      const pick1 = isOnline
+        ? (onlineRound?.oppPendingSlot ?? onlineRound?.oppActiveSlot ?? null)
+        : (state.shipSelectBoth ? state.shipSelectP1Slot : (interactive1 ? state.shipSelectP1Slot : state.activeSlot1));
+      const handleSelect0 = (slot: number) => {
+        if (isOnline) {
+          client.send({ type: 'ship_select', slot });
+          return;
+        }
+        dispatch({ type: 'ship_chosen', side: 0, slot });
+      };
+      const handleSelect1 = (slot: number) => {
+        if (isOnline) {
+          client.send({ type: 'ship_select', slot });
+          return;
+        }
+        dispatch({ type: 'ship_chosen', side: 1, slot });
+      };
       return (
         <SplitShipSelect
           fleet0={state.room.host.fleet}
@@ -1015,8 +1141,8 @@ export default function App() {
           showActionCells1={interactive1}
           showStatus={showStatus}
           statusSides={state.finalStatus}
-          onSelect0={slot => dispatch({ type: 'ship_chosen', side: 0, slot })}
-          onSelect1={slot => dispatch({ type: 'ship_chosen', side: 1, slot })}
+          onSelect0={handleSelect0}
+          onSelect1={handleSelect1}
           onForfeit0={() => dispatch({ type: 'forfeit_game', side: 0 })}
           onForfeit1={() => dispatch({ type: 'forfeit_game', side: 1 })}
         />
@@ -1063,6 +1189,8 @@ export default function App() {
 
     case 'final_selector': {
       if (!state.room) return null;
+      const isOnline = !isOfflineRoomCode(state.room.code);
+      const isOnlineHost = isOnline && state.yourSide === 0;
       const origHost = state.originalFleets?.host ?? state.room.host.fleet;
       const origOpp  = state.originalFleets?.opponent ?? (state.room.opponent?.fleet ?? []);
       const allCyborgs = state.room.code === 'SOLO'
@@ -1079,8 +1207,16 @@ export default function App() {
           label1={state.room.opponent?.teamName || 'Player 2'}
           winner={state.winner}
           finalStatus={state.finalStatus}
-          autoAdvanceMs={allCyborgs ? 6000 : undefined}
-          onDone={() => dispatch({ type: 'finish_offline_match' })}
+          autoAdvanceMs={isOnline
+            ? (isOnlineHost ? 3500 : undefined)
+            : (allCyborgs ? 6000 : undefined)}
+          subtitle={isOnline
+            ? (isOnlineHost ? 'Returning to multiplayer setup...' : 'Awaiting return to multiplayer setup...')
+            : undefined}
+          allowManualAdvance={!isOnline}
+          onDone={isOnline
+            ? (isOnlineHost ? () => client.send({ type: 'rematch' }) : undefined)
+            : () => dispatch({ type: 'finish_offline_match' })}
         />
       );
     }
@@ -1633,7 +1769,9 @@ interface FinalFleetResultProps {
   winner: 0 | 1 | null | undefined;
   finalStatus: [SideStatus | null, SideStatus | null];
   autoAdvanceMs?: number;
-  onDone: () => void;
+  subtitle?: string;
+  allowManualAdvance?: boolean;
+  onDone?: () => void;
 }
 
 function FinalFleetResult({
@@ -1642,15 +1780,20 @@ function FinalFleetResult({
   winner,
   finalStatus,
   autoAdvanceMs,
+  subtitle,
+  allowManualAdvance = true,
   onDone,
 }: FinalFleetResultProps) {
   const [fading, setFading] = useState(false);
   const finishingRef = useRef(false);
 
   useEffect(() => {
+    if (!onDone && autoAdvanceMs == null) return;
+
     const finish = () => {
       if (finishingRef.current) return;
       finishingRef.current = true;
+      if (!onDone) return;
       setFading(true);
       window.setTimeout(onDone, 450);
     };
@@ -1662,24 +1805,28 @@ function FinalFleetResult({
     const onMouse = () => finish();
     const onTouch = () => finish();
 
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('mousedown', onMouse);
-    window.addEventListener('touchstart', onTouch, { passive: true });
+    if (allowManualAdvance) {
+      window.addEventListener('keydown', onKey);
+      window.addEventListener('mousedown', onMouse);
+      window.addEventListener('touchstart', onTouch, { passive: true });
+    }
 
     const timer = autoAdvanceMs != null ? window.setTimeout(finish, autoAdvanceMs) : null;
 
     return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('mousedown', onMouse);
-      window.removeEventListener('touchstart', onTouch);
+      if (allowManualAdvance) {
+        window.removeEventListener('keydown', onKey);
+        window.removeEventListener('mousedown', onMouse);
+        window.removeEventListener('touchstart', onTouch);
+      }
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [autoAdvanceMs, onDone]);
+  }, [allowManualAdvance, autoAdvanceMs, onDone]);
 
   const title = winner === null ? 'Mutual Annihilation' : winner === 0 ? `${label0} Wins` : `${label1} Wins`;
-  const subtitle = autoAdvanceMs != null
+  const footerSubtitle = subtitle ?? (autoAdvanceMs != null
     ? 'Returning to fleet setup...'
-    : 'Press any key to return to fleet setup';
+    : 'Press any key to return to fleet setup');
 
   return (
     <div style={{
@@ -1708,7 +1855,7 @@ function FinalFleetResult({
         showStatus={true}
         statusSides={finalStatus}
         overlayTitle={title}
-        overlaySubtitle={subtitle}
+        overlaySubtitle={footerSubtitle}
         onSelect0={() => {}}
         onSelect1={() => {}}
         onForfeit0={() => {}}
@@ -1719,6 +1866,33 @@ function FinalFleetResult({
 }
 
 // ─── Post-battle screen ───────────────────────────────────────────────────────
+
+interface BattleRecoveryScreenProps {
+  room: FullRoomState;
+  onLeave: () => void;
+}
+
+function BattleRecoveryScreen({ room, onLeave }: BattleRecoveryScreenProps) {
+  return (
+    <div className="screen">
+      <div className="panel col" style={{ width: 440, gap: 18, textAlign: 'center' }}>
+        <h2 style={{ color: 'var(--danger)' }}>Transmission Interrupted</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5 }}>
+          This client rejoined room <strong>{room.code}</strong> after the round had already started.
+          The server tracks the room and relays lockstep inputs, but it does not store the live battle state or the
+          early input queue needed to resume a round safely.
+        </p>
+        <p style={{ color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.5 }}>
+          Mounting the battle again here would invent a fresh fight from partial data and can stall forever on missing frames.
+          Leave the match from here. A safe mid-round reconnect or abandon-round recovery flow is not wired yet.
+        </p>
+        <div className="row" style={{ justifyContent: 'center', gap: 12 }}>
+          <button className="danger" onClick={onLeave}>Leave Match</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface PostBattleProps {
   winner:    0 | 1 | null | undefined;

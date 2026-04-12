@@ -45,7 +45,7 @@ export default function FleetBuilder({
   useEffect(() => {
     setLocalFleet0(Array.from({ length: FLEET_SIZE }, (_, i) => me.fleet[i] ?? null));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.code]);
+  }, [me.fleet]);
 
   // ── Picker state ────────────────────────────────────────────────────────────
   // Which fleet/slot the picker is editing. p2 = true means P2's fleet.

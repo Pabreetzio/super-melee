@@ -59,6 +59,7 @@ import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
 import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
 import { computeAIInput } from '../engine/battle/ai';
 import PauseOverlay from './PauseOverlay';
+import DesyncOverlay from './DesyncOverlay';
 import MobileBattleControls from './MobileBattleControls';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 import { loadExplosionSprites, placeholderDot, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
@@ -76,6 +77,22 @@ const TRANSITION_SPEED_W = DISPLAY_TO_WORLD(40);
 const POST_BATTLE_PAUSE_FRAMES = 144; // safety cap (~12.5s); real end is gated on ditty completion
 
 const FRAME_MS = 1000 / BATTLE_FPS;
+
+function mixSeed(seed: number, value: number): number {
+  let next = (seed ^ value) >>> 0;
+  next = Math.imul(next ^ (next >>> 16), 0x45d9f3b) >>> 0;
+  next = Math.imul(next ^ (next >>> 16), 0x45d9f3b) >>> 0;
+  return (next ^ (next >>> 16)) >>> 0;
+}
+
+function stableCaptainSeed(baseSeed: number, side: 0 | 1, slot: number | null, shipId: ShipId): number {
+  let seed = mixSeed(baseSeed >>> 0, side === 0 ? 0x13579bdf : 0x2468ace0);
+  seed = mixSeed(seed, slot ?? 0x7fffffff);
+  for (let i = 0; i < shipId.length; i++) {
+    seed = mixSeed(seed, shipId.charCodeAt(i) + i);
+  }
+  return seed >>> 0;
+}
 
 // Star field: 3 tiers matching UQM galaxy.c (BIG=30, MED=60, SML=90)
 const STAR_COUNTS = [30, 60, 90] as const;
@@ -111,11 +128,13 @@ interface Props {
   activeSlot0?: number | null;
   activeSlot1?: number | null;
   onBattleEnd: (winner: 0 | 1 | null, winnerState?: WinnerShipState, finalStatus?: [SideStatus | null, SideStatus | null]) => void;
+  onQuitBattle?: () => void;
+  onDesyncQuit?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, aiSides = [null, null], isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd }: Props) {
+export default function Battle({ room, yourSide, seed: _seed, planetType, inputDelay, aiSides = [null, null], isLocal2P = false, winnerState = null, activeSlot0 = null, activeSlot1 = null, onBattleEnd, onQuitBattle, onDesyncQuit }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const stateRef     = useRef<BattleState | null>(null);
   const keysRef      = useRef(new Set<string>());
@@ -161,12 +180,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   // Live status panel data — updated each sim frame via ref to avoid React re-render cost.
   // StatusPanel reads directly from this ref in its own rAF loop.
   const statusRef = useRef<[SideStatus | null, SideStatus | null]>([null, null]);
-  // Random captain index per side, picked once per match so the name is stable
-  // within a fight but varies across matches.
-  const captainIdxRef = useRef<[number, number]>([
-    Math.floor(Math.random() * 1000),
-    Math.floor(Math.random() * 1000),
-  ]);
+  // Captain identity is tied to a stable per-match presentation seed and fleet slot.
+  const captainIdxRef = useRef<[number, number]>([0, 0]);
   // uiScale: ratio of physical display pixels to logical 640×480 game pixels.
   // Stored in a ref so the render loop always sees the current value without
   // needing to re-bind the tick/render closures on every resize.
@@ -174,6 +189,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
   const [showTouchControls, setShowTouchControls] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => !!document.fullscreenElement);
+  const [desyncState, setDesyncState] = useState<{ frame: number; count: number } | null>(null);
   const hasOfflineAI = aiSides[0] !== null || aiSides[1] !== null;
 
   // Debug helper — call window.__battleDebug() from the browser console
@@ -244,8 +260,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   }, [isLocal2P]);
 
   useEffect(() => {
-    if (!showTouchControls || isPaused) touchBitsRef.current = 0;
-  }, [showTouchControls, isPaused]);
+    if (!showTouchControls || isPaused || desyncState) touchBitsRef.current = 0;
+  }, [showTouchControls, isPaused, desyncState]);
 
   // Initialize battle state
   useEffect(() => {
@@ -259,6 +275,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const fleet1 = room.opponent?.fleet ?? [];
     const type0 = ((activeSlot0 != null ? fleet0[activeSlot0] : null) ?? fleet0.find(Boolean) ?? 'human') as ShipId;
     const type1 = ((activeSlot1 != null ? fleet1[activeSlot1] : null) ?? fleet1.find(Boolean) ?? 'human') as ShipId;
+    const captainBaseSeed = room.presentationSeed ?? _seed ?? 1;
+    captainIdxRef.current = [
+      stableCaptainSeed(captainBaseSeed, 0, activeSlot0, type0),
+      stableCaptainSeed(captainBaseSeed, 1, activeSlot1, type1),
+    ];
 
     const rng = new RNG(_seed || 1);
     rngRef.current = rng;
@@ -420,13 +441,6 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       accumRef.current = 0;
     })();
 
-    // Tell server which ship slot we're entering with (first occupied slot)
-    const myFleet = yourSide === 0 ? room.host.fleet : room.opponent?.fleet ?? [];
-    const firstSlot = myFleet.findIndex(s => s !== null);
-    if (firstSlot >= 0) {
-      client.send({ type: 'ship_select', slot: firstSlot });
-    }
-
     // Subscribe to net messages (not used in AI mode)
     const unsub = hasOfflineAI ? () => {} : client.onMessage(msg => {
       if (msg.type === 'battle_input' && stateRef.current) {
@@ -452,17 +466,20 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       } else if (msg.type === 'checksum_mismatch') {
         checksumMismatchCountRef.current++;
         logDesyncEvent(snapHistoryRef.current, msg.frame, stateRef.current?.frame ?? -1, yourSide, checksumMismatchCountRef.current);
-        // Don't crash — continue playing. The lockstep still guarantees both
-        // clients run identical inputs each frame, so crew/energy should still
-        // agree in most cases even if positions have drifted slightly.
-        // The battle ends normally when a ship dies; both clients report the
-        // winner via battle_over_ack at that point.
+        pausedRef.current = true;
+        setDesyncState({ frame: msg.frame, count: checksumMismatchCountRef.current });
       }
     });
 
     // Keyboard — track by event.code so bindings are layout-independent
     // and we can distinguish Left/RightCtrl, Left/RightShift, etc.
     const onDown = (e: KeyboardEvent) => {
+      if (desyncState) {
+        if (e.code === 'Escape' || gameKeysRef.current.has(e.code)) {
+          e.preventDefault();
+        }
+        return;
+      }
       if (e.code === 'Escape') {
         e.preventDefault();
         const next = !pausedRef.current;
@@ -591,18 +608,27 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       i0 = computeSideInput(0);
       i1 = computeSideInput(1);
     } else {
-      // Lockstep: buffer my input for a future frame, wait for opponent's
-      const sendFrame = bs.frame + inputDelay;
-      bs.inputBuf[mySide].set(sendFrame, myInput);
-      client.send({ type: 'battle_input', frame: sendFrame, input: myInput });
+      if (bs.pendingEnd) {
+        // Once a winner is decided, finish the death / victory sequence locally.
+        // The server may stop relaying battle_input as soon as it resolves the
+        // round, so requiring fresh remote frames here can freeze the battle on
+        // the last explosion even though both clients already agree on the result.
+        i0 = 0;
+        i1 = 0;
+      } else {
+        // Lockstep: buffer my input for a future frame, wait for opponent's
+        const sendFrame = bs.frame + inputDelay;
+        bs.inputBuf[mySide].set(sendFrame, myInput);
+        client.send({ type: 'battle_input', frame: sendFrame, input: myInput });
 
-      const p0 = bs.inputBuf[0].get(bs.frame);
-      const p1 = bs.inputBuf[1].get(bs.frame);
-      if (p0 === undefined || p1 === undefined) return; // stall
+        const p0 = bs.inputBuf[0].get(bs.frame);
+        const p1 = bs.inputBuf[1].get(bs.frame);
+        if (p0 === undefined || p1 === undefined) return; // stall
 
-      bs.inputBuf[0].delete(bs.frame);
-      bs.inputBuf[1].delete(bs.frame);
-      i0 = p0; i1 = p1;
+        bs.inputBuf[0].delete(bs.frame);
+        bs.inputBuf[1].delete(bs.frame);
+        i0 = p0; i1 = p1;
+      }
     }
 
     // Simulate one frame
@@ -1375,7 +1401,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     setIsPaused(false);
     lastTimeRef.current = performance.now();
     accumRef.current = 0;
-  }, []);
+  }, [desyncState]);
+
+  const handleQuitBattle = useCallback(() => {
+    void stopVictoryDitty();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (onQuitBattle) {
+      onQuitBattle();
+      return;
+    }
+    onBattleEnd(null);
+  }, [onBattleEnd, onQuitBattle]);
 
   const handleTouchBitsChange = useCallback((bits: number) => {
     touchBitsRef.current = bits;
@@ -1409,7 +1445,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           <PauseOverlay
             isLocal2P={isLocal2P}
             onResume={handleResume}
-            onQuit={() => onBattleEnd(null)}
+            onQuit={handleQuitBattle}
             onBindingsChanged={(controls: ControlsConfig) => {
               keyMapP1Ref.current  = buildKeyMap(controls.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
               keyMapP2Ref.current  = buildKeyMap(controls.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
@@ -1419,10 +1455,24 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             }}
           />
         )}
+
+        {desyncState && (
+          <DesyncOverlay
+            hostName={room.host.commanderName || room.host.teamName || 'Host'}
+            oppName={room.opponent?.commanderName || room.opponent?.teamName || 'Opponent'}
+            mismatchFrame={desyncState.frame}
+            mismatchCount={desyncState.count}
+            onQuit={() => {
+              void stopVictoryDitty();
+              if (rafRef.current) cancelAnimationFrame(rafRef.current);
+              if (onDesyncQuit) onDesyncQuit();
+            }}
+          />
+        )}
       </div>
       <MobileBattleControls
         visible={showTouchControls}
-        paused={isPaused}
+        paused={isPaused || !!desyncState}
         canFullscreen={document.fullscreenEnabled}
         isFullscreen={isFullscreen}
         onBitsChange={handleTouchBitsChange}
