@@ -108,7 +108,7 @@ converted for the web port:
 
 The `.fon` files are Windows bitmap font resources. Conversion to web fonts was done with:
 - `tools/convert-font.py` — extracts glyph bitmaps from `.fon` and builds a TTF via `fonttools`
-- `tools/font-test.html` — browser preview for verifying glyph coverage and sizing
+- `client/src/components/TypographyLab.tsx` — in-app typography utility for verifying glyph coverage and sizing
 
 `slides.fon` required a converter fix: unlike the transparent-mask fonts, its
 glyph PNGs are stored as opaque black/white bitmaps. `tools/convert-font.py`

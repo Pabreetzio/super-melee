@@ -217,9 +217,17 @@ export const SHIP_STATUS_DATA: Partial<Record<ShipId, ShipStatusDef>> = {
   },
 };
 
+const ALL_CAPTAIN_NAMES = Object.values(SHIP_STATUS_DATA)
+  .flatMap(def => def?.captains ?? []);
+
 /** Pick a stable captain name for a given ship type based on a seed value */
 export function pickCaptain(shipId: ShipId, seed: number): string {
   const def = SHIP_STATUS_DATA[shipId];
   if (!def || def.captains.length === 0) return '';
   return def.captains[seed % def.captains.length];
+}
+
+export function pickRandomCaptainName(): string {
+  if (ALL_CAPTAIN_NAMES.length === 0) return 'Commander';
+  return ALL_CAPTAIN_NAMES[Math.floor(Math.random() * ALL_CAPTAIN_NAMES.length)];
 }

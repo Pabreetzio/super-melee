@@ -5,6 +5,7 @@ import { SHIP_NAMES } from '../engine/ships';
 import ShipPicker from './ShipPicker';
 import { SHIP_ICON, SHIP_COSTS } from './shipSelectionData';
 import ShipMenuImage from './ShipMenuImage';
+import MultiplayerSetupScreen from './MultiplayerSetupScreen';
 
 const FLEET_SIZE = 14;
 const COLS = 7;
@@ -147,6 +148,31 @@ export default function FleetBuilder({
     : Array.from({ length: FLEET_SIZE }, (_, i) => opp?.fleet[i] ?? null);
 
   // ── Render ───────────────────────────────────────────────────────────────────
+  if (!isOffline) {
+    return (
+      <>
+        <MultiplayerSetupScreen
+          room={room}
+          yourSide={yourSide}
+          localFleet={localFleet0}
+          copyState={copyState}
+          onCopyCode={handleCopyCode}
+          onLeave={onLeave}
+          onConfirm={() => client.send({ type: 'confirm' })}
+          onCancelConfirm={() => client.send({ type: 'cancel_confirm' })}
+          onFleetPick={slot => setPickerTarget({ slot, p2: false })}
+          onTeamName={name => client.send({ type: 'team_name', name })}
+        />
+        {pickerTarget !== null && (
+          <ShipPicker
+            onPick={pickShip}
+            onClose={() => setPickerTarget(null)}
+          />
+        )}
+      </>
+    );
+  }
+
   const title = isLocal2P
     ? 'Fleet Assembly — Local 2P'
     : isSolo
@@ -302,9 +328,6 @@ export default function FleetBuilder({
             </button>
           )}
 
-          {!isOffline && yourSide === 0 && (
-            <RematchResetToggle value={room.rematchReset} />
-          )}
         </div>
 
         {!isOffline && myConfirmed && opp?.confirmed && (
@@ -359,20 +382,6 @@ function TeamNameInput({ value }: { value: string }) {
     </span>
   );
 }
-
-function RematchResetToggle({ value }: { value: boolean }) {
-  return (
-    <label className="row" style={{ gap: 8, cursor: 'pointer', fontSize: 12 }}>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={e => client.send({ type: 'rematch_reset', value: e.target.checked })}
-      />
-      Reset fleets on rematch
-    </label>
-  );
-}
-
 async function copyText(text: string): Promise<void> {
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(text);

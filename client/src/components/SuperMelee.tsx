@@ -9,12 +9,11 @@ import { preloadUISounds, playMenuError, playMenuMove, playMenuSelect } from '..
 import { SHIP_COSTS, SHIP_ICON, getShipSelectionPreview } from './shipSelectionData';
 import { PreloadedImage, prefetchImages } from '../lib/preloadedImage';
 import ShipMenuImage from './ShipMenuImage';
+import SuperMeleeTitle from './SuperMeleeTitle';
 
 const BATTLE_MENU_FRAMES = ['/meleemenu-025.png', '/meleemenu-026.png'] as const;
 const BATTLE_SLOT_W = 128;
 const BATTLE_SLOT_H = 134;
-const STAGE_GAP = 20;
-const SLIDES_FONT = '"UQMSlides", var(--font)';
 const TINY_FONT = '"UQMTiny", var(--font)';
 const STARCON_FONT = '"UQMStarCon", var(--font)';
 const LOGICAL_STAGE_W = 980;
@@ -63,7 +62,7 @@ const MENU = [
   'SAVE_P2',
   'CONTROL_P2',
   'SETTINGS',
-  'QUIT',
+  'STYLES',
 ] as const;
 type MenuItem = typeof MENU[number];
 type ActiveRegion = 'menu' | 'fleet' | 'picker';
@@ -74,13 +73,6 @@ interface SaveSlot {
   fleet: FleetSlot[];
   savedAt: number;
 }
-
-const BEVEL_BORDER_STYLE = {
-  borderTop: '1px solid #838383',
-  borderLeft: '1px solid #838383',
-  borderRight: '1px solid #414141',
-  borderBottom: '1px solid #414141',
-} as const;
 
 function padFleet(ships: ShipId[]): FleetSlot[] {
   return [...ships, ...Array.from({ length: Math.max(0, FLEET_SIZE - ships.length) }, () => null)];
@@ -150,16 +142,17 @@ function writeSavesLS(saves: SaveSlot[]) {
 
 function menuLabel(item: MenuItem, p1Control: ControlType, p2Control: ControlType): string {
   switch (item) {
-    case 'NET_P1': return 'NET ...';
-    case 'SETTINGS': return 'SETTINGS';
+    case 'NET_P1': return 'Net...';
+    case 'SETTINGS': return 'Settings';
+    case 'STYLES': return 'Styles';
     case 'CONTROL_P1': return CONTROL_LABEL[p1Control];
     case 'CONTROL_P2': return CONTROL_LABEL[p2Control];
     case 'SAVE_P1':
     case 'SAVE_P2':
-      return 'SAVE';
+      return 'Save';
     case 'LOAD_P1':
     case 'LOAD_P2':
-      return 'LOAD';
+      return 'Load';
     case 'BATTLE': return 'BATTLE';
     default: return item;
   }
@@ -232,11 +225,13 @@ export interface BattleStartParams {
 interface Props {
   onBattle:    (params: BattleStartParams) => void;
   onNet:       () => void;
-  onBGBuilder: () => void;
   onSettings:  () => void;
+  onStyles?:   () => void;
+  stylesHref?: string;
+  showStyles?: boolean;
 }
 
-export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }: Props) {
+export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, stylesHref = '/styles', showStyles = false }: Props) {
   const last = loadLastState();
 
   const [fleet1, setFleet1]       = useState<FleetSlot[]>(last?.fleet1 ?? [...BALANCED_TEAM_1]);
@@ -405,9 +400,10 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
         playMenuSelect();
         onBattle({ fleet1, fleet2, teamName1, teamName2, p1Control, p2Control });
         break;
-      case 'QUIT':
+      case 'STYLES':
         playMenuSelect();
-        window.location.reload();
+        if (showStyles) onStyles?.();
+        else playMenuError();
         break;
     }
   }
@@ -620,11 +616,13 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
     onBattle,
     onNet,
     onSettings,
+    onStyles,
     p1Control,
     p2Control,
     picker,
     pickerOptions,
     saveModal,
+    showStyles,
     teamName1,
     teamName2,
   ]);
@@ -651,6 +649,7 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
     : [null, null];
 
   const showPreviewInBattleSlot = activeRegion === 'fleet' || activeRegion === 'picker';
+  const showEmptySlotPreview = showPreviewInBattleSlot && focusedShip === null;
   const battleImageSrc = blink ? BATTLE_MENU_FRAMES[0] : BATTLE_MENU_FRAMES[1];
 
   function renderFleetGrid(fleet: FleetSlot[], fleetNum: 1 | 2) {
@@ -713,42 +712,40 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
     const sel = activeRegion === 'menu' && menuIndex === idx;
     const isBattle = item === 'BATTLE';
     const isControl = item.startsWith('CONTROL');
+    const usesSharedBevel = item === 'NET_P1'
+      || item === 'SAVE_P1'
+      || item === 'SAVE_P2'
+      || item === 'LOAD_P1'
+      || item === 'LOAD_P2'
+      || item === 'SETTINGS'
+      || item === 'STYLES';
     const label = menuLabel(item, p1Control, p2Control);
 
-    return (
-      <div
-        key={item + idx}
-        onClick={() => {
-          setMenuIndex(idx);
-          setActiveRegion('menu');
-          activateMenu(idx);
-        }}
-        onMouseEnter={() => {
-          setMenuIndex(idx);
-          setActiveRegion('menu');
-        }}
-        style={{
-          background: isControl ? '#02043E' : sel ? '#6f6f6f' : '#525252',
-          ...BEVEL_BORDER_STYLE,
-          color: isControl ? '#238CD2' : '#000',
-          padding: isBattle ? '0' : isControl ? '13px 12px' : '9px 12px',
-          cursor: 'pointer',
-          textAlign: 'center',
-          fontFamily: 'var(--font)',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          userSelect: 'none',
-          boxSizing: 'border-box',
-          width: isBattle ? BATTLE_SLOT_W : 'fit-content',
-          minWidth: isBattle ? undefined : 0,
-          alignSelf: 'center',
-          minHeight: isBattle ? BATTLE_SLOT_H : undefined,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {isBattle ? (
+    const itemStyle: React.CSSProperties = {
+      background: !usesSharedBevel && !isBattle ? (isControl ? '#02043E' : sel ? '#6f6f6f' : '#525252') : undefined,
+      borderTop: !usesSharedBevel && !isBattle ? '1px solid #838383' : undefined,
+      borderLeft: !usesSharedBevel && !isBattle ? '1px solid #838383' : undefined,
+      borderRight: !usesSharedBevel && !isBattle ? '1px solid #414141' : undefined,
+      borderBottom: !usesSharedBevel && !isBattle ? '1px solid #414141' : undefined,
+      color: !usesSharedBevel && !isBattle ? (isControl ? '#238CD2' : '#000') : undefined,
+      padding: isBattle ? '0' : usesSharedBevel ? undefined : isControl ? '13px 12px' : '9px 12px',
+      cursor: 'pointer',
+      textAlign: !usesSharedBevel ? 'center' : undefined,
+      fontFamily: !usesSharedBevel ? 'var(--font)' : undefined,
+      letterSpacing: !usesSharedBevel ? '0.08em' : undefined,
+      userSelect: !usesSharedBevel ? 'none' : undefined,
+      boxSizing: 'border-box',
+      width: isBattle ? BATTLE_SLOT_W : 'fit-content',
+      minWidth: isBattle ? undefined : 0,
+      alignSelf: 'center',
+      minHeight: isBattle ? BATTLE_SLOT_H : undefined,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textDecoration: 'none',
+    };
+
+    const content = isBattle ? (
           <div style={{ width: BATTLE_SLOT_W, height: BATTLE_SLOT_H, position: 'relative' }}>
             <PreloadedImage
               src={battleImageSrc}
@@ -773,16 +770,26 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
                 visibility: showPreviewInBattleSlot ? 'visible' : 'hidden',
               }}
             >
-              <StatusPanel
-                sidesRef={statusRef}
-                layout="single"
-                singleSideIndex={0}
-                showCaptain={false}
-                showStatLabels={true}
-                compactSingle
-              />
+              {showEmptySlotPreview ? (
+                <div className="super-melee-battle-empty-slot">
+                  Empty Slot
+                </div>
+              ) : (
+                <StatusPanel
+                  sidesRef={statusRef}
+                  layout="single"
+                  singleSideIndex={0}
+                  showCaptain={false}
+                  showStatLabels={true}
+                  compactSingle
+                />
+              )}
             </div>
           </div>
+        ) : usesSharedBevel ? (
+          <span className="super-melee-menu-label">
+            {label}
+          </span>
         ) : (
           <span style={{
             color: isControl ? '#238CD2' : '#000',
@@ -795,8 +802,67 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
           }}>
             {label}
           </span>
-        )}
-      </div>
+        );
+
+    const handleClick = () => {
+      setMenuIndex(idx);
+      setActiveRegion('menu');
+      activateMenu(idx);
+    };
+
+    const buttonClassName = usesSharedBevel ? [
+      'ui-button',
+      'ui-button--bevel',
+      'super-melee-menu-button',
+      sel ? 'is-active' : '',
+    ].filter(Boolean).join(' ') : undefined;
+
+    if (item === 'STYLES' && showStyles && onStyles) {
+      return (
+        <a
+          key={item + idx}
+          href={stylesHref}
+          className={buttonClassName}
+          onClick={e => {
+            if (
+              e.button !== 0
+              || e.metaKey
+              || e.ctrlKey
+              || e.shiftKey
+              || e.altKey
+            ) {
+              return;
+            }
+            e.preventDefault();
+            handleClick();
+          }}
+          onMouseEnter={() => {
+            setMenuIndex(idx);
+            setActiveRegion('menu');
+          }}
+          style={itemStyle}
+          aria-current={sel ? 'true' : undefined}
+        >
+          {content}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        key={item + idx}
+        type="button"
+        className={buttonClassName}
+        onClick={handleClick}
+        onMouseEnter={() => {
+          setMenuIndex(idx);
+          setActiveRegion('menu');
+        }}
+        style={itemStyle}
+        aria-current={sel ? 'true' : undefined}
+      >
+        {content}
+      </button>
     );
   }
 
@@ -880,7 +946,10 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
           width: '100%',
           height: '100%',
           background: '#1E1E5D',
-          ...BEVEL_BORDER_STYLE,
+          borderTop: '1px solid #838383',
+          borderLeft: '1px solid #838383',
+          borderRight: '1px solid #414141',
+          borderBottom: '1px solid #414141',
           padding: '14px 12px 8px',
           display: 'flex',
           flexDirection: 'column',
@@ -1048,7 +1117,10 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
                 gap: 8,
                 padding: '10px 14px',
                 background: '#1E1E5D',
-                ...BEVEL_BORDER_STYLE,
+                borderTop: '1px solid #838383',
+                borderLeft: '1px solid #838383',
+                borderRight: '1px solid #414141',
+                borderBottom: '1px solid #414141',
                 width: 'fit-content',
               }}>
                 <div style={{
@@ -1082,69 +1154,25 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
   const val1 = fleetValue(fleet1);
   const val2 = fleetValue(fleet2);
   const topMenuItems: MenuItem[] = ['LOAD_P1', 'SAVE_P1', 'CONTROL_P1', 'NET_P1'];
-  const bottomMenuItems: MenuItem[] = ['LOAD_P2', 'SAVE_P2', 'CONTROL_P2', 'SETTINGS', 'QUIT'];
+  const bottomMenuItems: MenuItem[] = showStyles
+    ? ['LOAD_P2', 'SAVE_P2', 'CONTROL_P2', 'SETTINGS', 'STYLES']
+    : ['LOAD_P2', 'SAVE_P2', 'CONTROL_P2', 'SETTINGS'];
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      padding: 20,
-      overflow: 'hidden',
-      userSelect: 'none',
-    }}>
+    <div className="super-melee-screen">
       <StarfieldBG config={bgConfig} />
 
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        width: LOGICAL_STAGE_W * stageScale,
-        height: LOGICAL_STAGE_H * stageScale,
-      }}>
-        <div style={{
-          width: LOGICAL_STAGE_W,
-          height: LOGICAL_STAGE_H,
-          transform: `scale(${stageScale})`,
-          transformOrigin: 'top left',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-        <div style={{
-          display: 'flex',
-          gap: STAGE_GAP,
-          alignItems: 'stretch',
-          width: LOGICAL_STAGE_W,
-          height: 700,
-        }}>
-          <div style={{
-            width: LOGICAL_LEFT_W,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-          }}>
-            <h1 style={{
-              fontSize: 50,
-              fontWeight: 'bold',
-              letterSpacing: '0.18em',
-              color: '#ff44ff',
-              textShadow: '0 0 18px #ff00ff60, 0 2px 0 #660066, 2px 2px 0 #330033',
-              fontFamily: SLIDES_FONT,
-              textTransform: 'uppercase',
-              lineHeight: 1,
-              textAlign: 'right',
-              paddingRight: 4,
-              marginBottom: 10,
-              marginTop: 0,
-              userSelect: 'text',
-              cursor: 'text',
-            }}>
-              SUPER-MELEE
-            </h1>
+      <div
+        className="super-melee-stage"
+        style={{ width: LOGICAL_STAGE_W * stageScale, height: LOGICAL_STAGE_H * stageScale }}
+      >
+        <div
+          className="super-melee-stage__scaled"
+          style={{ width: LOGICAL_STAGE_W, height: LOGICAL_STAGE_H, transform: `scale(${stageScale})` }}
+        >
+        <div className="super-melee-stage__layout" style={{ width: LOGICAL_STAGE_W }}>
+          <div className="super-melee-stage__primary" style={{ width: LOGICAL_LEFT_W }}>
+            <SuperMeleeTitle />
 
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               <div style={{
@@ -1183,55 +1211,19 @@ export default function SuperMelee({ onBattle, onNet, onBGBuilder, onSettings }:
             </div>
           </div>
 
-          <div style={{
-            width: LOGICAL_SIDEBAR_W,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 10,
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', gap: 3, marginTop: 'auto' }}>
+          <div className="super-melee-sidebar" style={{ width: LOGICAL_SIDEBAR_W }}>
+            <div className="super-melee-menu-group super-melee-menu-group--top">
               {topMenuItems.map(item => renderMenuItem(item, MENU.indexOf(item)))}
             </div>
 
             {renderMenuItem('BATTLE', MENU.indexOf('BATTLE'))}
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, marginBottom: 'auto' }}>
+            <div className="super-melee-menu-group super-melee-menu-group--bottom">
               {bottomMenuItems.map(item => renderMenuItem(item, MENU.indexOf(item)))}
             </div>
           </div>
         </div>
 
-        <div style={{
-          marginTop: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 20,
-          fontFamily: 'var(--font)',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-        }}>
-          <span style={{ color: '#2a2a44', fontSize: 11, letterSpacing: '0.1em' }}>
-            P1 OR P2 CONTROLS NAVIGATE · LEFT FROM MENU ENTERS FLEET · RIGHT EDGE RETURNS
-          </span>
-          <button
-            onClick={onBGBuilder}
-            title="Open background builder"
-            style={{
-              fontSize: 10,
-              padding: '3px 10px',
-              background: 'rgba(0,0,30,0.6)',
-              color: '#3a3a60',
-              border: '1px solid #1e1e3c',
-              fontFamily: TINY_FONT,
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-            }}
-          >
-            BG Builder ▸
-          </button>
-        </div>
         </div>
       </div>
 

@@ -51,7 +51,6 @@ button {
   border-radius: var(--radius);
   padding: 6px 14px;
   cursor: pointer;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
   transition: background 0.1s, color 0.1s;
 }
@@ -102,7 +101,6 @@ input:focus, select:focus {
 h1, h2, h3 {
   font-weight: normal;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--text-hi);
 }
 

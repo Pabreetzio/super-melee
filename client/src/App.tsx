@@ -1,7 +1,6 @@
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { client } from './net/client';
 import type { AIDifficulty, FullRoomState, FleetSlot, RoomSummary, ServerMsg } from 'shared/types';
-import Landing from './components/Landing';
 import GameBrowser from './components/GameBrowser';
 import FleetBuilder from './components/FleetBuilder';
 import Battle from './components/Battle';
@@ -12,9 +11,12 @@ import type { BattleStartParams, ControlType } from './components/SuperMelee';
 import { SHIP_COSTS } from './components/shipSelectionData';
 import BGBuilder from './components/BGBuilder';
 import SettingsScreen from './components/Settings';
+import StyleLab from './components/StyleLab';
+import TypographyLab from './components/TypographyLab';
 import { getControls, codeDisplay } from './lib/controls';
 import ShipMenuImage from './components/ShipMenuImage';
 import StatusPanel, { type SideStatus } from './components/StatusPanel';
+import { pickRandomCaptainName } from './engine/ships/statusData';
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
@@ -36,7 +38,54 @@ const PLANET_TYPES = [
 ];
 function randomPlanetType() { return PLANET_TYPES[Math.floor(Math.random() * PLANET_TYPES.length)]; }
 
-type Screen = 'supermelee' | 'bgbuilder' | 'settings' | 'landing' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select' | 'final_selector';
+type Screen = 'supermelee' | 'bgbuilder' | 'typography_lab' | 'settings' | 'style_lab' | 'browser' | 'fleet_builder' | 'battle' | 'post_battle' | 'ship_select' | 'final_selector';
+type UtilityReturnScreen = 'supermelee' | 'style_lab' | 'typography_lab';
+
+const UTILITY_SCREEN_PATHS: Partial<Record<Screen, string>> = {
+  browser: '/net',
+  style_lab: '/styles',
+  bgbuilder: '/bg-builder',
+  typography_lab: '/typography',
+  settings: '/settings',
+};
+
+function screenFromPathname(pathname: string): Screen {
+  switch (pathname) {
+    case '/net':
+      return 'browser';
+    case '/styles':
+      return 'style_lab';
+    case '/bg-builder':
+      return 'bgbuilder';
+    case '/typography':
+      return 'typography_lab';
+    case '/settings':
+      return 'settings';
+    default:
+      return 'supermelee';
+  }
+}
+
+function pathFromScreen(screen: Screen): string {
+  return UTILITY_SCREEN_PATHS[screen] ?? '/';
+}
+
+const COMMANDER_NAME_STORAGE_KEY = 'sm_commander_name';
+
+function loadStoredCommanderName(): string {
+  try {
+    const stored = localStorage.getItem(COMMANDER_NAME_STORAGE_KEY)?.trim() ?? '';
+    if (stored) return stored.slice(0, 30);
+  } catch {}
+
+  const generated = pickRandomCaptainName();
+  try { localStorage.setItem(COMMANDER_NAME_STORAGE_KEY, generated); } catch {}
+  return generated;
+}
+
+function storeCommanderName(name: string) {
+  try { localStorage.setItem(COMMANDER_NAME_STORAGE_KEY, name.slice(0, 30)); } catch {}
+}
 
 interface AppState {
   screen:        Screen;
@@ -68,6 +117,7 @@ interface AppState {
   finalStatus: [SideStatus | null, SideStatus | null];
   // Where to go after post_battle "leave"
   battleOrigin:  'supermelee' | 'browser';
+  utilityReturnScreen: UtilityReturnScreen;
 }
 
 type Action =
@@ -84,7 +134,6 @@ type Action =
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'go_supermelee' }
-  | { type: 'go_landing' }
   | { type: 'go_settings' }
   | { type: 'start_solo';     commanderName: string }
   | { type: 'solo_engage';    fleet: FleetSlot[] }
@@ -93,14 +142,16 @@ type Action =
   | { type: 'supermelee_start'; params: BattleStartParams }
   | { type: 'forfeit_game';    side: 0 | 1 }
   | { type: 'finish_offline_match' }
-  | { type: 'go_bgbuilder' };
+  | { type: 'go_bgbuilder'; returnTo?: UtilityReturnScreen }
+  | { type: 'go_style_lab' }
+  | { type: 'go_typography_lab' };
 
 function init(): AppState {
   return {
-    screen:        'supermelee',
+    screen:        screenFromPathname(window.location.pathname),
     connected:     false,
     sessionId:     '',
-    commanderName: '',
+    commanderName: loadStoredCommanderName(),
     rooms:         [],
     room:          null,
     yourSide:      0,
@@ -121,7 +172,22 @@ function init(): AppState {
     originalFleets: null,
     finalStatus: [null, null],
     battleOrigin:  'supermelee',
+    utilityReturnScreen: 'supermelee',
   };
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+  return /^10\./.test(hostname)
+    || /^192\.168\./.test(hostname)
+    || /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+}
+
+function isLanOrLocalHost(hostname: string): boolean {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname.endsWith('.local')
+    || isPrivateIpv4(hostname);
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -133,9 +199,9 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         sessionId:     action.sessionId,
-        commanderName: action.commanderName,
+        commanderName: action.commanderName || state.commanderName,
         // Always start (or stay) on supermelee; the net browser is accessed via NET button
-        screen: state.screen === 'supermelee' || state.screen === 'landing' ? 'supermelee' : state.screen,
+        screen: state.screen === 'supermelee' ? 'supermelee' : state.screen,
       };
 
     case 'name_set':
@@ -383,14 +449,17 @@ function reducer(state: AppState, action: Action): AppState {
     case 'go_supermelee':
       return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null };
 
-    case 'go_landing':
-      return { ...state, screen: 'landing' };
-
     case 'go_bgbuilder':
-      return { ...state, screen: 'bgbuilder' };
+      return { ...state, screen: 'bgbuilder', utilityReturnScreen: action.returnTo ?? 'supermelee' };
 
     case 'go_settings':
       return { ...state, screen: 'settings' };
+
+    case 'go_style_lab':
+      return { ...state, screen: 'style_lab' };
+
+    case 'go_typography_lab':
+      return { ...state, screen: 'typography_lab' };
 
     case 'supermelee_start': {
       const { params } = action;
@@ -681,6 +750,7 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
+  const showLocalDevLink = isLanOrLocalHost(window.location.hostname);
 
   // We use a separate room ref so FleetBuilder can apply incremental patches
   const [roomPatch, setRoomPatch] = useState<FullRoomState | null>(null);
@@ -752,11 +822,58 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    storeCommanderName(state.commanderName);
+  }, [state.commanderName]);
+
+  useEffect(() => {
+    if (!state.connected || !state.sessionId || !state.commanderName) return;
+    client.send({ type: 'set_name', name: state.commanderName });
+  }, [state.connected, state.sessionId, state.commanderName]);
+
   // Sync roomPatch when room_entered fires
   useEffect(() => {
     if (state.room) setRoomPatch(state.room);
     else setRoomPatch(null);
   }, [state.room]);
+
+  // Sync pathname for SPA-friendly utility routes like /styles
+  useEffect(() => {
+    const nextPath = pathFromScreen(state.screen);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, '', nextPath);
+    }
+  }, [state.screen]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const nextScreen = screenFromPathname(window.location.pathname);
+      if (nextScreen === state.screen) return;
+      switch (nextScreen) {
+        case 'style_lab':
+          dispatch({ type: 'go_style_lab' });
+          break;
+        case 'browser':
+          dispatch({ type: 'go_browser' });
+          break;
+        case 'bgbuilder':
+          dispatch({ type: 'go_bgbuilder' });
+          break;
+        case 'typography_lab':
+          dispatch({ type: 'go_typography_lab' });
+          break;
+        case 'settings':
+          dispatch({ type: 'go_settings' });
+          break;
+        default:
+          dispatch({ type: 'go_supermelee' });
+          break;
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [state.screen]);
 
   // Join error — pass down to browser
   const { joinError } = state;
@@ -764,55 +881,55 @@ export default function App() {
   switch (state.screen) {
     case 'supermelee':
       return (
-        <SuperMelee
-          onBattle={params => dispatch({ type: 'supermelee_start', params })}
-          onNet={() => {
-            // Need a commander name for online play; prompt via landing if missing
-            if (!state.commanderName) {
-              dispatch({ type: 'go_landing' });
-            } else {
+        <>
+          <SuperMelee
+            onBattle={params => dispatch({ type: 'supermelee_start', params })}
+            onNet={() => {
               dispatch({ type: 'go_browser' });
-            }
-          }}
-          onBGBuilder={() => dispatch({ type: 'go_bgbuilder' })}
-          onSettings={() => dispatch({ type: 'go_settings' })}
-        />
+            }}
+            onSettings={() => dispatch({ type: 'go_settings' })}
+            onStyles={showLocalDevLink ? () => dispatch({ type: 'go_style_lab' }) : undefined}
+            showStyles={showLocalDevLink}
+          />
+        </>
       );
 
     case 'bgbuilder':
-      return <BGBuilder onBack={() => dispatch({ type: 'go_supermelee' })} />;
+      return <BGBuilder onBack={() => dispatch({ type: state.utilityReturnScreen === 'typography_lab' ? 'go_typography_lab' : state.utilityReturnScreen === 'style_lab' ? 'go_style_lab' : 'go_supermelee' })} />;
 
     case 'settings':
       return <SettingsScreen onBack={() => dispatch({ type: 'go_supermelee' })} />;
 
-    case 'landing':
+    case 'style_lab':
       return (
-        <Landing
-          initialName={state.commanderName}
-          onNameSet={name => dispatch({ type: 'name_set', name })}
+        <StyleLab
+          onBack={() => dispatch({ type: 'go_supermelee' })}
+          onBGBuilder={() => dispatch({ type: 'go_bgbuilder', returnTo: 'style_lab' })}
+          onTypography={() => dispatch({ type: 'go_typography_lab' })}
+        />
+      );
+
+    case 'typography_lab':
+      return (
+        <TypographyLab
+          onBack={() => dispatch({ type: 'go_style_lab' })}
         />
       );
 
     case 'browser':
       return (
-        <>
-          <GameBrowser
-            commanderName={state.commanderName}
-            rooms={state.rooms}
-            onSolo={() => dispatch({ type: 'start_solo', commanderName: state.commanderName })}
-            onLocal2P={() => dispatch({ type: 'start_local2p', commanderName: state.commanderName })}
-            onBack={() => dispatch({ type: 'go_supermelee' })}
-          />
-          {joinError && (
-            <div style={{
-              position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-              background: 'var(--bg1)', border: '1px solid var(--danger)',
-              borderRadius: 4, padding: '10px 20px', color: 'var(--danger)',
-            }}>
-              {joinError}
-            </div>
-          )}
-        </>
+        <GameBrowser
+          commanderName={state.commanderName}
+          rooms={state.rooms}
+          joinError={joinError}
+          onCommanderNameChange={name => {
+            const trimmed = name.trim();
+            if (!trimmed) return;
+            client.send({ type: 'set_name', name: trimmed });
+            dispatch({ type: 'name_set', name: trimmed.slice(0, 30) });
+          }}
+          onBack={() => dispatch({ type: 'go_supermelee' })}
+        />
       );
 
     case 'fleet_builder': {

@@ -251,7 +251,7 @@ function drawSection(
   ctx.fillRect(STATUS_W - 2*S, sectionY + 2*S, S, SHIP_INFO_H - 2*S);
 
   // ── Race name ─────────────────────────────────────────────────────────────
-  const raceName = (def?.race ?? side.shipId).toUpperCase();
+  const raceName = (def?.race ?? side.shipId);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   if (uqmFontsReady) {

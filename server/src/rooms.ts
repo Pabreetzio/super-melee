@@ -240,20 +240,19 @@ class RoomManager {
     room.state = 'building';
     room.host.confirmed = false;
     if (room.opponent) room.opponent.confirmed = false;
-    if (room.rematchReset) {
-      room.host.fleet = [...room.hostOrigFleet];
-      room.host.teamName = room.hostOrigTeamName;
-      if (room.opponent && room.oppOrigFleet) {
-        room.opponent.fleet = [...room.oppOrigFleet];
-        room.opponent.teamName = room.oppOrigTeamName ?? 'Unnamed Fleet';
-      }
+    room.rematchReset = true;
+    room.host.fleet = [...room.hostOrigFleet];
+    room.host.teamName = room.hostOrigTeamName;
+    if (room.opponent && room.oppOrigFleet) {
+      room.opponent.fleet = [...room.oppOrigFleet];
+      room.opponent.teamName = room.oppOrigTeamName ?? 'Unnamed Fleet';
     }
   }
 
-  setRematchReset(sessionId: string, value: boolean): Room | null {
+  setRematchReset(sessionId: string, _value: boolean): Room | null {
     const room = this.getRoomBySession(sessionId);
     if (!room || room.host.sessionId !== sessionId) return null;
-    room.rematchReset = value;
+    room.rematchReset = true;
     return room;
   }
 

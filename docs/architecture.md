@@ -93,7 +93,7 @@ Implementation plan:
 2. Map axes to thrust/turn with a deadzone (~0.2)
 3. Map buttons to weapon/special bits in the same input byte
 4. Allow mixing: P1 on gamepad, P2 on keyboard (or vice versa)
-5. Show a controller-detected indicator in the Fleet Assembly screen
+5. Show a controller-detected indicator in the multiplayer setup screen
 
 This is lower priority than getting multiplayer and all 26 ships working, but
 it's straightforward to add since the input byte format is already fixed.

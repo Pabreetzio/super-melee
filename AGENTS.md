@@ -45,6 +45,7 @@ docs/
 ├── netplay.md       # sync model analysis — read before touching net/
 ├── assets.md        # asset catalog and extraction notes
 ├── architecture.md  # planned web stack and module structure
+├── design-philosophy.md # shared UI / interaction principles for page styling and flow
 ├── battle-architecture.md # current battle-loop ownership and extension points
 ├── constants.md     # unit conversion table (display→world→velocity) and timing constants
 ├── weapon-porting.md # repeatable checklist for implementing/fixing weapons
@@ -52,6 +53,116 @@ docs/
 ├── survey.md        # broad source survey — start here for orientation
 └── ships/           # one file per ship with stats, weapons, specials
 ```
+
+## UI Terminology And Multiplayer Flow
+
+Use the page names below when discussing UI changes so "fleet builder",
+"ship picker", "ship select", and similar terms stay unambiguous.
+
+### Canonical page names
+
+1. `SuperMelee setup screen` (`client/src/components/SuperMelee.tsx`)
+   This is the main local setup page shown from app state `supermelee`.
+   It contains the `SUPER-MELEE` title, two editable fleet grids, the per-side
+   team labels, the top/bottom menu columns (`NET`, `CONTROL`, `LOAD`, `SAVE`,
+   `SETTINGS`, `QUIT`), and the central battle preview / ship preview area.
+   If someone says "the main page", this is usually what they mean.
+
+2. `Ship picker overlay` (`client/src/components/ShipPicker.tsx`)
+   This is the overlay opened from a fleet slot while editing a fleet.
+   It is not the between-round ship chooser. It is the roster browser used to
+   assign or replace a ship in a fleet slot.
+
+3. `Netplay screen` (`client/src/components/GameBrowser.tsx`)
+   This is the online multiplayer entry screen shown from app state `browser`
+   and routed at `/net`.
+   It contains the page title `Netplay`, the open-games list, the captain name,
+   the blue command menu (`Open Games`, `Host Game`, `Change Name`), and the
+   back action. It is for browsing / creating / joining multiplayer rooms, not
+   for editing fleets.
+
+4. `Multiplayer setup screen` (`client/src/components/MultiplayerSetupScreen.tsx`
+   via `client/src/components/FleetBuilder.tsx`)
+   This is the online room setup page shown from app state `fleet_builder`
+   after creating or joining a room.
+   It uses the `SuperMelee`-style stage layout for online setup, with both
+   fleets visible, captain names in the command rail, room code / copy-code
+   controls, team-name editing, fleet values, confirm controls, and withdraw.
+   When discussing online room prep after entering a room, call this page
+   `Multiplayer setup screen`.
+
+5. `Battle screen` (`client/src/components/Battle.tsx`)
+   This is the live fight shown from app state `battle`.
+   It contains the space arena, status panels, and active combat UI.
+
+6. `Ship selection screen` (`ship_select` state in `client/src/App.tsx`)
+   This is the between-round ship chooser shown after a ship is destroyed in a
+   multi-ship match.
+   It renders one or two `ship selector panes` depending on mode and whose turn
+   it is to pick.
+   If a user says "when a ship is blown up and I pick the next ship", this is
+   the screen they mean.
+
+7. `Ship selector pane` (`SplitShipSelect` / `ShipSelectorPane` in `client/src/App.tsx`)
+   This is one player's individual panel inside the ship selection screen.
+   It shows that side's surviving fleet slots plus the random / forfeit cells.
+   Use `ship selector pane` for one side, and `ship selection screen` for the
+   whole between-round layout.
+
+8. `Post-battle result screen` (`PostBattle` in `client/src/App.tsx`)
+   This is the simple result page shown from app state `post_battle`.
+   It shows `Victory`, `Defeat`, or `Mutual Annihilation`, plus rematch / leave
+   actions.
+
+9. `Final fleet result screen` (`FinalFleetResult` in `client/src/App.tsx`)
+   This is the end-of-match fleet summary shown from app state `final_selector`.
+   It reuses the ship selector layout to show both sides' final surviving ships
+   before returning to fleet setup.
+
+### Recommended wording for change requests
+
+1. Say `SuperMelee setup screen` for the main menu + local fleet-editing page.
+2. Say `Netplay screen` for the multiplayer browser / room list page.
+3. Say `Multiplayer setup screen` for the online room page where both players
+   build and confirm fleets.
+4. Say `ship picker overlay` for the roster browser used to fill a fleet slot.
+5. Say `ship selection screen` for the between-round next-ship chooser after a
+   ship explodes.
+6. Say `ship selector pane` if only one side of that between-round chooser is
+   being discussed.
+
+### Current multiplayer setup flow
+
+1. `SuperMelee setup screen`
+2. Click `NET`
+3. `Netplay screen`
+4. Create or join a room
+5. `Multiplayer setup screen`
+6. Both players confirm
+7. `Battle screen`
+8. If more ships remain: `Ship selection screen`
+9. When the match ends: `Post-battle result screen` or `Final fleet result screen`, depending on mode
+
+## UI Design Rules
+
+Before reworking page layout or styling, read `docs/design-philosophy.md`.
+
+For UI discussions in this repo:
+
+1. `Command deck layout` means the default two-zone page composition:
+   a larger left `primary deck` and a narrower right `command rail`.
+2. New pages and page reworks should remain keyboard-first.
+3. Prefer retro menu treatments over generic rounded web controls.
+4. Preserve crisp pixel-art presentation.
+5. Keep the starfield backdrop feeling consistent across navigation.
+6. Reuse shared theme primitives before inventing page-specific styling.
+7. `StyleLab` and `TypographyLab` are reference surfaces for shared app primitives.
+   If a style shown there is adopted elsewhere in the app, its default behavior is
+   to stay in sync across those usages. Do not make a one-off tweak on only one page
+   unless the user explicitly asks for divergence. When a shared primitive changes,
+   update the labs and the live app surfaces that use it together. If there is real
+   ambiguity about whether something is a shared primitive or a special-case exception,
+   pause and clarify before changing only one side.
 
 ## Battle / Weapon Workflow
 
