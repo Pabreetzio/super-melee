@@ -156,6 +156,7 @@ textarea:focus-visible,
 
 .super-melee-menu-group {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 3px;
 }
@@ -202,7 +203,6 @@ textarea:focus-visible,
 .super-melee-menu-label--control {
   font-size: 15px;
   line-height: 0.92;
-  white-space: pre-line;
 }
 
 .super-melee-menu-label--captain {
@@ -1012,7 +1012,56 @@ textarea:focus-visible,
 }
 
 .setup-blue-menu {
-  width: 128px;
+  width: 100%;
+  align-self: stretch;
+}
+
+.rail-fit-text {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.rail-fit-text__measure,
+.rail-fit-text__visible {
+  font-family: inherit;
+  font-size: var(--rail-fit-font-size);
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: var(--rail-fit-line-height, 1);
+  text-align: center;
+  text-transform: inherit;
+}
+
+.rail-fit-text__measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: none;
+  visibility: hidden;
+  pointer-events: none;
+  font-size: var(--rail-fit-measure-size);
+}
+
+.rail-fit-text__visible {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rail-fit-text__line {
+  display: block;
+  white-space: nowrap;
 }
 
 .setup-message--success {

@@ -188,6 +188,46 @@ export const FIELD_LABELS: Record<BindingField, string> = {
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
+export interface MenuBindingSet {
+  up: string[];
+  down: string[];
+  left: string[];
+  right: string[];
+  confirm: string[];
+  cancel: string[];
+}
+
+function addMenuBinding(target: string[], seenCodes: Set<string>, code: string): void {
+  if (!code || seenCodes.has(code)) return;
+  seenCodes.add(code);
+  target.push(code);
+}
+
+export function buildMenuBindingSet(...bindingsList: KeyBindings[]): MenuBindingSet {
+  const bindings: MenuBindingSet = {
+    up: [],
+    down: [],
+    left: [],
+    right: [],
+    confirm: [],
+    cancel: [],
+  };
+  const seenCodes = new Set<string>();
+
+  for (const current of bindingsList) {
+    addMenuBinding(bindings.left, seenCodes, current.turnLeft);
+    addMenuBinding(bindings.right, seenCodes, current.turnRight);
+    addMenuBinding(bindings.up, seenCodes, current.thrust);
+    addMenuBinding(bindings.down, seenCodes, current.down);
+    addMenuBinding(bindings.confirm, seenCodes, current.weapon);
+    addMenuBinding(bindings.confirm, seenCodes, current.weaponAlt);
+    addMenuBinding(bindings.cancel, seenCodes, current.special);
+    addMenuBinding(bindings.cancel, seenCodes, current.specialAlt);
+  }
+
+  return bindings;
+}
+
 /** Build a { event.code → inputBit } map from a KeyBindings for use in Battle. */
 export function buildKeyMap(
   b: KeyBindings,
@@ -207,4 +247,32 @@ export function buildKeyMap(
   if (b.specialAlt) map[b.specialAlt] = INPUT_FIRE2;
   // `down` is intentionally excluded — it's navigation-only, not a combat input
   return map;
+}
+
+export function buildPrioritizedKeyMap(
+  bindingsList: KeyBindings[],
+  INPUT_THRUST: number,
+  INPUT_LEFT: number,
+  INPUT_RIGHT: number,
+  INPUT_FIRE1: number,
+  INPUT_FIRE2: number,
+): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const bindings of bindingsList) {
+    const next = buildKeyMap(bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+    for (const [code, bit] of Object.entries(next)) {
+      if (map[code] === undefined) map[code] = bit;
+    }
+  }
+  return map;
+}
+
+export function getBoundGamepadIndices(...bindingsList: KeyBindings[]): number[] {
+  const indices: number[] = [];
+  for (const bindings of bindingsList) {
+    const { gamepadIndex } = bindings;
+    if (gamepadIndex < 0 || indices.includes(gamepadIndex)) continue;
+    indices.push(gamepadIndex);
+  }
+  return indices;
 }

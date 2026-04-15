@@ -6,6 +6,7 @@ import { loadConfig } from '../lib/starfield';
 import { SHIP_ICON, SHIP_COSTS } from './shipSelectionData';
 import ShipMenuImage from './ShipMenuImage';
 import BlueMenuPanel from './BlueMenuPanel';
+import RailFitText from './RailFitText';
 
 const LOGICAL_STAGE_W = 980;
 const LOGICAL_STAGE_H = 760;
@@ -47,9 +48,19 @@ function SetupMenuButton({
       onClick={onClick}
       disabled={disabled}
     >
-      <span className={`super-melee-menu-label ${tone === 'captain' ? 'super-melee-menu-label--captain' : ''}`.trim()}>
-        {label}
-      </span>
+      {tone === 'captain' ? (
+        <RailFitText
+          text={label}
+          className="super-melee-menu-label super-melee-menu-label--captain"
+          maxFontSize={18}
+          minFontSize={10}
+          lineHeight={1.15}
+        />
+      ) : (
+        <span className="super-melee-menu-label">
+          {label}
+        </span>
+      )}
     </button>
   );
 }

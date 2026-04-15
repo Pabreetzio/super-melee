@@ -1,3 +1,5 @@
+import RailFitText from './RailFitText';
+
 interface BlueMenuItem {
   label: string;
   selected?: boolean;
@@ -27,7 +29,17 @@ export default function BlueMenuPanel({ items, className = '', buttonClassName =
           aria-current={item.selected ? 'true' : undefined}
           {...item.navAttrs}
         >
-          {item.label}
+          {item.tone === 'captain' ? (
+            <RailFitText
+              text={item.label}
+              className="super-melee-menu-label super-melee-menu-label--captain"
+              maxFontSize={18}
+              minFontSize={10}
+              lineHeight={1.15}
+            />
+          ) : (
+            item.label
+          )}
         </button>
       ))}
     </div>

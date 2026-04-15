@@ -172,7 +172,7 @@ function PauseControlsPanel({ controls, rebinding, isLocal2P, onRebind }: {
   isLocal2P: boolean;
   onRebind:  (target: { player: 1 | 2; field: BindingField }) => void;
 }) {
-  const players: Array<1 | 2> = isLocal2P ? [1, 2] : [1];
+  const players: Array<1 | 2> = [1, 2];
   const accents: Record<1 | 2, string> = { 1: '#ff88ff', 2: '#88ccff' };
 
   return (
@@ -183,15 +183,13 @@ function PauseControlsPanel({ controls, rebinding, isLocal2P, onRebind }: {
         const accent = accents[player];
         return (
           <div key={player}>
-            {isLocal2P && (
-              <div style={{
-                color: accent, fontSize: 10, letterSpacing: '0.15em',
-                textTransform: 'uppercase', marginBottom: 6,
-                borderBottom: '1px solid #181830', paddingBottom: 4,
-              }}>
-                Player {player}
-              </div>
-            )}
+            <div style={{
+              color: accent, fontSize: 10, letterSpacing: '0.15em',
+              textTransform: 'uppercase', marginBottom: 6,
+              borderBottom: '1px solid #181830', paddingBottom: 4,
+            }}>
+              Player {player}
+            </div>
             {isJoy ? (
               <div style={{ color: '#556', fontSize: 11, lineHeight: 1.7 }}>
                 <div>Gamepad {cfg.bindings.gamepadIndex + 1} — axis / buttons</div>
@@ -250,7 +248,7 @@ function PauseControlsPanel({ controls, rebinding, isLocal2P, onRebind }: {
       })}
       {!isLocal2P && (
         <div style={{ color: '#2a2a44', fontSize: 10, letterSpacing: '0.07em' }}>
-          Online play uses Player 1 controls.
+          Single-ship battles accept either player's bindings. Player 1 wins overlapping keys.
         </div>
       )}
     </div>
@@ -284,4 +282,3 @@ function PauseVolumeSlider({ label, value, disabled, note, onChange }: {
     </div>
   );
 }
-

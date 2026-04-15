@@ -1,6 +1,6 @@
 // Settings screen — hosts control bindings and audio settings.
 // Presets mirror the six templates from UQM's base/uqm.key exactly.
-// Online play always uses Player 1 controls (no matter which side you're on).
+// Single-ship play accepts either player's bindings; local 2P keeps one set per side.
 
 import { useState, useEffect } from 'react';
 import type { ControlPreset, PlayerControlConfig } from '../lib/controls';
@@ -229,7 +229,7 @@ export default function Settings({ onBack }: Props) {
             color: '#3a3a5a', fontSize: 11, letterSpacing: '0.1em',
             textTransform: 'uppercase',
           }}>
-            Online play always uses Player 1 controls
+            Single-ship battles accept either player's bindings. Player 1 wins overlapping keys.
           </div>
         </>}
 

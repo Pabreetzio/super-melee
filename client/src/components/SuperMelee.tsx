@@ -4,12 +4,13 @@ import ShipPicker, { canSelectShipPickerOption, getShipPickerOptions } from './S
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import StarfieldBG from './StarfieldBG';
 import { loadConfig } from '../lib/starfield';
-import { getControls, type KeyBindings } from '../lib/controls';
+import { getControls, buildMenuBindingSet } from '../lib/controls';
 import { preloadUISounds, playMenuError, playMenuMove, playMenuSelect } from '../engine/audio';
 import { SHIP_COSTS, SHIP_ICON, getShipSelectionPreview } from './shipSelectionData';
 import { PreloadedImage, prefetchImages } from '../lib/preloadedImage';
 import ShipMenuImage from './ShipMenuImage';
 import SuperMeleeTitle from './SuperMeleeTitle';
+import RailFitText from './RailFitText';
 
 const BATTLE_MENU_FRAMES = ['/meleemenu-025.png', '/meleemenu-026.png'] as const;
 const BATTLE_SLOT_W = 128;
@@ -200,17 +201,6 @@ function navigatePickerIndex(index: number, dir: 'left' | 'right' | 'up' | 'down
 
   const next = row * cols + col;
   return Math.min(next, total - 1);
-}
-
-function bindingCodes(bindings: KeyBindings, key: 'left' | 'right' | 'up' | 'down' | 'confirm' | 'cancel'): string[] {
-  switch (key) {
-    case 'left': return [bindings.turnLeft].filter(Boolean);
-    case 'right': return [bindings.turnRight].filter(Boolean);
-    case 'up': return [bindings.thrust].filter(Boolean);
-    case 'down': return [bindings.down].filter(Boolean);
-    case 'confirm': return [bindings.weapon, bindings.weaponAlt].filter(Boolean);
-    case 'cancel': return [bindings.special, bindings.specialAlt].filter(Boolean);
-  }
 }
 
 export interface BattleStartParams {
@@ -410,20 +400,16 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
 
   useEffect(() => {
     const controls = getControls();
-    const p1 = controls.p1.bindings;
-    const p2 = controls.p2.bindings;
-
-    const matchAction = (code: string, action: Parameters<typeof bindingCodes>[1]) =>
-      bindingCodes(p1, action).includes(code) || bindingCodes(p2, action).includes(code);
+    const menuBindings = buildMenuBindingSet(controls.p1.bindings, controls.p2.bindings);
 
     const onKeyDown = (e: KeyboardEvent) => {
       const code = e.code;
-      const isUp = matchAction(code, 'up');
-      const isDown = matchAction(code, 'down');
-      const isLeft = matchAction(code, 'left');
-      const isRight = matchAction(code, 'right');
-      const isConfirm = matchAction(code, 'confirm') || code === 'Enter' || code === 'NumpadEnter';
-      const isCancel = matchAction(code, 'cancel') || code === 'Escape';
+      const isUp = menuBindings.up.includes(code);
+      const isDown = menuBindings.down.includes(code);
+      const isLeft = menuBindings.left.includes(code);
+      const isRight = menuBindings.right.includes(code);
+      const isConfirm = menuBindings.confirm.includes(code);
+      const isCancel = menuBindings.cancel.includes(code) || code === 'Escape';
 
       const isDelete = code === 'Delete';
       if (!isUp && !isDown && !isLeft && !isRight && !isConfirm && !isCancel && !isDelete) return;
@@ -735,9 +721,9 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
       letterSpacing: !usesSharedBevel ? '0.08em' : undefined,
       userSelect: !usesSharedBevel ? 'none' : undefined,
       boxSizing: 'border-box',
-      width: isBattle ? BATTLE_SLOT_W : 'fit-content',
+      width: isBattle ? BATTLE_SLOT_W : isControl ? '100%' : 'fit-content',
       minWidth: isBattle ? undefined : 0,
-      alignSelf: 'center',
+      alignSelf: isControl ? 'stretch' : 'center',
       minHeight: isBattle ? BATTLE_SLOT_H : undefined,
       display: 'flex',
       alignItems: 'center',
@@ -791,17 +777,32 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
             {label}
           </span>
         ) : (
-          <span style={{
-            color: isControl ? '#238CD2' : '#000',
-            fontSize: isControl ? 15 : 14,
-            fontWeight: isControl ? 'bold' : 'normal',
-            fontFamily: TINY_FONT,
-            lineHeight: isControl ? 0.92 : 1,
-            whiteSpace: isControl ? 'pre-line' : 'normal',
-            textShadow: isControl ? '0 0 4px #28287C, 1px 1px 0 #28287C' : undefined,
-          }}>
-            {label}
-          </span>
+          isControl ? (
+            <RailFitText
+              text={label}
+              className="super-melee-menu-label super-melee-menu-label--control"
+              maxFontSize={15}
+              minFontSize={9}
+              lineHeight={0.92}
+              style={{
+                color: '#238CD2',
+                fontWeight: 'bold',
+                fontFamily: TINY_FONT,
+                textShadow: '0 0 4px #28287C, 1px 1px 0 #28287C',
+              }}
+            />
+          ) : (
+            <span style={{
+              color: '#000',
+              fontSize: 14,
+              fontWeight: 'normal',
+              fontFamily: TINY_FONT,
+              lineHeight: 1,
+              whiteSpace: 'normal',
+            }}>
+              {label}
+            </span>
+          )
         );
 
     const handleClick = () => {

@@ -8,7 +8,7 @@ import type { AIDifficulty, FullRoomState } from 'shared/types';
 import { client } from '../net/client';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2, BATTLE_FPS } from '../engine/game';
 import {
-  getControls, buildKeyMap,
+  getControls, buildKeyMap, buildPrioritizedKeyMap, getBoundGamepadIndices,
   type ControlsConfig,
 } from '../lib/controls';
 import { COSINE, SINE } from '../engine/sinetab';
@@ -154,8 +154,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const _initControls = getControls(); // reads live _cfg singleton
   const keyMapP1Ref   = useRef(buildKeyMap(_initControls.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2));
   const keyMapP2Ref   = useRef(buildKeyMap(_initControls.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2));
+  const singleShipKeyMapRef = useRef(buildPrioritizedKeyMap(
+    [_initControls.p1.bindings, _initControls.p2.bindings],
+    INPUT_THRUST,
+    INPUT_LEFT,
+    INPUT_RIGHT,
+    INPUT_FIRE1,
+    INPUT_FIRE2,
+  ));
   const gamepadP1Ref  = useRef(_initControls.p1.bindings.gamepadIndex);
   const gamepadP2Ref  = useRef(_initControls.p2.bindings.gamepadIndex);
+  const singleShipGamepadsRef = useRef(getBoundGamepadIndices(_initControls.p1.bindings, _initControls.p2.bindings));
   const gameKeysRef   = useRef(new Set([...Object.keys(keyMapP1Ref.current), ...Object.keys(keyMapP2Ref.current)]));
   // Per-ship sprites keyed by ShipId.  Each controller's loadSprites() returns
   // its own opaque sprite bundle; drawShip/drawMissile cast internally.
@@ -537,13 +546,19 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   // ─── Game loop ───────────────────────────────────────────────────────────
 
-  function computeInput(keyMap: Record<string, number>, gamepadIndex = -1): number {
+  function computeInput(keyMap: Record<string, number>, gamepadIndex: number | readonly number[] = -1): number {
     let bits = 0;
     // Keyboard
     for (const code of keysRef.current) bits |= keyMap[code] ?? 0;
     // Gamepad (polled each frame via Gamepad API)
-    if (gamepadIndex >= 0) {
-      const gp = navigator.getGamepads()[gamepadIndex];
+    let gamepadIndices: readonly number[] = [];
+    if (typeof gamepadIndex === 'number') {
+      if (gamepadIndex >= 0) gamepadIndices = [gamepadIndex];
+    } else {
+      gamepadIndices = gamepadIndex;
+    }
+    for (const index of gamepadIndices) {
+      const gp = navigator.getGamepads()[index];
       if (gp) {
         if (gp.axes[1] < -0.4) bits |= INPUT_THRUST;        // stick up
         if (gp.axes[0] < -0.4) bits |= INPUT_LEFT;          // stick left
@@ -581,8 +596,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     if (!bs || !assetsReadyRef.current) return;
 
     const mySide = yourSide;
-    // Online: always use P1 bindings regardless of which side you're on
-    const myInput = computeInput(keyMapP1Ref.current, gamepadP1Ref.current);
+    // Any battle with only one local human can be driven by either saved control set.
+    // If the same key is bound differently, player 1's binding wins the conflict.
+    const myInput = computeInput(singleShipKeyMapRef.current, singleShipGamepadsRef.current);
 
     let i0: number;
     let i1: number;
@@ -1449,8 +1465,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             onBindingsChanged={(controls: ControlsConfig) => {
               keyMapP1Ref.current  = buildKeyMap(controls.p1.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
               keyMapP2Ref.current  = buildKeyMap(controls.p2.bindings, INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2);
+              singleShipKeyMapRef.current = buildPrioritizedKeyMap(
+                [controls.p1.bindings, controls.p2.bindings],
+                INPUT_THRUST,
+                INPUT_LEFT,
+                INPUT_RIGHT,
+                INPUT_FIRE1,
+                INPUT_FIRE2,
+              );
               gamepadP1Ref.current = controls.p1.bindings.gamepadIndex;
               gamepadP2Ref.current = controls.p2.bindings.gamepadIndex;
+              singleShipGamepadsRef.current = getBoundGamepadIndices(controls.p1.bindings, controls.p2.bindings);
               gameKeysRef.current  = new Set([...Object.keys(keyMapP1Ref.current), ...Object.keys(keyMapP2Ref.current)]);
             }}
           />
