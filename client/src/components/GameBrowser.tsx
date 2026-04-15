@@ -194,7 +194,7 @@ export default function GameBrowser({ commanderName, rooms, joinError, onCommand
               <div className="void-save-list pixel-surface">
                 {rooms.length === 0 ? (
                   <div className="netplay-empty-state">
-                    No open games yet. Host one from the command rail.
+                    No open games yet. Use Host Game to create one.
                   </div>
                 ) : (
                   rooms.map(room => {

@@ -6,6 +6,7 @@ import ShipPicker from './ShipPicker';
 import { SHIP_ICON, SHIP_COSTS } from './shipSelectionData';
 import ShipMenuImage from './ShipMenuImage';
 import MultiplayerSetupScreen from './MultiplayerSetupScreen';
+import { roomUrl } from '../lib/netplayRoutes';
 
 const FLEET_SIZE = 14;
 const COLS = 7;
@@ -66,7 +67,7 @@ export default function FleetBuilder({
 
   async function handleCopyCode() {
     try {
-      await copyText(room.code);
+      await copyText(roomUrl(room.code));
       setCopyState('copied');
     } catch {
       setCopyState('error');

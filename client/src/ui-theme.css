@@ -105,6 +105,7 @@ textarea:focus-visible,
   color: #ff44ff;
   font-family: 'UQMSlides', var(--font);
   text-shadow: 0 0 18px #ff00ff60, 0 2px 0 #660066, 2px 2px 0 #330033;
+  user-select: text;
 }
 
 .super-melee-screen {
@@ -118,6 +119,17 @@ textarea:focus-visible,
   padding: 20px;
   overflow: hidden;
   user-select: none;
+}
+
+.super-melee-screen--setup .setup-captain-name,
+.super-melee-screen--setup .setup-team-name,
+.super-melee-screen--setup .setup-summary__meta,
+.super-melee-screen--setup .setup-status-note,
+.super-melee-screen--setup .setup-message,
+.super-melee-screen--setup .setup-room-card__label,
+.super-melee-screen--setup .setup-room-card__code,
+.super-melee-screen--setup .setup-room-card__status {
+  user-select: text;
 }
 
 .super-melee-stage {
@@ -386,13 +398,13 @@ textarea:focus-visible,
 
 .void-save-row {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 16px;
   align-items: stretch;
 }
 
 .void-save-cell {
-  min-height: 44px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   border: 2px solid #0f2cff;
@@ -401,10 +413,13 @@ textarea:focus-visible,
   padding: 0 10px;
   letter-spacing: 0.05em;
   font-family: 'UQMTiny', var(--font);
+  font-size: 22px;
+  line-height: 1.15;
 }
 
 .void-save-cell--slot {
   justify-content: center;
+  font-size: 24px;
 }
 
 .void-save-row.is-active .void-save-cell,

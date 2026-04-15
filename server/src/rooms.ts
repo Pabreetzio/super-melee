@@ -180,6 +180,16 @@ class RoomManager {
     return room;
   }
 
+  updateCommanderName(sessionId: string, name: string): Room | null {
+    const room = this.getRoomBySession(sessionId);
+    if (!room) return null;
+    const player = this.getPlayer(room, sessionId);
+    if (!player) return null;
+    player.commanderName = name.slice(0, 30);
+    room.lastActivityAt = Date.now();
+    return room;
+  }
+
   confirm(sessionId: string): Room | null {
     const room = this.getRoomBySession(sessionId);
     if (!room || !room.opponent) return null;

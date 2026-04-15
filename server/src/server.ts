@@ -24,6 +24,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Active connections: sessionId → WebSocket
 const connections = new Map<string, WebSocket>();
+const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Pending checksums: roomCode → frame → {s0?, s1?}
 const pendingChecksums = new Map<string, Map<number, { s0?: number; s1?: number }>>();
@@ -37,6 +38,7 @@ const battleOverAcks = new Map<string, {
 const postBattleResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const BATTLE_OVER_ACK_TIMEOUT_MS = 2500;
+const DISCONNECT_GRACE_MS = 8000;
 const POST_BATTLE_RESET_DELAY_MS = 15000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -52,8 +54,17 @@ function sendTo(sessionId: string, msg: ServerMsg) {
   if (ws) send(ws, msg);
 }
 
+function getVisiblePublicRooms() {
+  return rooms.getPublicRooms().filter(room => {
+    const fullRoom = rooms.getRoom(room.code);
+    if (!fullRoom) return false;
+    return !disconnectTimers.has(fullRoom.host.sessionId) &&
+      !(fullRoom.opponent && disconnectTimers.has(fullRoom.opponent.sessionId));
+  });
+}
+
 function broadcastRoomList() {
-  const list = rooms.getPublicRooms();
+  const list = getVisiblePublicRooms();
   const msg: ServerMsg = { type: 'room_list_update', rooms: list };
   for (const [sid, ws] of connections) {
     if (!rooms.getRoomBySession(sid)) {
@@ -91,6 +102,28 @@ function clearPostBattleResetTimer(roomCode: string) {
   if (!timer) return;
   clearTimeout(timer);
   postBattleResetTimers.delete(roomCode);
+}
+
+function clearDisconnectTimer(sessionId: string) {
+  const timer = disconnectTimers.get(sessionId);
+  if (!timer) return;
+  clearTimeout(timer);
+  disconnectTimers.delete(sessionId);
+}
+
+function handleSessionLeave(sessionId: string) {
+  const result = rooms.leave(sessionId);
+  if (!result) return;
+  const { room, wasHost } = result;
+  clearPostBattleResetTimer(room.code);
+  cleanupBattleState(room.code);
+  if (wasHost) {
+    if (room.opponent) sendTo(room.opponent.sessionId, { type: 'opponent_left' });
+  } else {
+    sendTo(room.host.sessionId, { type: 'opponent_left' });
+    broadcastRoomState(room.code);
+  }
+  broadcastRoomList();
 }
 
 function schedulePostBattleReset(roomCode: string) {
@@ -142,6 +175,7 @@ function sessionIdFromReq(req: IncomingMessage): string {
 wss.on('connection', (ws, req) => {
   const sessionId = sessionIdFromReq(req);
   const session = sessions.getOrCreate(sessionId);
+  clearDisconnectTimer(sessionId);
 
   // Close stale connection for this session
   const existing = connections.get(sessionId);
@@ -159,7 +193,7 @@ wss.on('connection', (ws, req) => {
     const yourSide = rooms.getSide(existingRoom, sessionId) ?? 0;
     send(ws, { type: 'room_joined', room: rooms.toFullState(existingRoom), yourSide, restored: true });
   } else {
-    send(ws, { type: 'room_list', rooms: rooms.getPublicRooms() });
+    send(ws, { type: 'room_list', rooms: getVisiblePublicRooms() });
   }
 
   ws.on('message', (data) => {
@@ -172,6 +206,13 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     if (connections.get(sessionId) === ws) {
       connections.delete(sessionId);
+      if (!rooms.getRoomBySession(sessionId)) return;
+      clearDisconnectTimer(sessionId);
+      disconnectTimers.set(sessionId, setTimeout(() => {
+        disconnectTimers.delete(sessionId);
+        if (connections.has(sessionId)) return;
+        handleSessionLeave(sessionId);
+      }, DISCONNECT_GRACE_MS));
     }
   });
 });
@@ -185,6 +226,11 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       const name = msg.name.trim().slice(0, 30);
       if (!name) return;
       sessions.setName(sessionId, name);
+      const room = rooms.updateCommanderName(sessionId, name);
+      if (room) {
+        broadcastRoomState(room.code);
+        broadcastRoomList();
+      }
       break;
     }
 
@@ -203,7 +249,19 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
 
     case 'join_room': {
       if (rooms.getRoomBySession(sessionId)) return;
+      const targetRoom = rooms.getRoom(msg.code.toUpperCase());
+      if (targetRoom && (
+        disconnectTimers.has(targetRoom.host.sessionId) ||
+        (targetRoom.opponent && disconnectTimers.has(targetRoom.opponent.sessionId))
+      )) {
+        send(ws, { type: 'join_error', reason: 'That engagement is reconnecting. Try again in a moment.' });
+        return;
+      }
       const session = sessions.getOrCreate(sessionId);
+      if (!session.commanderName) {
+        send(ws, { type: 'error', message: 'Set your commander name first.' });
+        return;
+      }
       const result = rooms.join(sessionId, session.commanderName, msg.code, msg.password);
       if ('error' in result) {
         send(ws, { type: 'join_error', reason: result.error });
@@ -217,18 +275,8 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
     }
 
     case 'leave_room': {
-      const result = rooms.leave(sessionId);
-      if (!result) return;
-      const { room, wasHost } = result;
-      clearPostBattleResetTimer(room.code);
-      if (wasHost) {
-        if (room.opponent) sendTo(room.opponent.sessionId, { type: 'opponent_left' });
-      } else {
-        sendTo(room.host.sessionId, { type: 'opponent_left' });
-        broadcastRoomState(room.code);
-      }
-      cleanupBattleState(room.code);
-      broadcastRoomList();
+      clearDisconnectTimer(sessionId);
+      handleSessionLeave(sessionId);
       break;
     }
 

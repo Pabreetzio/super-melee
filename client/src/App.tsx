@@ -14,6 +14,7 @@ import SettingsScreen from './components/Settings';
 import StyleLab from './components/StyleLab';
 import TypographyLab from './components/TypographyLab';
 import { getControls, codeDisplay, buildMenuBindingSet } from './lib/controls';
+import { roomCodeFromPathname, roomPath } from './lib/netplayRoutes';
 import ShipMenuImage from './components/ShipMenuImage';
 import StatusPanel, { type SideStatus } from './components/StatusPanel';
 import { pickRandomCaptainName } from './engine/ships/statusData';
@@ -53,6 +54,7 @@ const UTILITY_SCREEN_PATHS: Partial<Record<Screen, string>> = {
 };
 
 function screenFromPathname(pathname: string): Screen {
+  if (roomCodeFromPathname(pathname)) return 'browser';
   switch (pathname) {
     case '/net':
       return 'browser';
@@ -71,6 +73,17 @@ function screenFromPathname(pathname: string): Screen {
 
 function pathFromScreen(screen: Screen): string {
   return UTILITY_SCREEN_PATHS[screen] ?? '/';
+}
+
+function pathFromState(state: AppState, currentPathname: string, preserveRouteRoomCode: boolean): string {
+  if (state.room && !isOfflineRoomCode(state.room.code)) {
+    return roomPath(state.room.code);
+  }
+  if (state.screen === 'browser') {
+    const routeCode = roomCodeFromPathname(currentPathname);
+    return routeCode && preserveRouteRoomCode ? roomPath(routeCode) : '/net';
+  }
+  return pathFromScreen(state.screen);
 }
 
 const COMMANDER_NAME_STORAGE_KEY = 'sm_commander_name';
@@ -120,6 +133,7 @@ interface AppState {
   finalStatus: [SideStatus | null, SideStatus | null];
   deferredOnlineRoom: { room: FullRoomState; side?: 0 | 1 } | null;
   onlineBattleOutcomeCaptured: boolean;
+  leavingRoomCode: string | null;
   // Where to go after post_battle "leave"
   battleOrigin:  'supermelee' | 'browser';
   utilityReturnScreen: UtilityReturnScreen;
@@ -135,6 +149,7 @@ type Action =
   | { type: 'join_error';     reason: string }
   | { type: 'opponent_left' }
   | { type: 'battle_over';    winner: 0 | 1 | null; nextSeed?: number; winnerState?: WinnerShipState; finalStatus?: [SideStatus | null, SideStatus | null] }
+  | { type: 'leave_room_local'; code: string }
   | { type: 'ship_chosen';    side: 0 | 1; slot: number }
   | { type: 'go_browser' }
   | { type: 'go_supermelee' }
@@ -177,6 +192,7 @@ function init(): AppState {
     finalStatus: [null, null],
     deferredOnlineRoom: null,
     onlineBattleOutcomeCaptured: false,
+    leavingRoomCode: null,
     battleOrigin:  'supermelee',
     utilityReturnScreen: 'supermelee',
   };
@@ -263,6 +279,7 @@ function applyResolvedOnlineRoom(
     originalFleets: nextOnlineOriginalFleets(state, room),
     deferredOnlineRoom: null,
     onlineBattleOutcomeCaptured: false,
+    leavingRoomCode: null,
   };
 }
 
@@ -284,10 +301,13 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, commanderName: action.name, screen: 'browser' };
 
     case 'room_list':
-      return { ...state, rooms: action.rooms };
+      return { ...state, rooms: action.rooms, leavingRoomCode: null };
 
     case 'room_entered':
       {
+        if (state.leavingRoomCode && action.room.code === state.leavingRoomCode) {
+          return state;
+        }
         const isOfflineRoom = isOfflineRoomCode(action.room.code);
         const blockedRestore = !isOfflineRoom && !!action.restored && isUnrestorableOnlineBattle(action.room);
         return {
@@ -305,10 +325,14 @@ function reducer(state: AppState, action: Action): AppState {
           winnerState: isOfflineRoom || shouldKeepWinnerStateForRoom(action.room) ? state.winnerState : null,
           deferredOnlineRoom: null,
           onlineBattleOutcomeCaptured: false,
+          leavingRoomCode: null,
         };
       }
 
     case 'room_updated': {
+      if (state.leavingRoomCode && action.room.code === state.leavingRoomCode) {
+        return state;
+      }
       const isOfflineRoom = isOfflineRoomCode(action.room.code);
       if (!isOfflineRoom && state.screen === 'battle' && isLiveOnlineBattleRoom(state.room) && !isLiveOnlineBattleRoom(action.room)) {
         if (state.onlineBattleOutcomeCaptured) {
@@ -338,6 +362,7 @@ function reducer(state: AppState, action: Action): AppState {
         winnerState: isOfflineRoom || shouldKeepWinnerStateForRoom(action.room) ? state.winnerState : null,
         deferredOnlineRoom: null,
         onlineBattleOutcomeCaptured: false,
+        leavingRoomCode: null,
       };
     }
 
@@ -345,6 +370,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, joinError: action.reason };
 
     case 'opponent_left': {
+      if (state.leavingRoomCode) return state;
       if (!state.room) return state;
       if (state.yourSide === 1) {
         // Host left → room gone → go to browser
@@ -356,6 +382,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'battle_over': {
+      if (state.leavingRoomCode) return state;
       const isSolo    = state.room?.code === 'SOLO';
       const isLocal2P = state.room?.code === 'LOCAL2P';
       const isOnline = !isSolo && !isLocal2P;
@@ -580,10 +607,25 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'go_browser':
-      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
+      return { ...state, screen: 'browser', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false, leavingRoomCode: null };
+
+    case 'leave_room_local':
+      return {
+        ...state,
+        screen: 'browser',
+        room: null,
+        joinError: '',
+        originalFleets: null,
+        activeSlot0: null,
+        activeSlot1: null,
+        winnerState: null,
+        deferredOnlineRoom: null,
+        onlineBattleOutcomeCaptured: false,
+        leavingRoomCode: action.code,
+      };
 
     case 'go_supermelee':
-      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false };
+      return { ...state, screen: 'supermelee', room: null, joinError: '', originalFleets: null, activeSlot0: null, activeSlot1: null, winnerState: null, deferredOnlineRoom: null, onlineBattleOutcomeCaptured: false, leavingRoomCode: null };
 
     case 'go_bgbuilder':
       return { ...state, screen: 'bgbuilder', utilityReturnScreen: action.returnTo ?? 'supermelee' };
@@ -890,14 +932,35 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [routeJoinReady, setRouteJoinReady] = useState(false);
   const showLocalDevLink = isLanOrLocalHost(window.location.hostname);
+  const routeRoomCode = roomCodeFromPathname(pathname);
+  const autoJoinRouteCodeRef = useRef<string | null>(null);
+  const pendingRouteJoinCodeRef = useRef<string | null>(null);
+  const preserveRouteRoomCode =
+    !!routeRoomCode
+    && !state.room
+    && !state.leavingRoomCode
+    && state.screen === 'browser'
+    && (
+      autoJoinRouteCodeRef.current !== routeRoomCode
+      || pendingRouteJoinCodeRef.current === routeRoomCode
+      || state.joinError !== ''
+    );
 
   useEffect(() => {
     const unsubMsg = client.onMessage((msg: ServerMsg) => {
+      if (msg.type === 'room_list' || msg.type === 'room_joined') {
+        setRouteJoinReady(true);
+      }
       applyServerMsg(msg, dispatch);
     });
 
-    const unsubConnect = client.onConnect(() => dispatch({ type: 'connected' }));
+    const unsubConnect = client.onConnect(() => {
+      setRouteJoinReady(false);
+      dispatch({ type: 'connected' });
+    });
     client.connect();
 
     return () => {
@@ -916,18 +979,57 @@ export default function App() {
     client.send({ type: 'set_name', name: state.commanderName });
   }, [state.connected, state.sessionId, state.commanderName]);
 
-  // Sync pathname for SPA-friendly utility routes like /styles
+  // Sync pathname for SPA-friendly utility routes and shareable room links.
   useEffect(() => {
-    const nextPath = pathFromScreen(state.screen);
+    const nextPath = pathFromState(state, pathname, preserveRouteRoomCode);
     if (window.location.pathname !== nextPath) {
       window.history.pushState(null, '', nextPath);
+      setPathname(nextPath);
     }
-  }, [state.screen]);
+  }, [pathname, preserveRouteRoomCode, state]);
+
+  useEffect(() => {
+    if (!routeRoomCode) {
+      autoJoinRouteCodeRef.current = null;
+      pendingRouteJoinCodeRef.current = null;
+      return;
+    }
+    if (!routeJoinReady || !state.connected || !state.sessionId || state.screen !== 'browser' || state.leavingRoomCode) return;
+    if (state.room && !isOfflineRoomCode(state.room.code)) {
+      autoJoinRouteCodeRef.current = state.room.code === routeRoomCode ? routeRoomCode : autoJoinRouteCodeRef.current;
+      return;
+    }
+    if (autoJoinRouteCodeRef.current === routeRoomCode) return;
+    autoJoinRouteCodeRef.current = routeRoomCode;
+    pendingRouteJoinCodeRef.current = routeRoomCode;
+    client.send({ type: 'join_room', code: routeRoomCode });
+  }, [routeJoinReady, routeRoomCode, state.connected, state.leavingRoomCode, state.room, state.screen, state.sessionId]);
+
+  useEffect(() => {
+    if (!routeRoomCode) {
+      pendingRouteJoinCodeRef.current = null;
+      return;
+    }
+    if (
+      state.joinError !== ''
+      || (state.room && !isOfflineRoomCode(state.room.code) && state.room.code === routeRoomCode)
+    ) {
+      pendingRouteJoinCodeRef.current = null;
+    }
+  }, [routeRoomCode, state.joinError, state.room]);
 
   useEffect(() => {
     const onPopState = () => {
-      const nextScreen = screenFromPathname(window.location.pathname);
-      if (nextScreen === state.screen) return;
+      const nextPath = window.location.pathname;
+      const nextScreen = screenFromPathname(nextPath);
+      const nextRouteRoomCode = roomCodeFromPathname(nextPath);
+      const currentOnlineRoomCode = state.room && !isOfflineRoomCode(state.room.code)
+        ? state.room.code
+        : null;
+
+      setPathname(nextPath);
+
+      if (nextScreen === state.screen && nextRouteRoomCode === currentOnlineRoomCode) return;
       switch (nextScreen) {
         case 'style_lab':
           dispatch({ type: 'go_style_lab' });
@@ -952,7 +1054,7 @@ export default function App() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [state.screen]);
+  }, [state.room, state.screen]);
 
   // Join error — pass down to browser
   const { joinError } = state;
@@ -1018,7 +1120,11 @@ export default function App() {
           room={state.room}
           yourSide={state.yourSide}
           onLeave={() => {
-            if (!isOfflineRoom) client.send({ type: 'leave_room' });
+            if (!isOfflineRoom) {
+              client.send({ type: 'leave_room' });
+              dispatch({ type: 'leave_room_local', code: state.room!.code });
+              return;
+            }
             dispatch({ type: 'go_browser' });
           }}
           onSoloEngage={state.room.code === 'SOLO'
@@ -1060,13 +1166,13 @@ export default function App() {
           onQuitBattle={!isOfflineBattle
             ? () => {
                 client.send({ type: 'leave_room' });
-                dispatch({ type: 'go_browser' });
+                dispatch({ type: 'leave_room_local', code: state.room!.code });
               }
             : undefined}
           onDesyncQuit={!isOfflineBattle
             ? () => {
                 client.send({ type: 'leave_room' });
-                dispatch({ type: 'go_browser' });
+                dispatch({ type: 'leave_room_local', code: state.room!.code });
               }
             : undefined}
         />
@@ -1079,7 +1185,7 @@ export default function App() {
           room={state.room}
           onLeave={() => {
             client.send({ type: 'leave_room' });
-            dispatch({ type: 'go_browser' });
+            dispatch({ type: 'leave_room_local', code: state.room!.code });
           }}
         />
       ) : null;
@@ -1176,7 +1282,11 @@ export default function App() {
             }
           }}
           onLeave={() => {
-            if (!isOffline) client.send({ type: 'leave_room' });
+            if (!isOffline) {
+              client.send({ type: 'leave_room' });
+              dispatch({ type: 'leave_room_local', code: state.room!.code });
+              return;
+            }
             if (fromSupermelee) {
               dispatch({ type: 'go_supermelee' });
             } else {

@@ -163,6 +163,11 @@ For UI discussions in this repo:
    update the labs and the live app surfaces that use it together. If there is real
    ambiguity about whether something is a shared primitive or a special-case exception,
    pause and clarify before changing only one side.
+8. Treat this sync rule as mandatory, not optional. If you change a shared primitive
+   on a live page, update the matching `StyleLab`/`TypographyLab` reference in the
+   same patch without waiting for the user to remind you. This includes typography,
+   spacing, widths, heights, and other presentation details for shared list rows,
+   panels, buttons, and menu treatments.
 
 ## Battle / Weapon Workflow
 

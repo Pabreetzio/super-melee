@@ -128,9 +128,11 @@ function FleetPanel({
   teamName,
   value,
   fleet,
+  roomCode,
   editable,
   confirmed,
   awaitingOpponent = false,
+  onCopyCode,
   onEditTeamName,
   onPickSlot,
 }: {
@@ -138,9 +140,11 @@ function FleetPanel({
   teamName: string;
   value: number;
   fleet: FleetSlot[];
+  roomCode?: string;
   editable: boolean;
   confirmed?: boolean;
   awaitingOpponent?: boolean;
+  onCopyCode?: () => void;
   onEditTeamName?: (name: string) => void;
   onPickSlot?: (slot: number) => void;
 }) {
@@ -163,7 +167,29 @@ function FleetPanel({
 
       {awaitingOpponent ? (
         <div className="setup-message">
-          Awaiting opponent. Share the room code from the command rail.
+          Awaiting opponent. Share code{' '}
+          <button
+            type="button"
+            onClick={onCopyCode}
+            disabled={!roomCode}
+            title={roomCode ? 'Copy room code' : undefined}
+            style={{
+              appearance: 'none',
+              background: 'transparent',
+              border: 0,
+              padding: 0,
+              color: 'var(--accent)',
+              font: 'inherit',
+              fontWeight: 'bold',
+              cursor: roomCode ? 'pointer' : 'default',
+              letterSpacing: 'inherit',
+              textDecoration: roomCode ? 'underline' : 'none',
+              textUnderlineOffset: '0.15em',
+            }}
+          >
+            {roomCode ?? '----'}
+          </button>
+          .
         </div>
       ) : (
         <div className="setup-fleet-grid">
@@ -248,7 +274,7 @@ export default function MultiplayerSetupScreen({
     : 'Waiting...';
 
   return (
-    <div className="super-melee-screen">
+    <div className="super-melee-screen super-melee-screen--setup">
       <StarfieldBG config={bgConfig} />
 
       <div
@@ -280,9 +306,11 @@ export default function MultiplayerSetupScreen({
                   teamName={room.opponent?.teamName ?? 'Awaiting Opponent'}
                   value={fleetValue(opponentFleet)}
                   fleet={opponentFleet}
+                  roomCode={room.code}
                   editable={yourSide === 1 && hasOpponent}
                   confirmed={opponentConfirmed}
                   awaitingOpponent={!hasOpponent}
+                  onCopyCode={onCopyCode}
                   onEditTeamName={name => yourSide === 1 && onTeamName(name)}
                   onPickSlot={slot => yourSide === 1 && onFleetPick(slot)}
                 />
@@ -303,7 +331,7 @@ export default function MultiplayerSetupScreen({
                     { label: hostCaptain, tone: 'captain' },
                   ]}
                 />
-                <SetupMenuButton label="Copy Code" onClick={onCopyCode} />
+                <SetupMenuButton label="Copy Link" onClick={onCopyCode} />
               </div>
 
               <div className="menu-panel menu-panel--bevel pixel-surface setup-room-card">
@@ -311,9 +339,9 @@ export default function MultiplayerSetupScreen({
                 <div className="setup-room-card__code">{room.code}</div>
                 <div className="setup-room-card__status">
                   {copyState === 'copied'
-                    ? 'Copied to clipboard'
+                    ? 'Copied room link'
                     : copyState === 'error'
-                    ? 'Copy failed'
+                    ? 'Copy link failed'
                     : hasOpponent
                     ? 'Opponent connected'
                     : 'Waiting for opponent'}
