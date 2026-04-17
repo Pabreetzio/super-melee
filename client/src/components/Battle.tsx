@@ -94,8 +94,22 @@ function stableCaptainSeed(baseSeed: number, side: 0 | 1, slot: number | null, s
   return seed >>> 0;
 }
 
-// Star field: 3 tiers matching UQM galaxy.c (BIG=30, MED=60, SML=90)
+// Battle star planes matching UQM's galaxy.c setup:
+// near = 30 blue stars at full scroll speed, mid = 60 blue stars at half speed,
+// far = 90 light stars at quarter speed.
 const STAR_COUNTS = [30, 60, 90] as const;
+const STAR_LAYER_COLORS = [
+  ['#808cfc', '#949cfc'],
+  ['#4048fc', '#5e6bfc'],
+  ['#d8dcff', '#ffffff'],
+] as const;
+type StarLayer = 0 | 1 | 2;
+type BattleStar = {
+  x: number;
+  y: number;
+  layer: StarLayer;
+  color: string;
+};
 
 // Planet sprite hotspots from {type}-{big|med|sml}.ani
 // Format: <file> 0 -1 <hotX> <hotY>  (hotspot = sprite center)
@@ -171,8 +185,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const shipSpritesRef      = useRef<Map<string, unknown>>(new Map());
   const explosionSpritesRef = useRef<ExplosionSprites | null>(null);
   const reductionRef = useRef(0); // current zoom level 0–MAX_REDUCTION
-  // Stars: flat array [big×30, med×60, sml×90] of {x,y} world-unit positions
-  const starsRef = useRef<{ x: number; y: number }[]>([]);
+  // Stars are stored in three planes with larger wrap domains for slower parallax,
+  // mirroring UQM's battle starfield.
+  const starsRef = useRef<BattleStar[]>([]);
   const rngRef   = useRef<RNG | null>(null);
   const visualRngRef = useRef<RNG | null>(null);
 
@@ -293,11 +308,20 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const rng = new RNG(_seed || 1);
     rngRef.current = rng;
     visualRngRef.current = new RNG((_seed || 1) ^ 0x5f3759df);
-    // Generate star field using seed for determinism.
+    // Generate the three battle star planes deterministically.
     {
-      const stars: { x: number; y: number }[] = [];
-      for (let i = 0; i < STAR_COUNTS[0] + STAR_COUNTS[1] + STAR_COUNTS[2]; i++) {
-        stars.push({ x: rng.rand(WORLD_W), y: rng.rand(WORLD_H) });
+      const stars: BattleStar[] = [];
+      for (let layer = 0 as StarLayer; layer < STAR_COUNTS.length; layer++) {
+        const planeScale = 1 << layer;
+        const palette = STAR_LAYER_COLORS[layer];
+        for (let i = 0; i < STAR_COUNTS[layer]; i++) {
+          stars.push({
+            x: rng.rand(WORLD_W * planeScale),
+            y: rng.rand(WORLD_H * planeScale),
+            layer,
+            color: palette[rng.rand(palette.length)],
+          });
+        }
       }
       starsRef.current = stars;
     }
@@ -1198,16 +1222,12 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     // ── Stars ────────────────────────────────────────────────────────────
-    // 180 stars placed in world space (fixed, like UQM's galaxy.c stars).
-    // 3 tiers: big (2×2 white), med (1×1 light), sml (1×1 dim).
-    // Stars scroll with the camera; wrap toroidally at world edges.
+    // UQM battle stars use three parallax planes that scroll at 1x / 1/2x / 1/4x.
+    // We render them as single-pixel points to keep the original tiny-star feel.
     {
       const worldDW = WORLD_W >> (2 + r); // world width in display pixels
       const worldDH = WORLD_H >> (2 + r);
       const stars = starsRef.current;
-      const med0 = STAR_COUNTS[0];
-      const sml0 = STAR_COUNTS[0] + STAR_COUNTS[1];
-      const total = sml0 + STAR_COUNTS[2];
       const cloakedShips: Array<{ ship: ShipState; frame: SpriteFrame | null; radiusSq: number }> = [];
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const ship = bs.ships[side];
@@ -1221,33 +1241,39 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const radius = DISPLAY_TO_WORLD(ctrl.getCollisionRadius?.(ship) ?? getShipDef(bs.shipTypes[side])?.radius ?? 14);
         cloakedShips.push({ ship, frame: null, radiusSq: radius * radius });
       }
-      for (let i = 0; i < total; i++) {
-        if (cloakedShips.some(({ ship, frame, radiusSq }) => {
-          const delta = worldDelta(stars[i].x, stars[i].y, ship.x, ship.y, WORLD_W, WORLD_H);
-          if (frame) {
-            return spriteMaskContainsWorldPoint(frame, ship.x, ship.y, stars[i].x, stars[i].y, WORLD_W, WORLD_H);
-          }
-          return delta.dx * delta.dx + delta.dy * delta.dy <= radiusSq;
-        })) continue;
-        let sx = (stars[i].x - camX) >> (2 + r);
-        let sy = (stars[i].y - camY) >> (2 + r);
+      for (const star of stars) {
+        const planeScale = 1 << star.layer;
+        const layerWorldW = WORLD_W * planeScale;
+        const layerWorldH = WORLD_H * planeScale;
+        const layerShift = 2 + r + star.layer;
+
+        let sx = star.x - camX;
+        sx = ((sx % layerWorldW) + layerWorldW) % layerWorldW;
+        if (sx > layerWorldW >> 1) sx -= layerWorldW;
+        sx >>= layerShift;
+
+        let sy = star.y - camY;
+        sy = ((sy % layerWorldH) + layerWorldH) % layerWorldH;
+        if (sy > layerWorldH >> 1) sy -= layerWorldH;
+        sy >>= layerShift;
+
         // Wrap single step — world is always >= the visible battle viewport at any zoom
         if (sx < 0) sx += worldDW; else if (sx >= SPACE_CANVAS_W) sx -= worldDW;
         if (sy < 0) sy += worldDH; else if (sy >= CANVAS_H) sy -= worldDH;
         if (sx < 0 || sx >= SPACE_CANVAS_W || sy < 0 || sy >= CANVAS_H) continue;
-        if (i < med0) {
-          // Big star: 2×2 bright white
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(sx - 1, sy - 1, 2, 2);
-        } else if (i < sml0) {
-          // Med star: 1×1 light grey
-          ctx.fillStyle = '#ccc';
-          ctx.fillRect(sx, sy, 1, 1);
-        } else {
-          // Small star: 1×1 dim grey
-          ctx.fillStyle = '#777';
-          ctx.fillRect(sx, sy, 1, 1);
-        }
+
+        const starWorldX = wrapWorldCoord(camX + (sx << (2 + r)), WORLD_W);
+        const starWorldY = wrapWorldCoord(camY + (sy << (2 + r)), WORLD_H);
+        if (cloakedShips.some(({ ship, frame, radiusSq }) => {
+          const delta = worldDelta(starWorldX, starWorldY, ship.x, ship.y, WORLD_W, WORLD_H);
+          if (frame) {
+            return spriteMaskContainsWorldPoint(frame, ship.x, ship.y, starWorldX, starWorldY, WORLD_W, WORLD_H);
+          }
+          return delta.dx * delta.dx + delta.dy * delta.dy <= radiusSq;
+        })) continue;
+
+        ctx.fillStyle = star.color;
+        ctx.fillRect(sx, sy, 1, 1);
       }
     }
 
