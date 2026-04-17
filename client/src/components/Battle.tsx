@@ -1385,11 +1385,6 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       tw2dy,
     );
 
-    // ── HUD overlays ─────────────────────────────────────────────────────
-    ctx.fillStyle = 'rgba(100,100,120,0.6)';
-    ctx.font = '10px monospace';
-    ctx.fillText(`frame ${bs.frame}  zoom ${1 << r}×`, 4, 12);
-
     if (isLocal2P && bs.frame < 360) {
       const alpha = bs.frame < 240 ? 0.7 : 0.7 * (1 - (bs.frame - 240) / 120);
       ctx.globalAlpha = alpha;
