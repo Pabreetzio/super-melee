@@ -153,6 +153,8 @@ export function updateMyconShip(ship: ShipState, input: number): SpawnRequest[] 
       tracks: true,
       trackRate: MYCON_TRACK_WAIT,
       initialTrackWait: MYCON_TRACK_WAIT + 2,
+      // Canonical quirk: a plasmoid can loop back into the firing Podship.
+      hitOwnShip: true,
       weaponType: 'plasmoid',
     });
   }

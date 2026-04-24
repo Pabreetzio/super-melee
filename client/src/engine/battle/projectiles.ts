@@ -137,6 +137,7 @@ function spawnMissileEffect(
     trackRate: s.trackRate,
     owner,
     preserveVelocity: s.preserveVelocity,
+    hitOwnShip: s.hitOwnShip,
     limpet: s.limpet,
     weaponType: s.weaponType,
     orzSeed: s.orzSeed,
@@ -148,6 +149,8 @@ function missileIntersectsShip(
   shipSprites: Map<string, unknown>,
   m: BattleMissile,
   side: 0 | 1,
+  shipPrevX: number,
+  shipPrevY: number,
   worldW: number,
   worldH: number,
 ): boolean {
@@ -155,8 +158,8 @@ function missileIntersectsShip(
   const shipRadius = getShipCollisionRadius(bs, side);
   const missileHitRadius = missileRadius(m);
   const sweptShipProxy = {
-    prevX: ship.x,
-    prevY: ship.y,
+    prevX: shipPrevX,
+    prevY: shipPrevY,
     x: ship.x,
     y: ship.y,
   } as BattleMissile;
@@ -174,8 +177,8 @@ function missileIntersectsShip(
       m.x,
       m.y,
       shipFrame,
-      ship.x,
-      ship.y,
+      shipPrevX,
+      shipPrevY,
       ship.x,
       ship.y,
       worldW,
@@ -185,12 +188,20 @@ function missileIntersectsShip(
   }
   if (missileFrame) {
     const { dx: moveX, dy: moveY } = worldDelta(m.prevX, m.prevY, m.x, m.y, worldW, worldH);
-    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(WORLD_TO_DISPLAY(moveX)), Math.abs(WORLD_TO_DISPLAY(moveY)))));
+    const { dx: shipMoveX, dy: shipMoveY } = worldDelta(shipPrevX, shipPrevY, ship.x, ship.y, worldW, worldH);
+    const steps = Math.max(1, Math.ceil(Math.max(
+      Math.abs(WORLD_TO_DISPLAY(moveX)),
+      Math.abs(WORLD_TO_DISPLAY(moveY)),
+      Math.abs(WORLD_TO_DISPLAY(shipMoveX)),
+      Math.abs(WORLD_TO_DISPLAY(shipMoveY)),
+    )));
     for (let step = 0; step <= steps; step++) {
       const t = step / steps;
       const sampleX = m.prevX + Math.round(moveX * t);
       const sampleY = m.prevY + Math.round(moveY * t);
-      if (spriteMaskIntersectsCircle(missileFrame, sampleX, sampleY, ship.x, ship.y, shipRadius, worldW, worldH)) {
+      const shipSampleX = shipPrevX + Math.round(shipMoveX * t);
+      const shipSampleY = shipPrevY + Math.round(shipMoveY * t);
+      if (spriteMaskIntersectsCircle(missileFrame, sampleX, sampleY, shipSampleX, shipSampleY, shipRadius, worldW, worldH)) {
         return true;
       }
     }
@@ -383,6 +394,7 @@ export function processMissiles(
   shipSprites: Map<string, unknown>,
   input0: number,
   input1: number,
+  shipPrevPositions: readonly [{ x: number; y: number }, { x: number; y: number }],
   planetX: number,
   planetY: number,
   planetRadiusW: number,
@@ -490,8 +502,7 @@ export function processMissiles(
     m.y = ((m.y % worldH) + worldH) % worldH;
 
     let hit = false;
-    const targetSide = m.owner === 0 ? 1 : 0;
-    const targetShip = bs.ships[targetSide];
+    const enemySide = m.owner === 0 ? 1 : 0;
 
     if (!hit && m.orzMarineMode !== 'boarded' && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
       const { dx: pdx, dy: pdy } = worldDelta(planetX, planetY, m.x, m.y);
@@ -533,69 +544,94 @@ export function processMissiles(
 
     if (!hit &&
         m.orzMarineMode !== 'boarded' &&
-        targetShip.crew > 0 &&
-        bs.warpIn[targetSide] === 0 &&
-        !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
-        m.weaponType !== 'fighter' &&
-        missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
-      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
-      const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
-      if (absorb?.absorbed) {
-        if (absorb.sound) playEffectSound(absorb.sound);
-        if (absorb.destroyIncoming !== false) hit = true;
-      } else {
-      targetShip.crew = Math.max(0, targetShip.crew - m.damage);
-      const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
-      pushHitEffects(bs, m, hitFx, worldW, worldH);
-      if (hitFx.impairTarget) {
-        targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
-        targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
-      }
-      if (hitFx.attachLimpet) {
-        targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
-      }
-      if (hitFx.drainTargetEnergy) {
-        targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
-      }
-      if (hitFx.targetVelocityDelta) {
-        const nextVx = targetShip.velocity.vx + hitFx.targetVelocityDelta.vx;
-        const nextVy = targetShip.velocity.vy + hitFx.targetVelocityDelta.vy;
-        setVelocityComponents(targetShip.velocity, nextVx, nextVy);
-        if (hitFx.targetVelocityDelta.maxSpeed !== undefined) {
-          const speedSq = targetShip.velocity.vx * targetShip.velocity.vx + targetShip.velocity.vy * targetShip.velocity.vy;
-          const maxSpeedSq = hitFx.targetVelocityDelta.maxSpeed * hitFx.targetVelocityDelta.maxSpeed;
-          if (speedSq > maxSpeedSq) {
-            const scale = hitFx.targetVelocityDelta.maxSpeed / Math.sqrt(speedSq);
-            setVelocityComponents(targetShip.velocity, targetShip.velocity.vx * scale, targetShip.velocity.vy * scale);
+        m.weaponType !== 'fighter') {
+      const targetSides = m.hitOwnShip ? [enemySide, m.owner] as const : [enemySide] as const;
+      for (const targetSide of targetSides) {
+        if (hit) break;
+        const targetShip = bs.ships[targetSide];
+        if (targetShip.crew <= 0) continue;
+        if (bs.warpIn[targetSide] > 0) continue;
+        if (SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip)) continue;
+        if (!missileIntersectsShip(
+          bs,
+          shipSprites,
+          m,
+          targetSide,
+          shipPrevPositions[targetSide].x,
+          shipPrevPositions[targetSide].y,
+          worldW,
+          worldH,
+        )) continue;
+
+        const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
+        const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+        if (absorb?.absorbed) {
+          if (absorb.sound) playEffectSound(absorb.sound);
+          if (absorb.destroyIncoming !== false) hit = true;
+          continue;
+        }
+
+        targetShip.crew = Math.max(0, targetShip.crew - m.damage);
+        const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
+        pushHitEffects(bs, m, hitFx, worldW, worldH);
+        if (hitFx.impairTarget) {
+          targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
+          targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);
+        }
+        if (hitFx.attachLimpet) {
+          targetShip.limpetCount = Math.min(6, (targetShip.limpetCount ?? 0) + hitFx.attachLimpet);
+        }
+        if (hitFx.drainTargetEnergy) {
+          targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
+        }
+        if (hitFx.targetVelocityDelta) {
+          const nextVx = targetShip.velocity.vx + hitFx.targetVelocityDelta.vx;
+          const nextVy = targetShip.velocity.vy + hitFx.targetVelocityDelta.vy;
+          setVelocityComponents(targetShip.velocity, nextVx, nextVy);
+          if (hitFx.targetVelocityDelta.maxSpeed !== undefined) {
+            const speedSq = targetShip.velocity.vx * targetShip.velocity.vx + targetShip.velocity.vy * targetShip.velocity.vy;
+            const maxSpeedSq = hitFx.targetVelocityDelta.maxSpeed * hitFx.targetVelocityDelta.maxSpeed;
+            if (speedSq > maxSpeedSq) {
+              const scale = hitFx.targetVelocityDelta.maxSpeed / Math.sqrt(speedSq);
+              setVelocityComponents(targetShip.velocity, targetShip.velocity.vx * scale, targetShip.velocity.vy * scale);
+            }
           }
         }
-      }
-      playMissileBlast(m, hitFx.skipBlast);
-      if (hitFx.keepMissileAlive) {
-        m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
-      } else {
-        hit = true;
-      }
+        playMissileBlast(m, hitFx.skipBlast);
+        if (hitFx.keepMissileAlive) {
+          m.weaponWait = hitFx.missileCooldown ?? m.weaponWait;
+        } else {
+          hit = true;
+        }
       }
     }
 
     if (!hit &&
         m.orzMarineMode !== 'boarded' &&
         m.weaponType === 'fighter' &&
-        targetShip.crew > 0 &&
-        bs.warpIn[targetSide] === 0 &&
-        !SHIP_REGISTRY[bs.shipTypes[targetSide]].isIntangible?.(targetShip) &&
-        missileIntersectsShip(bs, shipSprites, m, targetSide, worldW, worldH)) {
-      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
-      const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+        enemyShip.crew > 0 &&
+        bs.warpIn[enemySide] === 0 &&
+        !SHIP_REGISTRY[bs.shipTypes[enemySide]].isIntangible?.(enemyShip) &&
+        missileIntersectsShip(
+          bs,
+          shipSprites,
+          m,
+          enemySide,
+          shipPrevPositions[enemySide].x,
+          shipPrevPositions[enemySide].y,
+          worldW,
+          worldH,
+        )) {
+      const targetCtrl = SHIP_REGISTRY[bs.shipTypes[enemySide]];
+      const absorb = targetCtrl.absorbHit?.(enemyShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
       if (absorb?.absorbed) {
         if (absorb.sound) playEffectSound(absorb.sound);
         if (absorb.destroyIncoming !== false) hit = true;
       } else {
-      const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
+      const hitFx = ownerCtrl.onMissileHit?.(m, enemyShip) ?? {};
       pushHitEffects(bs, m, hitFx, worldW, worldH);
       if (hitFx.drainTargetEnergy) {
-        targetShip.energy = Math.max(0, targetShip.energy - Math.min(targetShip.energy, hitFx.drainTargetEnergy));
+        enemyShip.energy = Math.max(0, enemyShip.energy - Math.min(enemyShip.energy, hitFx.drainTargetEnergy));
       }
       playMissileBlast(m, hitFx.skipBlast);
       if (hitFx.keepMissileAlive) {

@@ -863,8 +863,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (inactive || ship.crew <= 0) return [];
       return SHIP_REGISTRY[type].update(ship, input);
     };
-    const preShip0 = { facing: bs.ships[0].facing, vx: bs.ships[0].velocity.vx, vy: bs.ships[0].velocity.vy };
-    const preShip1 = { facing: bs.ships[1].facing, vx: bs.ships[1].velocity.vx, vy: bs.ships[1].velocity.vy };
+    const preShip0 = { x: bs.ships[0].x, y: bs.ships[0].y, facing: bs.ships[0].facing, vx: bs.ships[0].velocity.vx, vy: bs.ships[0].velocity.vy };
+    const preShip1 = { x: bs.ships[1].x, y: bs.ships[1].y, facing: bs.ships[1].facing, vx: bs.ships[1].velocity.vx, vy: bs.ships[1].velocity.vy };
     const inactive0 = bs.warpIn[0] > 0 || bs.rebirth[0] > 0 || bs.shipDestructions[0] !== null;
     const inactive1 = bs.warpIn[1] > 0 || bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null;
     const spawns0 = updateShip(bs.ships[0], input0, bs.shipTypes[0], inactive0);
@@ -917,6 +917,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           tracks: s.tracks, trackWait: s.initialTrackWait ?? s.trackRate, trackRate: s.trackRate,
           owner,
           preserveVelocity: s.preserveVelocity,
+          hitOwnShip: s.hitOwnShip,
           limpet: s.limpet,
           weaponType: s.weaponType,
           orzSeed: s.orzSeed,
@@ -1071,7 +1072,21 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     if (rng) {
       advanceAsteroids(bs.asteroids, (n) => rng.rand(n), WORLD_W, WORLD_H);
     }
-    processMissiles(bs, shipSpritesRef.current, input0, input1, PLANET_X, PLANET_Y, PLANET_RADIUS_W, WORLD_W, WORLD_H);
+    processMissiles(
+      bs,
+      shipSpritesRef.current,
+      input0,
+      input1,
+      [
+        { x: preShip0.x, y: preShip0.y },
+        { x: preShip1.x, y: preShip1.y },
+      ],
+      PLANET_X,
+      PLANET_Y,
+      PLANET_RADIUS_W,
+      WORLD_W,
+      WORLD_H,
+    );
     handleAsteroidMissileCollisions(bs, bs.asteroids);
     updateCrewPods(bs, bs.warpIn, WORLD_W, WORLD_H);
 

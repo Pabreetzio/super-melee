@@ -93,6 +93,8 @@ export type SpawnRequest =
       trackRate: number;
       inheritVelocity?: boolean;
       preserveVelocity?: boolean;
+      /** Allow this projectile to collide with and damage its firing ship. */
+      hitOwnShip?: boolean;
       limpet?: boolean;
       weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
       initialTrackWait?: number;
@@ -157,6 +159,8 @@ export interface BattleMissile {
   trackRate: number;
   owner: 0 | 1;
   preserveVelocity?: boolean;
+  /** True for canonical self-hitting weapons such as the Mycon plasmoid. */
+  hitOwnShip?: boolean;
   limpet?: boolean;
   weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
   fireHeld?: boolean;
