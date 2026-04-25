@@ -1240,6 +1240,31 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
         </div>
       </div>
 
+      <a
+        href="https://graham.tech"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          color: 'rgba(180,180,220,0.4)',
+          fontSize: 11,
+          fontFamily: 'var(--font)',
+          letterSpacing: '0.07em',
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+          zIndex: 2,
+          userSelect: 'none',
+          transition: 'color 0.15s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(180,180,220,0.75)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(180,180,220,0.4)'; }}
+      >
+        Made by Patrick Graham · graham.tech
+      </a>
+
       {picker && (
         <ShipPicker
           onPick={ship => {

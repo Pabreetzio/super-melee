@@ -332,6 +332,27 @@ export default function GameBrowser({ commanderName, rooms, joinError, onCommand
 
             <div className="utility-rail__spacer" />
 
+            <a
+              href="https://github.com/Pabreetzio/super-melee/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: 'rgba(180,180,220,0.4)',
+                fontSize: 11,
+                fontFamily: 'var(--font)',
+                letterSpacing: '0.06em',
+                textDecoration: 'none',
+                textAlign: 'center',
+                display: 'block',
+                userSelect: 'none',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(180,180,220,0.75)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(180,180,220,0.4)'; }}
+            >
+              Report Issues
+            </a>
+
             {onBack ? (
               <NavLink
                 href="/"
