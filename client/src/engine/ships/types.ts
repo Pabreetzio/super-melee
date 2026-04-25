@@ -383,6 +383,8 @@ export interface ShipController {
 
   /** True while the ship should ignore gravity/collisions/hits (e.g. teleporting). */
   isIntangible?(ship: ShipState): boolean;
+  /** True while the ship should be skipped by gravity (subset of isIntangible use cases). */
+  isGravityImmune?(ship: ShipState): boolean;
   isCrewImmune?(ship: ShipState): boolean;
   absorbHit?(ship: ShipState, hit: { kind: 'missile' | 'laser'; damage: number; hitPoints?: number }): DamageAbsorbEffect | null;
   onShipCollision?(ship: ShipState, other: ShipState): { damageOther?: number } | void;

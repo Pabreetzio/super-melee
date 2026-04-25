@@ -867,10 +867,10 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.ships[1].gravityWell = false;
 
     // Apply gravity to ships still actively flying around the arena.
-    if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[0]].isIntangible?.(bs.ships[0])) {
+    if (bs.shipDestructions[0] === null && bs.ships[0].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[0]].isGravityImmune?.(bs.ships[0])) {
       applyGravity(bs.ships[0], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
     }
-    if (bs.shipDestructions[1] === null && bs.ships[1].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[1]].isIntangible?.(bs.ships[1])) {
+    if (bs.shipDestructions[1] === null && bs.ships[1].crew > 0 && !SHIP_REGISTRY[bs.shipTypes[1]].isGravityImmune?.(bs.ships[1])) {
       applyGravity(bs.ships[1], PLANET_X, PLANET_Y, GRAVITY_THRESHOLD_W);
     }
 

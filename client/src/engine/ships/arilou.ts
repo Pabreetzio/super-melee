@@ -313,6 +313,10 @@ export const arilouController: ShipController = {
     return (ship.arilouTeleportFrames ?? 0) > 0;
   },
 
+  isGravityImmune(ship: ShipState): boolean {
+    return (ship.arilouTeleportFrames ?? 0) > 0;
+  },
+
   computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {
     let input = INPUT_THRUST;
     const delta = worldDelta(ship.x, ship.y, target.x, target.y, WORLD_W, WORLD_H);
