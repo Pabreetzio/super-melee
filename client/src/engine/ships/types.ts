@@ -274,6 +274,8 @@ export interface DrawContext {
   canvasW:  number;
   canvasH:  number;
   reduction: number;   // visible zoom level: 0=1×, 1=2×, 2=4×
+  zoomDivisor?: number; // world units per logical display pixel at the current zoom
+  spriteScale?: number; // extra render-time scale applied to the selected sprite set
   worldW:   number;    // toroidal world width in world units
   worldH:   number;    // toroidal world height in world units
 }

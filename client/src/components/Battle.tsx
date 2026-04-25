@@ -18,12 +18,18 @@ import type { BattleState, WinnerShipState } from '../engine/battle/types';
 import {
   applyAttachedLimpetPenalty,
   applyGravity,
-  calcReduction,
+  calcStepReduction,
   computeChecksum,
   worldDelta,
   worldAngle,
   wrapWorldCoord,
 } from '../engine/battle/helpers';
+import {
+  calcContinuousZoomOut,
+  smoothZoomBucket,
+  smoothZoomSpriteScale,
+  zoomOutToWorldUnitsPerLogicalPixel,
+} from '../engine/battle/zoom';
 import {
   BATTLE_CANVAS_H as CANVAS_H,
   BATTLE_CANVAS_W as CANVAS_W,
@@ -65,13 +71,14 @@ import PauseOverlay from './PauseOverlay';
 import DesyncOverlay from './DesyncOverlay';
 import MobileBattleControls from './MobileBattleControls';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
-import { loadExplosionSprites, placeholderDot, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
+import { loadExplosionSprites, placeholderDot, setSpriteRenderConfig, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
 import { RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playSpawnSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying } from '../engine/audio';
 import { loadAtlasImageAsset, preloadBattleAssets } from '../engine/atlasAssets';
 import { getShipDef } from '../engine/ships/index';
+import { getBattleViewConfig } from '../lib/battleView';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -188,6 +195,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const shipSpritesRef      = useRef<Map<string, unknown>>(new Map());
   const explosionSpritesRef = useRef<ExplosionSprites | null>(null);
   const reductionRef = useRef(0); // current visible zoom level 0–MAX_VIS_REDUCTION
+  const smoothZoomOutRef = useRef(1 << 8); // UQM continuous-zoom raw value (ZOOM_SHIFT=8)
+  const zoomModeRef = useRef(getBattleViewConfig().meleeZoom);
   // Stars are stored in three planes with larger wrap domains for slower parallax,
   // mirroring UQM's battle starfield.
   const starsRef = useRef<BattleStar[]>([]);
@@ -219,36 +228,44 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [desyncState, setDesyncState] = useState<{ frame: number; count: number } | null>(null);
   const hasOfflineAI = aiSides[0] !== null || aiSides[1] !== null;
 
+  useEffect(() => () => {
+    setSpriteRenderConfig(null);
+  }, []);
+
   // Debug helper — call window.__battleDebug() from the browser console
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__battleDebug = () => {
       const bs = stateRef.current;
       if (!bs) { console.log('No battle state'); return; }
+      const zoomMode = zoomModeRef.current;
       const r = reductionRef.current;
+      const zoomDivisor = zoomMode === '3do'
+        ? zoomOutToWorldUnitsPerLogicalPixel(smoothZoomOutRef.current)
+        : (1 << (2 + r));
       let ax = bs.ships[0].x, bx = bs.ships[1].x;
       let ay = bs.ships[0].y, by = bs.ships[1].y;
       if (Math.abs(bx - ax) > WORLD_W >> 1) bx -= Math.sign(bx - ax) * WORLD_W;
       if (Math.abs(by - ay) > WORLD_H >> 1) by -= Math.sign(by - ay) * WORLD_H;
       const midX = ((((ax + bx) >> 1) % WORLD_W) + WORLD_W) % WORLD_W;
       const midY = ((((ay + by) >> 1) % WORLD_H) + WORLD_H) % WORLD_H;
-      const camX = midX - (LOGICAL_SPACE_CANVAS_W << (1 + r));
-      const camY = midY - (LOGICAL_SPACE_CANVAS_H << (1 + r));
+      const camX = midX - (LOGICAL_SPACE_CANVAS_W * zoomDivisor / 2);
+      const camY = midY - (LOGICAL_SPACE_CANVAS_H * zoomDivisor / 2);
       // tw2dx/tw2dy must exactly mirror the renderer's logic (including wdw fix)
-      const wdw = (WORLD_W >> (2 + r)) * PRESENTATION_SCALE;
-      const wdh = (WORLD_H >> (2 + r)) * PRESENTATION_SCALE;
+      const wdw = Math.trunc(WORLD_W / zoomDivisor) * PRESENTATION_SCALE;
+      const wdh = Math.trunc(WORLD_H / zoomDivisor) * PRESENTATION_SCALE;
       const tw2dx = (wx: number) => {
         let x = wx - camX; x = ((x % WORLD_W) + WORLD_W) % WORLD_W; if (x > WORLD_W >> 1) x -= WORLD_W;
-        let d = (x >> (2 + r)) * PRESENTATION_SCALE;
+        let d = Math.trunc(x / zoomDivisor) * PRESENTATION_SCALE;
         if (d < 0 && d + wdw <= SPACE_CANVAS_W) d += wdw; else if (d > SPACE_CANVAS_W && d - wdw >= 0) d -= wdw;
         return d;
       };
       const tw2dy = (wy: number) => {
         let y = wy - camY; y = ((y % WORLD_H) + WORLD_H) % WORLD_H; if (y > WORLD_H >> 1) y -= WORLD_H;
-        let d = (y >> (2 + r)) * PRESENTATION_SCALE;
+        let d = Math.trunc(y / zoomDivisor) * PRESENTATION_SCALE;
         if (d < 0 && d + wdh <= CANVAS_H) d += wdh; else if (d > CANVAS_H && d - wdh >= 0) d -= wdh;
         return d;
       };
-      console.log(`=== BATTLE DEBUG  frame=${bs.frame}  zoom=r${r} (${1 << r}×)  wdw=${wdw} wdh=${wdh} ===`);
+      console.log(`=== BATTLE DEBUG frame=${bs.frame} mode=${zoomMode} bucket=${r} divisor=${zoomDivisor.toFixed(3)} raw=${smoothZoomOutRef.current} wdw=${wdw} wdh=${wdh} ===`);
       console.log(`camera: midX=${midX} midY=${midY}  camX=${camX} camY=${camY}`);
       for (let i = 0; i < 2; i++) {
         const s = bs.ships[i];
@@ -1177,27 +1194,43 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // sprites — crisp pixel art without blur, same as UQM's original output.
     const s = uiScaleRef.current;
     ctx.setTransform(s, 0, 0, s, 0, 0);
-    ctx.imageSmoothingEnabled = false;
+    const zoomMode = zoomModeRef.current;
 
     // ── Zoom level ───────────────────────────────────────────────────────
-    reductionRef.current = calcReduction(bs.ships, reductionRef.current, LOGICAL_SPACE_CANVAS_W, MAX_VIS_REDUCTION, WORLD_W, WORLD_H);
-    const r = reductionRef.current;
+    let zoomDivisor: number;
+    let spriteScale = 1;
+    let r: number;
+    if (zoomMode === '3do') {
+      smoothZoomOutRef.current = calcContinuousZoomOut(bs.ships, WORLD_W, WORLD_H);
+      zoomDivisor = zoomOutToWorldUnitsPerLogicalPixel(smoothZoomOutRef.current);
+      r = smoothZoomBucket(smoothZoomOutRef.current);
+      reductionRef.current = r;
+      spriteScale = smoothZoomSpriteScale(smoothZoomOutRef.current);
+      setSpriteRenderConfig({ worldUnitsPerLogicalPixel: zoomDivisor, spriteScale });
+    } else {
+      reductionRef.current = calcStepReduction(bs.ships, reductionRef.current, LOGICAL_SPACE_CANVAS_W, MAX_VIS_REDUCTION, WORLD_W, WORLD_H);
+      r = reductionRef.current;
+      zoomDivisor = 1 << (2 + r);
+      smoothZoomOutRef.current = zoomDivisor * 64;
+      setSpriteRenderConfig(null);
+    }
+    ctx.imageSmoothingEnabled = zoomMode === '3do';
 
     // w2d: world-space offset → display pixels at current zoom
-    const w2d = (n: number) => (n >> (2 + r)) * PRESENTATION_SCALE;
+    const w2d = (n: number) => Math.trunc(n / zoomDivisor) * PRESENTATION_SCALE;
 
     // tw2dx / tw2dy: like w2d but wrap-aware — use these whenever converting a
     // world coordinate that might be near a world edge (ships, trails, lasers).
     // Short-path normalization puts the object on the nearest side; if that lands
     // off-screen but the far side is on-screen (happens at max visible zoom where the
     // entire world fits the canvas), use the far side instead.
-    const wdw = (WORLD_W >> (2 + r)) * PRESENTATION_SCALE; // world width in display pixels at this zoom
-    const wdh = (WORLD_H >> (2 + r)) * PRESENTATION_SCALE;
+    const wdw = Math.trunc(WORLD_W / zoomDivisor) * PRESENTATION_SCALE; // world width in display pixels at this zoom
+    const wdh = Math.trunc(WORLD_H / zoomDivisor) * PRESENTATION_SCALE;
     const tw2dx = (worldX: number) => {
       let x = worldX - camX;
       x = ((x % WORLD_W) + WORLD_W) % WORLD_W;
       if (x > WORLD_W >> 1) x -= WORLD_W;
-      let d = (x >> (2 + r)) * PRESENTATION_SCALE;
+      let d = Math.trunc(x / zoomDivisor) * PRESENTATION_SCALE;
       if (d < 0 && d + wdw <= SPACE_CANVAS_W) d += wdw;
       else if (d > SPACE_CANVAS_W && d - wdw >= 0) d -= wdw;
       return d;
@@ -1206,7 +1239,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       let y = worldY - camY;
       y = ((y % WORLD_H) + WORLD_H) % WORLD_H;
       if (y > WORLD_H >> 1) y -= WORLD_H;
-      let d = (y >> (2 + r)) * PRESENTATION_SCALE;
+      let d = Math.trunc(y / zoomDivisor) * PRESENTATION_SCALE;
       if (d < 0 && d + wdh <= CANVAS_H) d += wdh;
       else if (d > CANVAS_H && d - wdh >= 0) d -= wdh;
       return d;
@@ -1221,8 +1254,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     const midY = ((((ay + by) >> 1) % WORLD_H) + WORLD_H) % WORLD_H;
 
     // Top-left of camera window in world coords
-    const camX = midX - (LOGICAL_SPACE_CANVAS_W << (1 + r));
-    const camY = midY - (LOGICAL_SPACE_CANVAS_H << (1 + r));
+    const camX = midX - (LOGICAL_SPACE_CANVAS_W * zoomDivisor / 2);
+    const camY = midY - (LOGICAL_SPACE_CANVAS_H * zoomDivisor / 2);
 
     // ── Background ───────────────────────────────────────────────────────
     ctx.fillStyle = '#000';
@@ -1243,8 +1276,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // UQM battle stars use three parallax planes that scroll at 1x / 1/2x / 1/4x.
     // We render them as single-pixel points to keep the original tiny-star feel.
     {
-      const worldDWLogical = WORLD_W >> (2 + r);
-      const worldDHLogical = WORLD_H >> (2 + r);
+      const worldDWLogical = Math.trunc(WORLD_W / zoomDivisor);
+      const worldDHLogical = Math.trunc(WORLD_H / zoomDivisor);
       const stars = starsRef.current;
       const cloakedShips: Array<{ ship: ShipState; frame: SpriteFrame | null; radiusSq: number }> = [];
       for (let side = 0 as 0 | 1; side < 2; side++) {
@@ -1263,25 +1296,25 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         const planeScale = 1 << star.layer;
         const layerWorldW = WORLD_W * planeScale;
         const layerWorldH = WORLD_H * planeScale;
-        const layerShift = 2 + r + star.layer;
+        const layerZoomDivisor = zoomDivisor * planeScale;
 
         let sxLogical = star.x - camX;
         sxLogical = ((sxLogical % layerWorldW) + layerWorldW) % layerWorldW;
         if (sxLogical > layerWorldW >> 1) sxLogical -= layerWorldW;
-        sxLogical >>= layerShift;
+        sxLogical = Math.trunc(sxLogical / layerZoomDivisor);
 
         let syLogical = star.y - camY;
         syLogical = ((syLogical % layerWorldH) + layerWorldH) % layerWorldH;
         if (syLogical > layerWorldH >> 1) syLogical -= layerWorldH;
-        syLogical >>= layerShift;
+        syLogical = Math.trunc(syLogical / layerZoomDivisor);
 
         // Wrap single step — world is always >= the visible battle viewport at any zoom
         if (sxLogical < 0) sxLogical += worldDWLogical; else if (sxLogical >= LOGICAL_SPACE_CANVAS_W) sxLogical -= worldDWLogical;
         if (syLogical < 0) syLogical += worldDHLogical; else if (syLogical >= LOGICAL_SPACE_CANVAS_H) syLogical -= worldDHLogical;
         if (sxLogical < 0 || sxLogical >= LOGICAL_SPACE_CANVAS_W || syLogical < 0 || syLogical >= LOGICAL_SPACE_CANVAS_H) continue;
 
-        const starWorldX = wrapWorldCoord(camX + (sxLogical << (2 + r)), WORLD_W);
-        const starWorldY = wrapWorldCoord(camY + (syLogical << (2 + r)), WORLD_H);
+        const starWorldX = wrapWorldCoord(Math.trunc(camX + sxLogical * zoomDivisor), WORLD_W);
+        const starWorldY = wrapWorldCoord(Math.trunc(camY + syLogical * zoomDivisor), WORLD_H);
         if (cloakedShips.some(({ ship, frame, radiusSq }) => {
           const delta = worldDelta(starWorldX, starWorldY, ship.x, ship.y, WORLD_W, WORLD_H);
           if (frame) {
@@ -1305,17 +1338,17 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const pDY = w2d(PLANET_Y - camY);
       const pi = planetImgRef.current;
       const sizeKey = r === 0 ? 'big' : r === 1 ? 'med' : 'sml';
-      const planetR = Math.max(2, (PLANET_RADIUS_W >> (2 + r)) * PRESENTATION_SCALE);
+      const planetR = Math.max(2, Math.trunc((PLANET_RADIUS_W / zoomDivisor) * PRESENTATION_SCALE));
       if (pDX > -planetR * 4 && pDX < SPACE_CANVAS_W + planetR * 4) {
         if (pi) {
           const img = pi[sizeKey];
           const [hx, hy] = PLANET_HOT[sizeKey];
           ctx.drawImage(
             img.source,
-            pDX - hx * PRESENTATION_SCALE,
-            pDY - hy * PRESENTATION_SCALE,
-            img.width * PRESENTATION_SCALE,
-            img.height * PRESENTATION_SCALE,
+            pDX - hx * PRESENTATION_SCALE * spriteScale,
+            pDY - hy * PRESENTATION_SCALE * spriteScale,
+            img.width * PRESENTATION_SCALE * spriteScale,
+            img.height * PRESENTATION_SCALE * spriteScale,
           );
         } else {
           ctx.beginPath();
@@ -1323,14 +1356,14 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
           ctx.fillStyle = '#1a1a1a';
           ctx.fill();
           ctx.strokeStyle = '#444';
-          ctx.lineWidth = Math.max(1, (2 >> r) * PRESENTATION_SCALE);
+          ctx.lineWidth = Math.max(1, Math.round(2 * PRESENTATION_SCALE * spriteScale));
           ctx.stroke();
         }
       }
     }
 
     renderAsteroids(
-      { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+      { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, zoomDivisor, spriteScale, worldW: WORLD_W, worldH: WORLD_H },
       bs.asteroids,
       tw2dx,
       tw2dy,
@@ -1339,7 +1372,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // ── Missiles ─────────────────────────────────────────────────────────
     {
-      const dc: DrawContext = { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H };
+      const dc: DrawContext = { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, zoomDivisor, spriteScale, worldW: WORLD_W, worldH: WORLD_H };
       // Each missile is drawn by the owner ship's controller.
       // The controller receives the opaque sprite bundle it loaded earlier.
       for (const m of bs.missiles) {
@@ -1361,7 +1394,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       bs.ships,
       bs.shipTypes,
       shipSpritesRef.current,
-      { camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+      { camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, zoomDivisor, spriteScale, worldW: WORLD_W, worldH: WORLD_H },
     );
 
     // ── Ion trails (thruster exhaust dots) ──────────────────────────────
@@ -1372,7 +1405,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
     // ── Ships ────────────────────────────────────────────────────────────
     {
-      const dc: DrawContext = { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H };
+      const dc: DrawContext = { ctx, camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, zoomDivisor, spriteScale, worldW: WORLD_W, worldH: WORLD_H };
       for (let side = 0; side < 2; side++) {
         const ship = bs.ships[side];
         const destruction = bs.shipDestructions[side];
@@ -1407,7 +1440,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             ship,
             shipSpritesRef.current.get(bs.shipTypes[side]) ?? null,
             bs.rebirth[side],
-            { camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, worldW: WORLD_W, worldH: WORLD_H },
+            { camX, camY, canvasW: SPACE_CANVAS_W, canvasH: CANVAS_H, reduction: r, zoomDivisor, spriteScale, worldW: WORLD_W, worldH: WORLD_H },
           );
           continue;
         }

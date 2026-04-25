@@ -25,6 +25,35 @@ export interface SpriteSet {
 
 const spriteMaskFillCache = new WeakMap<SpriteFrame, Map<string, HTMLCanvasElement>>();
 
+interface SpriteRenderConfig {
+  worldUnitsPerLogicalPixel: number;
+  spriteScale: number;
+}
+
+let activeSpriteRenderConfig: SpriteRenderConfig | null = null;
+
+export function setSpriteRenderConfig(config: SpriteRenderConfig | null): void {
+  activeSpriteRenderConfig = config;
+}
+
+function displayCoordFromDelta(delta: number, reduction: number): number {
+  if (activeSpriteRenderConfig) {
+    return Math.trunc(delta / activeSpriteRenderConfig.worldUnitsPerLogicalPixel) * PRESENTATION_SCALE;
+  }
+  return (delta >> (2 + reduction)) * PRESENTATION_SCALE;
+}
+
+function displaySpanFromWorld(span: number, reduction: number): number {
+  if (activeSpriteRenderConfig) {
+    return Math.trunc(span / activeSpriteRenderConfig.worldUnitsPerLogicalPixel) * PRESENTATION_SCALE;
+  }
+  return (span >> (2 + reduction)) * PRESENTATION_SCALE;
+}
+
+function currentSpriteScale(): number {
+  return activeSpriteRenderConfig?.spriteScale ?? 1;
+}
+
 // ─── Hot-spot tables (from .ani files) ───────────────────────────────────────
 // Format: [hotX, hotY] per frame index
 
@@ -770,16 +799,16 @@ export function placeholderDot(
   let ry = worldY - camY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let dx = (rx >> (2 + reduction)) * PRESENTATION_SCALE;
-  let dy = (ry >> (2 + reduction)) * PRESENTATION_SCALE;
-  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
-  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
+  let dx = displayCoordFromDelta(rx, reduction);
+  let dy = displayCoordFromDelta(ry, reduction);
+  const wdw = displaySpanFromWorld(worldW, reduction);
+  const wdh = displaySpanFromWorld(worldH, reduction);
   if (dx < 0 && dx + wdw <= 640) dx += wdw;
   else if (dx > 640 && dx - wdw >= 0) dx -= wdw;
   if (dy < 0 && dy + wdh <= 480) dy += wdh;
   else if (dy > 480 && dy - wdh >= 0) dy -= wdh;
   ctx.beginPath();
-  ctx.arc(dx, dy, dotR * PRESENTATION_SCALE, 0, Math.PI * 2);
+  ctx.arc(dx, dy, dotR * PRESENTATION_SCALE * currentSpriteScale(), 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
 }
@@ -811,13 +840,13 @@ export function drawSprite(
   let ry = worldY - originWorldY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let displayX = Math.round((rx >> (2 + reduction)) * PRESENTATION_SCALE);
-  let displayY = Math.round((ry >> (2 + reduction)) * PRESENTATION_SCALE);
+  let displayX = displayCoordFromDelta(rx, reduction);
+  let displayY = displayCoordFromDelta(ry, reduction);
   // At maximum zoom the whole world fits on screen. The short-path normalization
   // above can place an object off-screen when the long path is actually on-screen.
   // Correct by trying the other side whenever the current result is off-canvas.
-  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
-  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
+  const wdw = displaySpanFromWorld(worldW, reduction);
+  const wdh = displaySpanFromWorld(worldH, reduction);
   if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
   else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
   if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
@@ -827,10 +856,11 @@ export function drawSprite(
   // Callers are responsible for passing the correct size sprite set for the
   // current zoom level (big → r=0, med → r=1, sml → r=2). UQM uses pre-rendered
   // sprites per zoom level rather than scaling a single sprite down.
-  const drawX = displayX - frame.hotX * PRESENTATION_SCALE;
-  const drawY = displayY - frame.hotY * PRESENTATION_SCALE;
-  const drawW = frame.width * PRESENTATION_SCALE;
-  const drawH = frame.height * PRESENTATION_SCALE;
+  const spriteScale = currentSpriteScale();
+  const drawX = displayX - frame.hotX * PRESENTATION_SCALE * spriteScale;
+  const drawY = displayY - frame.hotY * PRESENTATION_SCALE * spriteScale;
+  const drawW = frame.width * PRESENTATION_SCALE * spriteScale;
+  const drawH = frame.height * PRESENTATION_SCALE * spriteScale;
 
   // Only draw if on screen
   if (drawX + drawW < 0 || drawX > canvasW) return;
@@ -865,19 +895,20 @@ export function drawSpriteFill(
   let ry = worldY - originWorldY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let displayX = Math.round((rx >> (2 + reduction)) * PRESENTATION_SCALE);
-  let displayY = Math.round((ry >> (2 + reduction)) * PRESENTATION_SCALE);
-  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
-  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
+  let displayX = displayCoordFromDelta(rx, reduction);
+  let displayY = displayCoordFromDelta(ry, reduction);
+  const wdw = displaySpanFromWorld(worldW, reduction);
+  const wdh = displaySpanFromWorld(worldH, reduction);
   if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
   else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
   if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
   else if (displayY > canvasH && displayY - wdh >= 0) displayY -= wdh;
 
-  const drawX = displayX - frame.hotX * PRESENTATION_SCALE;
-  const drawY = displayY - frame.hotY * PRESENTATION_SCALE;
-  const drawW = frame.width * PRESENTATION_SCALE;
-  const drawH = frame.height * PRESENTATION_SCALE;
+  const spriteScale = currentSpriteScale();
+  const drawX = displayX - frame.hotX * PRESENTATION_SCALE * spriteScale;
+  const drawY = displayY - frame.hotY * PRESENTATION_SCALE * spriteScale;
+  const drawW = frame.width * PRESENTATION_SCALE * spriteScale;
+  const drawH = frame.height * PRESENTATION_SCALE * spriteScale;
   if (drawX + drawW < 0 || drawX > canvasW) return;
   if (drawY + drawH < 0 || drawY > canvasH) return;
 

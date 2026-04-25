@@ -10,12 +10,13 @@ import {
   type BindingField, BINDING_FIELDS, FIELD_LABELS,
 } from '../lib/controls';
 import { getAudioConfig, setAudioConfig, type AudioConfig } from '../engine/audio';
+import { getBattleViewConfig, setBattleViewConfig, type BattleViewConfig } from '../lib/battleView';
 import StarfieldBG from './StarfieldBG';
 import { loadConfig } from '../lib/starfield';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'controls' | 'audio';
+type Tab = 'controls' | 'audio' | 'battle';
 
 interface RebindTarget {
   player: 1 | 2;
@@ -47,6 +48,7 @@ export default function Settings({ onBack }: Props) {
   const [p2, setP2]    = useState<PlayerControlConfig>(initial.p2);
   const [rebinding, setRebinding] = useState<RebindTarget | null>(null);
   const [audio, setAudioState]    = useState<AudioConfig>(getAudioConfig);
+  const [battleView, setBattleViewState] = useState<BattleViewConfig>(getBattleViewConfig);
 
   // Persist on every change
   useEffect(() => { setControls({ p1, p2 }); }, [p1, p2]);
@@ -55,6 +57,12 @@ export default function Settings({ onBack }: Props) {
     const next = { ...audio, ...patch };
     setAudioState(next);
     setAudioConfig(next);
+  }
+
+  function patchBattleView(patch: Partial<BattleViewConfig>) {
+    const next = { ...battleView, ...patch };
+    setBattleViewState(next);
+    setBattleViewConfig(next);
   }
 
   // Key capture when a rebind is active
@@ -198,7 +206,7 @@ export default function Settings({ onBack }: Props) {
         <div style={{
           display: 'flex', gap: 2, marginBottom: 14,
         }}>
-          {(['controls', 'audio'] as Tab[]).map(t => (
+          {(['controls', 'audio', 'battle'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               fontSize: 11, padding: '6px 22px',
               background: tab === t ? '#111130' : '#07070f',
@@ -242,6 +250,14 @@ export default function Settings({ onBack }: Props) {
           </div>
         )}
 
+        {tab === 'battle' && (
+          <div style={{
+            width: '100%', padding: '0 16px', boxSizing: 'border-box',
+          }}>
+            <BattleViewPanel battleView={battleView} onChange={patchBattleView} />
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{
           display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
@@ -280,6 +296,43 @@ export default function Settings({ onBack }: Props) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function BattleViewPanel({ battleView, onChange }: {
+  battleView: BattleViewConfig;
+  onChange: (patch: Partial<BattleViewConfig>) => void;
+}) {
+  const is3do = battleView.meleeZoom === '3do';
+  return (
+    <div style={{
+      background: 'rgba(2, 3, 20, 0.96)',
+      border: '1px solid #1e1e40',
+      padding: '20px 20px 24px',
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      <div style={{ color: '#778', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        Battle Zoom Style
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <PresetButton
+          label="Step"
+          selected={!is3do}
+          accent="#ff88ff"
+          onClick={() => onChange({ meleeZoom: 'step' })}
+        />
+        <PresetButton
+          label="3DO"
+          selected={is3do}
+          accent="#ff88ff"
+          onClick={() => onChange({ meleeZoom: '3do' })}
+        />
+      </div>
+      <div style={{ color: '#556', fontSize: 12, lineHeight: 1.7 }}>
+        <div><span style={{ color: '#889' }}>Step:</span> discrete 1x / 2x / 4x zoom levels, matching the current PC-style view.</div>
+        <div><span style={{ color: '#889' }}>3DO:</span> gradual zoom using UQM&apos;s continuous melee reduction math, with smooth sprite scaling.</div>
+      </div>
+    </div>
+  );
+}
 
 function PresetButton({
   label, selected, accent, onClick,

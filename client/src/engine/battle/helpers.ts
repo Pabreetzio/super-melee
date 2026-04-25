@@ -36,7 +36,7 @@ export function wrapWorldCoord(value: number, worldSize: number): number {
   return ((value % worldSize) + worldSize) % worldSize;
 }
 
-export function calcReduction(
+export function calcStepReduction(
   ships: [ShipState, ShipState],
   current: number,
   _canvasW: number,

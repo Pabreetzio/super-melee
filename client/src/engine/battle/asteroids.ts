@@ -314,7 +314,8 @@ export function renderAsteroids(
   tw2dy: (worldY: number) => number,
   sprites?: AsteroidSprites | null,
 ): void {
-  const radius = Math.max(2, (ASTEROID_RADIUS_W >> (2 + dc.reduction)) * PRESENTATION_SCALE);
+  const zoomDivisor = dc.zoomDivisor ?? (1 << (2 + dc.reduction));
+  const radius = Math.max(2, Math.trunc((ASTEROID_RADIUS_W / zoomDivisor) * PRESENTATION_SCALE));
   for (const asteroid of asteroids) {
     const dx = tw2dx(asteroid.x);
     const dy = tw2dy(asteroid.y);
