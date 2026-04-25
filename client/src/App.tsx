@@ -931,25 +931,24 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
 function AppFooter() {
   return (
     <div className="super-melee-footer-attribution">
-      <div className="super-melee-footer-attribution__left">
-        <span>Port by</span>
-        <a
-          href="https://graham.tech"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Patrick Graham
-        </a>
-        <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
-        <span>Original game by</span>
-        <a
-          href="https://pistolshrimpgames.com/our-story/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Fred Ford and Paul Reiche III
-        </a>
-      </div>
+      <span>Port by</span>
+      <a
+        href="https://graham.tech"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Patrick Graham
+      </a>
+      <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
+      <span>Original game by</span>
+      <a
+        href="https://pistolshrimpgames.com/our-story/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Fred Ford and Paul Reiche III
+      </a>
+      <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
       <a
         className="super-melee-footer-attribution__github"
         href="https://github.com/Pabreetzio/super-melee"
@@ -958,7 +957,6 @@ function AppFooter() {
         aria-label="Open the GitHub repository"
         title="Open the GitHub repository"
       >
-        <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
         <GitHubMark />
       </a>
     </div>

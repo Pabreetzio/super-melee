@@ -128,27 +128,20 @@ textarea:focus-visible,
   transform: translateX(-50%);
   z-index: 40;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  gap: 0.8em;
-  width: min(calc(100vw - 24px), 1200px);
+  flex-wrap: wrap;
+  gap: 0.1em 0.35em;
+  width: min(calc(100vw - 24px), 980px);
   color: #fff;
   font-family: 'UQMTiny', var(--font);
-  font-size: clamp(12px, 1.2vw, 16px);
+  font-size: 16px;
   line-height: 1.2;
   letter-spacing: 0.04em;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   user-select: text;
   pointer-events: none;
-}
-
-.super-melee-footer-attribution__left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.1em 0.35em;
-  min-width: 0;
 }
 
 .super-melee-footer-attribution a {
@@ -178,7 +171,6 @@ textarea:focus-visible,
 .super-melee-footer-attribution__github {
   display: inline-flex;
   align-items: center;
-  gap: 0.28em;
   flex: 0 0 auto;
   white-space: nowrap;
 }
