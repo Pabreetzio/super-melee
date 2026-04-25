@@ -105,12 +105,24 @@ interface LastState {
   fleet2: FleetSlot[];
   teamName1: string;
   teamName2: string;
+  p1Control?: ControlType;
+  p2Control?: ControlType;
+}
+
+function isControlType(value: unknown): value is ControlType {
+  return typeof value === 'string' && CONTROL_CYCLE.includes(value as ControlType);
 }
 
 function loadLastState(): LastState | null {
   try {
     const raw = localStorage.getItem('sm_last');
-    return raw ? (JSON.parse(raw) as LastState) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LastState;
+    return {
+      ...parsed,
+      p1Control: isControlType(parsed.p1Control) ? parsed.p1Control : undefined,
+      p2Control: isControlType(parsed.p2Control) ? parsed.p2Control : undefined,
+    };
   } catch { return null; }
 }
 
@@ -228,8 +240,8 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
   const [fleet2, setFleet2]       = useState<FleetSlot[]>(last?.fleet2 ?? [...BALANCED_TEAM_2]);
   const [teamName1, setTeamName1] = useState(last?.teamName1 ?? 'Balanced Team 1');
   const [teamName2, setTeamName2] = useState(last?.teamName2 ?? 'Balanced Team 2');
-  const [p1Control, setP1Control] = useState<ControlType>('human');
-  const [p2Control, setP2Control] = useState<ControlType>('cyborg_weak');
+  const [p1Control, setP1Control] = useState<ControlType>(last?.p1Control ?? 'human');
+  const [p2Control, setP2Control] = useState<ControlType>(last?.p2Control ?? 'cyborg_weak');
   const [bgConfig]                = useState(loadConfig);
   const [blink, setBlink]         = useState(false);
 
@@ -250,8 +262,8 @@ export default function SuperMelee({ onBattle, onNet, onSettings, onStyles, styl
   const blockingModal = saveModal !== null || editingTeam !== null;
 
   useEffect(() => {
-    writeLastState({ fleet1, fleet2, teamName1, teamName2 });
-  }, [fleet1, fleet2, teamName1, teamName2]);
+    writeLastState({ fleet1, fleet2, teamName1, teamName2, p1Control, p2Control });
+  }, [fleet1, fleet2, teamName1, teamName2, p1Control, p2Control]);
 
   useEffect(() => {
     preloadUISounds();
