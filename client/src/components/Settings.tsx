@@ -260,9 +260,24 @@ export default function Settings({ onBack }: Props) {
 
         {/* Footer */}
         <div style={{
-          display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           width: '100%', padding: '12px 18px', boxSizing: 'border-box', marginTop: 4,
+          gap: 12,
         }}>
+          <a
+            href="https://github.com/Pabreetzio/super-melee/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ui-button ui-button--bevel utility-link"
+            style={{
+              fontSize: 13, padding: '8px 28px',
+              fontFamily: 'var(--font)', letterSpacing: '0.12em',
+              cursor: 'pointer', textTransform: 'uppercase',
+              textDecoration: 'none',
+            }}
+          >
+            Support
+          </a>
           <button
             onClick={onBack}
             style={{

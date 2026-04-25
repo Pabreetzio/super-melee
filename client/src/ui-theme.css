@@ -121,6 +121,75 @@ textarea:focus-visible,
   user-select: none;
 }
 
+.super-melee-footer-attribution {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8em;
+  width: min(calc(100vw - 24px), 1200px);
+  color: #fff;
+  font-family: 'UQMTiny', var(--font);
+  font-size: clamp(12px, 1.2vw, 16px);
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: normal;
+  user-select: text;
+  pointer-events: none;
+}
+
+.super-melee-footer-attribution__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1em 0.35em;
+  min-width: 0;
+}
+
+.super-melee-footer-attribution a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  pointer-events: auto;
+}
+
+.super-melee-footer-attribution a:hover {
+  color: #d7e4ff;
+  border-bottom-color: currentColor;
+}
+
+.super-melee-footer-attribution a:focus-visible {
+  outline-offset: 2px;
+}
+
+.super-melee-footer-attribution__separator {
+  font-size: 0.82em;
+  line-height: 1;
+  opacity: 0.65;
+  transform: translateY(-0.02em);
+}
+
+.super-melee-footer-attribution__github {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.super-melee-footer-attribution__github-mark {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  flex: 0 0 auto;
+}
+
 .super-melee-screen--setup .setup-captain-name,
 .super-melee-screen--setup .setup-team-name,
 .super-melee-screen--setup .setup-summary__meta,

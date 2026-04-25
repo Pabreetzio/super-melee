@@ -928,6 +928,59 @@ function applyServerMsg(msg: ServerMsg, dispatch: React.Dispatch<Action>): void 
   }
 }
 
+function AppFooter() {
+  return (
+    <div className="super-melee-footer-attribution">
+      <div className="super-melee-footer-attribution__left">
+        <span>Port by</span>
+        <a
+          href="https://graham.tech"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Patrick Graham
+        </a>
+        <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
+        <span>Original game by</span>
+        <a
+          href="https://pistolshrimpgames.com/our-story/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Fred Ford and Paul Reiche III
+        </a>
+      </div>
+      <a
+        className="super-melee-footer-attribution__github"
+        href="https://github.com/Pabreetzio/super-melee"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Open the GitHub repository"
+        title="Open the GitHub repository"
+      >
+        <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
+        <GitHubMark />
+      </a>
+    </div>
+  );
+}
+
+function GitHubMark() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="super-melee-footer-attribution__github-mark"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.207 11.387.6.113.793-.258.793-.577 0-.285-.01-1.04-.016-2.042-3.338.726-4.042-1.61-4.042-1.61-.546-1.385-1.333-1.754-1.333-1.754-1.09-.745.083-.73.083-.73 1.205.084 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.997.108-.775.418-1.305.762-1.605-2.665-.303-5.467-1.334-5.467-5.931 0-1.31.467-2.381 1.235-3.221-.124-.304-.536-1.524.117-3.176 0 0 1.008-.322 3.3 1.23a11.5 11.5 0 0 1 6.004 0c2.291-1.552 3.3-1.23 3.3-1.23.653 1.652.241 2.872.118 3.176.77.84 1.233 1.911 1.233 3.221 0 4.609-2.805 5.624-5.477 5.921.43.372.814 1.103.814 2.224 0 1.606-.015 2.897-.015 3.287 0 .32.192.694.801.576C20.565 22.094 24 17.6 24 12.297c0-6.627-5.373-12-12-12"
+      />
+    </svg>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1059,7 +1112,8 @@ export default function App() {
   // Join error — pass down to browser
   const { joinError } = state;
 
-  switch (state.screen) {
+  const screenContent = (() => {
+    switch (state.screen) {
     case 'supermelee':
       return (
         <>
@@ -1330,7 +1384,16 @@ export default function App() {
         />
       );
     }
-  }
+    }
+    return null;
+  })();
+
+  return (
+    <>
+      {screenContent}
+      {state.screen !== 'battle' ? <AppFooter /> : null}
+    </>
+  );
 }
 
 
