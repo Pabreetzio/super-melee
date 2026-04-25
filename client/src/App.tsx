@@ -940,7 +940,7 @@ function AppFooter() {
         Patrick Graham
       </a>
       <span className="super-melee-footer-attribution__separator" aria-hidden="true">|</span>
-      <span>Original game by</span>
+      <span>Original by</span>
       <a
         href="https://pistolshrimpgames.com/our-story/"
         target="_blank"
