@@ -7,7 +7,7 @@ export interface BattleViewConfig {
 const STORAGE_KEY = 'sm_battle_view';
 
 const DEFAULT_CONFIG: BattleViewConfig = {
-  meleeZoom: 'step',
+  meleeZoom: '3do',
 };
 
 function isBattleViewConfig(value: unknown): value is Partial<BattleViewConfig> {
