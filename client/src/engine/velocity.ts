@@ -109,6 +109,54 @@ export function addImpulse(v: VelocityDesc, dx: number, dy: number): void {
   setVelocityComponents(v, v.vx + dx, v.vy + dy);
 }
 
+/**
+ * UQM-style inertial thrust.
+ *
+ * This preserves the "gravity whip" feel by allowing ships inside the gravity
+ * well to continue accelerating beyond ordinary max thrust, while still
+ * keeping the normal top-speed clamp outside the well.
+ */
+export function applyInertialThrust(
+  v: VelocityDesc,
+  facing: number,
+  maxThrust: number,
+  thrustIncrement: number,
+  inGravityWell: boolean,
+): void {
+  const angle = (facing * 4) & 63;
+  const incV = WORLD_TO_VELOCITY(thrustIncrement);
+  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(v);
+  const newDx = curDx + COSINE(angle, incV);
+  const newDy = curDy + SINE(angle, incV);
+  const desiredSpeedSq = newDx * newDx + newDy * newDy;
+  const maxSpeedSq = WORLD_TO_VELOCITY(maxThrust) ** 2;
+  const currentSpeedSq = velocitySquared(v);
+  const gravityWhipCapSq = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(18)) ** 2;
+
+  if (desiredSpeedSq <= maxSpeedSq) {
+    setVelocityComponents(v, newDx, newDy);
+    return;
+  }
+
+  if ((inGravityWell && desiredSpeedSq <= gravityWhipCapSq) || desiredSpeedSq < currentSpeedSq) {
+    setVelocityComponents(v, newDx, newDy);
+    return;
+  }
+
+  if (v.travelAngle === angle) {
+    if (currentSpeedSq <= maxSpeedSq) {
+      setVelocityVector(v, maxThrust, facing);
+    }
+    return;
+  }
+
+  setVelocityComponents(v, newDx, newDy);
+  const spd = Math.sqrt(velocitySquared(v));
+  if (spd > 0) {
+    const scale = WORLD_TO_VELOCITY(maxThrust) / spd;
+    setVelocityComponents(v, v.vx * scale, v.vy * scale);
+  }
+}
+
 /** Type alias for compatibility */
 export type Velocity = VelocityDesc;
-

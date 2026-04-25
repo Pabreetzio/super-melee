@@ -38,7 +38,7 @@ export const MELNORME_WEAPON_ENERGY_COST = 5;
 export const MELNORME_WEAPON_WAIT = 1;
 export const MELNORME_OFFSET = DISPLAY_TO_WORLD(24);
 export const LEVEL_COUNTER = 72;
-export const MAX_PUMP = 4;
+export const MAX_PUMP = 3;
 export const PUMPUP_SPEED = DISPLAY_TO_WORLD(45);
 export const PUMPUP_LIFE = 10;
 export const PUMPUP_DAMAGE = 2;
@@ -140,7 +140,7 @@ export function updateMelnormeShip(ship: ShipState, input: number): SpawnRequest
 
   if (ship.energyWait > 0) {
     ship.energyWait--;
-  } else if (ship.energy < MELNORME_MAX_ENERGY) {
+  } else if (ship.energy < MELNORME_MAX_ENERGY && !ship.melnormeCharging) {
     ship.energy = Math.min(MELNORME_MAX_ENERGY, ship.energy + MELNORME_ENERGY_REGENERATION);
     ship.energyWait = MELNORME_ENERGY_WAIT;
   }
@@ -155,6 +155,18 @@ export function updateMelnormeShip(ship: ShipState, input: number): SpawnRequest
     ship.melnormeCharging = true;
     ship.melnormePumpLevel = 0;
     ship.melnormePumpTimer = LEVEL_COUNTER;
+    const angle0 = (ship.facing * 4) & 63;
+    spawns.push({
+      type: 'missile',
+      x: ship.x + COSINE(angle0, MELNORME_OFFSET),
+      y: ship.y + SINE(angle0, MELNORME_OFFSET),
+      facing: ship.facing,
+      speed: 0, maxSpeed: 0, accel: 0,
+      life: 9999,
+      hits: PUMPUP_DAMAGE, damage: PUMPUP_DAMAGE,
+      tracks: false, trackRate: 0,
+      weaponType: 'melnorme_charging',
+    });
     spawns.push({ type: 'sound', sound: 'primary' });
   } else if (ship.melnormeCharging && fireHeld) {
     if ((ship.melnormePumpTimer ?? 0) > 0) {
@@ -235,6 +247,7 @@ export const melnormeController: ShipController = {
     } else {
       placeholderDot(dc.ctx, ship.x, ship.y, dc.camX, dc.camY, 8, '#7df6e1', dc.reduction, dc.worldW, dc.worldH);
     }
+
   },
 
   getShipCollisionFrame(ship: ShipState, sprites: unknown): SpriteFrame | null {
@@ -262,9 +275,25 @@ export const melnormeController: ShipController = {
     return sp?.pump.big.frames[pumpFrame(m)] ?? null;
   },
 
-  processMissile(m: BattleMissile, _ownShip: ShipState, _enemyShip: ShipState, _missiles: BattleMissile[], _input: number): MissileEffect {
+  processMissile(m: BattleMissile, ownShip: ShipState, _enemyShip: ShipState, _missiles: BattleMissile[], _input: number): MissileEffect {
     if (m.weaponType === 'melnorme_pump') {
       m.decelWait = ((m.decelWait ?? 0) + 1) % NUM_PUMP_ANIMS;
+      return {};
+    }
+    if (m.weaponType === 'melnorme_charging') {
+      if (!ownShip.melnormeCharging) {
+        // Fire was released or state was cleared — silently remove the charging missile.
+        return { destroy: true };
+      }
+      const angle = (ownShip.facing * 4) & 63;
+      m.x = ownShip.x + COSINE(angle, MELNORME_OFFSET);
+      m.y = ownShip.y + SINE(angle, MELNORME_OFFSET);
+      m.facing = ownShip.facing;
+      const damage = PUMPUP_DAMAGE << (ownShip.melnormePumpLevel ?? 0);
+      m.damage = damage;
+      m.hitPoints = damage;
+      m.decelWait = ((m.decelWait ?? 0) + 1) % NUM_PUMP_ANIMS;
+      return { skipVelocityUpdate: true };
     }
     return {};
   },
@@ -274,6 +303,13 @@ export const melnormeController: ShipController = {
       target.melnormeConfusionFrames = 400;
       target.melnormeConfusionInput = (nextSeed(target) & 1) === 0 ? INPUT_LEFT : INPUT_RIGHT;
       return { skipBlast: true };
+    }
+    if (m.weaponType === 'melnorme_pump' || m.weaponType === 'melnorme_charging') {
+      const level = Math.max(0, Math.min(MAX_PUMP, Math.round(Math.log2(Math.max(1, m.damage / PUMPUP_DAMAGE)))));
+      return {
+        ...(m.weaponType === 'melnorme_charging' ? { cancelChargingState: true } : {}),
+        explosionType: level === 0 ? 'melnorme_pump_hit_low' : 'melnorme_pump_hit_high',
+      };
     }
     return {};
   },

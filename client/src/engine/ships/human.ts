@@ -2,9 +2,9 @@
 // and the common ship movement in uqm-0.8.0/src/uqm/ship.c (inertial_thrust).
 
 import {
-  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY,
-  setVelocityVector, velocitySquared,
-  setVelocityComponents, getCurrentVelocityComponents,
+  VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY,
+  setVelocityVector,
+  applyInertialThrust,
   type VelocityDesc,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
@@ -47,7 +47,6 @@ export const SPECIAL_WAIT        = 9;
 export const LASER_RANGE         = 100; // display pixels
 
 // In velocity-unit² — threshold for capping acceleration at max speed
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(MAX_THRUST) ** 2; // 768² = 589824
 
 // ─── Backward-compat alias ────────────────────────────────────────────────────
 // External code that imported HumanShipState or SpawnRequest from this module
@@ -99,31 +98,7 @@ export function updateHumanShip(ship: ShipState, input: number): SpawnRequest[] 
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = THRUST_WAIT;
-
-    const angle = (ship.facing * 4) & 63; // FACING_TO_ANGLE
-    const incV  = WORLD_TO_VELOCITY(THRUST_INCREMENT); // 96 velocity units
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else {
-      const currentSpeedSq = velocitySquared(ship.velocity);
-      if (desiredSpeedSq < currentSpeedSq) {
-        setVelocityComponents(ship.velocity, newDx, newDy);
-      } else if (ship.velocity.travelAngle === angle) {
-        setVelocityVector(ship.velocity, MAX_THRUST, ship.facing);
-      } else {
-        setVelocityComponents(ship.velocity, newDx, newDy);
-        const spd = Math.sqrt(velocitySquared(ship.velocity));
-        if (spd > 0) {
-          const scale = WORLD_TO_VELOCITY(MAX_THRUST) / spd;
-          setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-        }
-      }
-    }
+    applyInertialThrust(ship.velocity, ship.facing, MAX_THRUST, THRUST_INCREMENT, ship.gravityWell ?? false);
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────

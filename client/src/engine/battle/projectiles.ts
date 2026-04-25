@@ -5,6 +5,7 @@ import type { BattleMissile, ShipState } from '../ships/types';
 import type { SpriteFrame } from '../sprites';
 import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY, setVelocityComponents } from '../velocity';
 import { trackFacing } from '../ships/human';
+import { MELNORME_WEAPON_WAIT } from '../ships/melnorme';
 import { COSINE, SINE } from '../sinetab';
 import type { BattleExplosion, CrewPod, IonDot } from './types';
 import type { BattleState } from './types';
@@ -25,6 +26,7 @@ function missileRadius(m: BattleMissile): number {
   if (m.weaponType === 'dogi') return DISPLAY_TO_WORLD(9);
   if (m.weaponType === 'chmmr_satellite') return DISPLAY_TO_WORLD(9);
   if (m.weaponType === 'melnorme_pump') return DISPLAY_TO_WORLD(12);
+  if (m.weaponType === 'melnorme_charging') return DISPLAY_TO_WORLD(12);
   if (m.weaponType === 'melnorme_confuse') return DISPLAY_TO_WORLD(10);
   if (m.weaponType === 'thraddash_horn') return DISPLAY_TO_WORLD(6);
   if (m.weaponType === 'thraddash_napalm') return DISPLAY_TO_WORLD(11);
@@ -319,6 +321,7 @@ export function advanceExplosions(
       : e.type === 'orz_howitzer' ? e.frame < 6
       : e.type === 'supox_glob' ? e.frame < 5
       : e.type === 'shofixti_glory' ? e.frame < 8
+      : (e.type === 'melnorme_pump_hit_low' || e.type === 'melnorme_pump_hit_high') ? e.frame < 3
       : e.frame < 8;
   });
 }
@@ -504,7 +507,7 @@ export function processMissiles(
     let hit = false;
     const enemySide = m.owner === 0 ? 1 : 0;
 
-    if (!hit && m.orzMarineMode !== 'boarded' && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter') {
+    if (!hit && m.orzMarineMode !== 'boarded' && ownerCtrl.collidesWithPlanet !== false && m.weaponType !== 'fighter' && m.weaponType !== 'melnorme_charging') {
       const { dx: pdx, dy: pdy } = worldDelta(planetX, planetY, m.x, m.y);
       if (pdx * pdx + pdy * pdy < (planetRadiusW + 4) ** 2) {
         const missileFrame = getMissileCollisionFrame(bs, shipSprites, m);
@@ -574,6 +577,12 @@ export function processMissiles(
         targetShip.crew = Math.max(0, targetShip.crew - m.damage);
         const hitFx = ownerCtrl.onMissileHit?.(m, targetShip) ?? {};
         pushHitEffects(bs, m, hitFx, worldW, worldH);
+        if (hitFx.cancelChargingState) {
+          ownShip.melnormeCharging = false;
+          ownShip.melnormePumpLevel = 0;
+          ownShip.melnormePumpTimer = 0;
+          ownShip.weaponWait = MELNORME_WEAPON_WAIT;
+        }
         if (hitFx.impairTarget) {
           targetShip.turnWait   = Math.min(15, targetShip.turnWait   + hitFx.impairTarget);
           targetShip.thrustWait = Math.min(15, targetShip.thrustWait + hitFx.impairTarget);

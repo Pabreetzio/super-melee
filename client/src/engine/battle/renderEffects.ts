@@ -341,6 +341,22 @@ export function renderExplosions(
       continue;
     }
 
+    if (ex.type === 'melnorme_pump_hit_low' || ex.type === 'melnorme_pump_hit_high') {
+      const melnSp = shipSprites.get('melnorme') as
+        { pump?: { big: object; med: object; sml: object } } | null;
+      const group = melnSp?.pump ?? null;
+      const sset = group
+        ? (reduction >= 2 ? group.sml : reduction === 1 ? group.med : group.big) as Parameters<typeof drawSprite>[1] | null
+        : null;
+      const frameOffset = ex.type === 'melnorme_pump_hit_low' ? 20 : 23;
+      if (sset) {
+        drawSprite(ctx, sset, frameOffset + ex.frame, ex.x, ex.y, canvasW, canvasH, camX, camY, reduction);
+      } else {
+        placeholderDot(ctx, ex.x, ex.y, camX, camY, 5, ex.type === 'melnorme_pump_hit_low' ? '#9fff9f' : '#9fcfff', reduction);
+      }
+      continue;
+    }
+
     const set = ex.type === 'boom'
       ? (explosionSprites ? (reduction >= 2 ? explosionSprites.boom.sml : reduction === 1 ? explosionSprites.boom.med : explosionSprites.boom.big) : null)
       : (explosionSprites ? (reduction >= 2 ? explosionSprites.blast.sml : reduction === 1 ? explosionSprites.blast.med : explosionSprites.blast.big) : null);

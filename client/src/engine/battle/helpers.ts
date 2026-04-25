@@ -185,6 +185,7 @@ export function applyGravity(
   const threshSq = gravityThresholdW * gravityThresholdW;
   if (distSq === 0 || distSq > threshSq) return;
 
+  ship.gravityWell = true;
   const angle = worldAngle(ship.x, ship.y, planetX, planetY);
   const grav = 32;
   ship.velocity.vx += COSINE(angle, grav);

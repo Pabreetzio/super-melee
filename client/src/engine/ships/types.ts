@@ -26,6 +26,7 @@ export interface ShipState {
   energyWait:  number;
   // Status flags
   thrusting:     boolean;
+  gravityWell?:  boolean;
   limpetCount?:  number;
   orzTurretOffset?: number;
   orzTurretTurnWait?: number;
@@ -96,7 +97,7 @@ export type SpawnRequest =
       /** Allow this projectile to collide with and damage its firing ship. */
       hitOwnShip?: boolean;
       limpet?: boolean;
-      weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
+      weaponType?: 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'melnorme_charging' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
       initialTrackWait?: number;
       orzSeed?: number;
     }
@@ -162,7 +163,7 @@ export interface BattleMissile {
   /** True for canonical self-hitting weapons such as the Mycon plasmoid. */
   hitOwnShip?: boolean;
   limpet?: boolean;
-  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
+  weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'melnorme_charging' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot
@@ -244,7 +245,7 @@ export interface MissileHitEffect {
   /** If true, skip the default blast explosion at the impact site. */
   skipBlast?: boolean;
   /** Override the cosmetic explosion animation used at the impact site. */
-  explosionType?: 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob' | 'orz_howitzer';
+  explosionType?: 'mycon_plasma' | 'chenjesu_spark' | 'supox_glob' | 'orz_howitzer' | 'melnorme_pump_hit_low' | 'melnorme_pump_hit_high';
   /** Spawn a splinter explosion at the impact position with this velocity. */
   splinter?: { vx: number; vy: number };
   /** Add this many frames of impairment to the target ship (limpet). */
@@ -257,6 +258,8 @@ export interface MissileHitEffect {
   targetVelocityDelta?: { vx: number; vy: number; maxSpeed?: number };
   /** Keep the missile alive after this hit instead of removing it. */
   keepMissileAlive?: boolean;
+  /** Clear the owner ship's melnorme charging state when this missile is destroyed. */
+  cancelChargingState?: boolean;
   /** Set the missile's weaponWait after the hit (used as custom cooldown/stun). */
   missileCooldown?: number;
   /** Spawn follow-up projectiles when the hit resolves. */
