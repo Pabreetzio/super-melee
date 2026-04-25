@@ -249,31 +249,82 @@ export const spathiController: ShipController = {
 
   computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {
     let input = 0;
+    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
+    const distanceSq = dx * dx + dy * dy;
     const angleToTarget = worldAngle(ship.x, ship.y, target.x, target.y);
     const targetFacing = ((angleToTarget + 2) >> 2) & 15;
     const awayFacing = (targetFacing + 8) & 15;
-    const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
-    const distanceSq = dx * dx + dy * dy;
-    const tooClose = distanceSq <= DISPLAY_TO_WORLD(96) ** 2;
+    const preferredMin = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 66 : aiLevel === 'cyborg_good' ? 74 : 84);
+    const preferredMax = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 108 : aiLevel === 'cyborg_good' ? 120 : 132);
+    const preferredMid = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 88 : aiLevel === 'cyborg_good' ? 98 : 108);
+    const buttRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 164 : aiLevel === 'cyborg_good' ? 152 : 140);
+    const buttCloseRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 76 : aiLevel === 'cyborg_good' ? 88 : 100);
+    const missileRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 138 : aiLevel === 'cyborg_good' ? 124 : 110);
+    const thrustWindow = aiLevel === 'cyborg_awesome' ? 3 : aiLevel === 'cyborg_good' ? 2 : 1;
+    const frontWindow = aiLevel === 'cyborg_weak' ? 0 : 1;
+    const buttWindow = aiLevel === 'cyborg_awesome' ? 2 : 1;
+    const cruiseRatio = aiLevel === 'cyborg_awesome' ? 0.58 : aiLevel === 'cyborg_good' ? 0.48 : 0.38;
+    const aligned = (diff: number, window: number) => diff <= window || diff >= 16 - window;
 
-    const desiredFacing = tooClose ? awayFacing : ((awayFacing + (aiLevel === 'cyborg_awesome' ? 1 : 0)) & 15);
+    const frontDiff = (targetFacing - ship.facing + 16) % 16;
+    const rearFacing = (ship.facing + 8) & 15;
+    const rearDiff = (targetFacing - rearFacing + 16) % 16;
+    const ownVelocityDot = dx * ship.velocity.vx + dy * ship.velocity.vy;
+    const targetVelocityDot = dx * target.velocity.vx + dy * target.velocity.vy;
+    const speedSq = ship.velocity.vx * ship.velocity.vx + ship.velocity.vy * ship.velocity.vy;
+    const cruiseSpeedSq = MAX_SPEED_SQ * cruiseRatio;
+    const tooClose = distanceSq <= preferredMin * preferredMin;
+    const tooFar = distanceSq >= preferredMax * preferredMax;
+    const wantsMoreSpeed = speedSq < cruiseSpeedSq;
+    const closing = ownVelocityDot > 0;
+    const opening = ownVelocityDot < 0;
+    const targetClosing = targetVelocityDot < 0;
+    const missileReady = ship.energy >= SPATHI_WEAPON_ENERGY_COST;
+    const buttReady = ship.energy >= SPATHI_SPECIAL_ENERGY_COST && ship.specialWait === 0;
+    const canUsePrimary = missileReady
+      && !tooClose
+      && distanceSq <= missileRange * missileRange
+      && aligned(frontDiff, frontWindow);
+    const canUseButt = buttReady
+      && distanceSq <= buttRange * buttRange
+      && aligned(rearDiff, buttWindow)
+      && (distanceSq <= buttCloseRange * buttCloseRange || targetClosing)
+      && (speedSq < MAX_SPEED_SQ || opening);
+
+    // Pick a consistent flank so the Eluder skims around its comfort band instead of
+    // always burning straight away to the arena edge.
+    const cross = dx * ship.velocity.vy - dy * ship.velocity.vx;
+    const orbitBias = cross === 0 ? (target.facing < 8 ? 2 : -2) : cross > 0 ? 2 : -2;
+    let desiredFacing: number;
+    let shouldThrust: boolean;
+
+    if (tooClose) {
+      desiredFacing = (awayFacing + orbitBias + 16) & 15;
+      shouldThrust = !opening || wantsMoreSpeed;
+    } else if (tooFar) {
+      desiredFacing = (targetFacing - orbitBias + 16) & 15;
+      shouldThrust = !closing || wantsMoreSpeed;
+    } else if (canUseButt) {
+      desiredFacing = (awayFacing + orbitBias + 16) & 15;
+      shouldThrust = closing || speedSq < cruiseSpeedSq * 0.8;
+    } else if (canUsePrimary) {
+      desiredFacing = targetFacing;
+      shouldThrust = distanceSq > preferredMid * preferredMid && (!closing || wantsMoreSpeed);
+    } else if (distanceSq > preferredMid * preferredMid) {
+      desiredFacing = (targetFacing - orbitBias + 16) & 15;
+      shouldThrust = !closing || speedSq < cruiseSpeedSq * 0.9;
+    } else {
+      desiredFacing = (awayFacing + orbitBias + 16) & 15;
+      shouldThrust = closing || speedSq < cruiseSpeedSq * 0.6;
+    }
+
     const diff = (desiredFacing - ship.facing + 16) % 16;
     if (diff >= 1 && diff <= 8) input |= INPUT_RIGHT;
     else if (diff > 8) input |= INPUT_LEFT;
-    input |= INPUT_THRUST;
 
-    const buttFacing = (ship.facing + 8) & 15;
-    const buttDiff = (targetFacing - buttFacing + 16) % 16;
-    const buttWindow = aiLevel === 'cyborg_awesome' ? 2 : 1;
-    if (ship.energy >= SPATHI_SPECIAL_ENERGY_COST && (buttDiff <= buttWindow || buttDiff >= 16 - buttWindow)) {
-      input |= INPUT_FIRE2;
-    }
-
-    const frontDiff = (targetFacing - ship.facing + 16) % 16;
-    const missileRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 150 : aiLevel === 'cyborg_good' ? 120 : 90);
-    if (distanceSq <= missileRange * missileRange && !tooClose && (frontDiff === 0 || (aiLevel !== 'cyborg_weak' && (frontDiff <= 1 || frontDiff >= 15)))) {
-      input |= INPUT_FIRE1;
-    }
+    if (shouldThrust && aligned(diff, thrustWindow)) input |= INPUT_THRUST;
+    if (canUseButt) input |= INPUT_FIRE2;
+    if (canUsePrimary) input |= INPUT_FIRE1;
 
     return input;
   },
