@@ -674,6 +674,23 @@ export default function StatusPanel({
       }
 
       const totalHeight = layout === 'dual' ? SECTION_H * 2 : compactSingle ? COMPACT_SINGLE_H : SECTION_H;
+
+      // Scale the canvas to an integer multiple of STATUS_W in physical pixels
+      // so the CSS stretch is always a clean integer ratio and pixel fonts render
+      // without stripe artifacts (avoids the 1.5× nearest-neighbour banding).
+      const cssW = canvas.clientWidth;
+      if (cssW > 0) {
+        const physW = Math.round(cssW * (window.devicePixelRatio || 1));
+        const N = Math.max(1, Math.floor(physW / STATUS_W));
+        const snapW = STATUS_W * N;
+        const snapH = totalHeight * N;
+        if (canvas.width !== snapW || canvas.height !== snapH) {
+          canvas.width  = snapW;
+          canvas.height = snapH;
+        }
+        ctx.setTransform(N, 0, 0, N, 0, 0);
+      }
+
       ctx.clearRect(0, 0, STATUS_W, totalHeight);
 
       if (layout === 'single') {
