@@ -3,7 +3,7 @@
 // them from build-generated atlas images instead of downloading each PNG.
 
 import { getAtlasFrameForUrl } from './atlasAssets';
-import { WORLD_H, WORLD_W } from './battle/constants';
+import { PRESENTATION_SCALE, WORLD_H, WORLD_W } from './battle/constants';
 
 export interface SpriteFrame {
   img:    CanvasImageSource;
@@ -770,16 +770,16 @@ export function placeholderDot(
   let ry = worldY - camY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let dx = rx >> (2 + reduction);
-  let dy = ry >> (2 + reduction);
-  const wdw = worldW >> (2 + reduction);
-  const wdh = worldH >> (2 + reduction);
+  let dx = (rx >> (2 + reduction)) * PRESENTATION_SCALE;
+  let dy = (ry >> (2 + reduction)) * PRESENTATION_SCALE;
+  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
+  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
   if (dx < 0 && dx + wdw <= 640) dx += wdw;
   else if (dx > 640 && dx - wdw >= 0) dx -= wdw;
   if (dy < 0 && dy + wdh <= 480) dy += wdh;
   else if (dy > 480 && dy - wdh >= 0) dy -= wdh;
   ctx.beginPath();
-  ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
+  ctx.arc(dx, dy, dotR * PRESENTATION_SCALE, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
 }
@@ -798,26 +798,26 @@ export function drawSprite(
   canvasH: number,
   originWorldX: number,  // world X of canvas top-left (camera)
   originWorldY: number,
-  reduction: number = 0, // zoom level: 0=1x, 1=2x, 2=4x, 3=8x
+  reduction: number = 0, // visible zoom level: 0=1x, 1=2x, 2=4x
   worldW = WORLD_W, worldH = WORLD_H,
 ): void {
   const normalizedIndex = ((frameIndex % set.count) + set.count) % set.count;
   const frame = set.frames[normalizedIndex];
   if (!frame) return;
 
-  // World → display: divide by 4 at 1x, 8 at 2x, 16 at 4x, 32 at 8x
+  // World → display: divide by 4 at 1x, 8 at 2x, 16 at 4x
   // Normalize offset toroidally so objects near a world edge stay visible.
   let rx = worldX - originWorldX;
   let ry = worldY - originWorldY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let displayX = Math.round(rx >> (2 + reduction));
-  let displayY = Math.round(ry >> (2 + reduction));
+  let displayX = Math.round((rx >> (2 + reduction)) * PRESENTATION_SCALE);
+  let displayY = Math.round((ry >> (2 + reduction)) * PRESENTATION_SCALE);
   // At maximum zoom the whole world fits on screen. The short-path normalization
   // above can place an object off-screen when the long path is actually on-screen.
   // Correct by trying the other side whenever the current result is off-canvas.
-  const wdw = worldW >> (2 + reduction);
-  const wdh = worldH >> (2 + reduction);
+  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
+  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
   if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
   else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
   if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
@@ -825,19 +825,21 @@ export function drawSprite(
 
   // Draw sprite at native size using its own hotspot.
   // Callers are responsible for passing the correct size sprite set for the
-  // current zoom level (big → r=0/1, sml → r=2/3). UQM uses pre-rendered
+  // current zoom level (big → r=0, med → r=1, sml → r=2). UQM uses pre-rendered
   // sprites per zoom level rather than scaling a single sprite down.
-  const drawX = displayX - frame.hotX;
-  const drawY = displayY - frame.hotY;
+  const drawX = displayX - frame.hotX * PRESENTATION_SCALE;
+  const drawY = displayY - frame.hotY * PRESENTATION_SCALE;
+  const drawW = frame.width * PRESENTATION_SCALE;
+  const drawH = frame.height * PRESENTATION_SCALE;
 
   // Only draw if on screen
-  if (drawX + frame.width < 0 || drawX > canvasW) return;
-  if (drawY + frame.height < 0 || drawY > canvasH) return;
+  if (drawX + drawW < 0 || drawX > canvasW) return;
+  if (drawY + drawH < 0 || drawY > canvasH) return;
 
   if (frame.sourceX !== undefined && frame.sourceY !== undefined && frame.sourceW !== undefined && frame.sourceH !== undefined) {
-    ctx.drawImage(frame.img, frame.sourceX, frame.sourceY, frame.sourceW, frame.sourceH, drawX, drawY, frame.width, frame.height);
+    ctx.drawImage(frame.img, frame.sourceX, frame.sourceY, frame.sourceW, frame.sourceH, drawX, drawY, drawW, drawH);
   } else {
-    ctx.drawImage(frame.img, drawX, drawY);
+    ctx.drawImage(frame.img, drawX, drawY, drawW, drawH);
   }
 }
 
@@ -863,19 +865,21 @@ export function drawSpriteFill(
   let ry = worldY - originWorldY;
   rx = ((rx % worldW) + worldW) % worldW; if (rx > worldW >> 1) rx -= worldW;
   ry = ((ry % worldH) + worldH) % worldH; if (ry > worldH >> 1) ry -= worldH;
-  let displayX = Math.round(rx >> (2 + reduction));
-  let displayY = Math.round(ry >> (2 + reduction));
-  const wdw = worldW >> (2 + reduction);
-  const wdh = worldH >> (2 + reduction);
+  let displayX = Math.round((rx >> (2 + reduction)) * PRESENTATION_SCALE);
+  let displayY = Math.round((ry >> (2 + reduction)) * PRESENTATION_SCALE);
+  const wdw = (worldW >> (2 + reduction)) * PRESENTATION_SCALE;
+  const wdh = (worldH >> (2 + reduction)) * PRESENTATION_SCALE;
   if (displayX < 0 && displayX + wdw <= canvasW) displayX += wdw;
   else if (displayX > canvasW && displayX - wdw >= 0) displayX -= wdw;
   if (displayY < 0 && displayY + wdh <= canvasH) displayY += wdh;
   else if (displayY > canvasH && displayY - wdh >= 0) displayY -= wdh;
 
-  const drawX = displayX - frame.hotX;
-  const drawY = displayY - frame.hotY;
-  if (drawX + frame.width < 0 || drawX > canvasW) return;
-  if (drawY + frame.height < 0 || drawY > canvasH) return;
+  const drawX = displayX - frame.hotX * PRESENTATION_SCALE;
+  const drawY = displayY - frame.hotY * PRESENTATION_SCALE;
+  const drawW = frame.width * PRESENTATION_SCALE;
+  const drawH = frame.height * PRESENTATION_SCALE;
+  if (drawX + drawW < 0 || drawX > canvasW) return;
+  if (drawY + drawH < 0 || drawY > canvasH) return;
 
   let colorCache = spriteMaskFillCache.get(frame);
   if (!colorCache) {
@@ -911,7 +915,7 @@ export function drawSpriteFill(
     colorCache.set(fillStyle, maskCanvas);
   }
 
-  ctx.drawImage(maskCanvas, drawX, drawY);
+  ctx.drawImage(maskCanvas, drawX, drawY, drawW, drawH);
 }
 
 // ─── Ur-Quan sprites ──────────────────────────────────────────────────────────

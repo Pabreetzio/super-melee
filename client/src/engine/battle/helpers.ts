@@ -2,7 +2,7 @@ import { COSINE, SINE, tableAngle, HALF_CIRCLE, QUADRANT } from '../sinetab';
 import { setVelocityComponents, deltaVelocityComponents, VELOCITY_TO_WORLD, WORLD_TO_VELOCITY, DISPLAY_TO_WORLD } from '../velocity';
 import type { ShipState } from '../ships/types';
 import type { BattleState } from './types';
-import { WORLD_H as DEFAULT_WORLD_H, WORLD_W as DEFAULT_WORLD_W } from './constants';
+import { MAX_REDUCTION, WORLD_H as DEFAULT_WORLD_H, WORLD_W as DEFAULT_WORLD_W } from './constants';
 const COLLISION_TURN_WAIT = 1;
 const COLLISION_THRUST_WAIT = 3;
 const MIN_COLLISION_SPEED = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(1)) - 1;
@@ -39,7 +39,7 @@ export function wrapWorldCoord(value: number, worldSize: number): number {
 export function calcReduction(
   ships: [ShipState, ShipState],
   current: number,
-  canvasW: number,
+  _canvasW: number,
   maxReduction: number,
   worldW: number,
   worldH: number,
@@ -48,15 +48,35 @@ export function calcReduction(
   let dy = Math.abs(ships[1].y - ships[0].y);
   if (dx > worldW >> 1) dx = worldW - dx;
   if (dy > worldH >> 1) dy = worldH - dy;
-  const sep = Math.max(dx, dy);
 
-  const HYSTERESIS_W = 192;
-  for (let candidate = 0; candidate < maxReduction; candidate++) {
-    const halfView = canvasW << (1 + candidate);
-    const threshold = candidate < current ? halfView - HYSTERESIS_W : halfView;
-    if (sep < threshold) return candidate;
+  const transitionW = worldW >> (MAX_REDUCTION - maxReduction);
+  const transitionH = worldH >> (MAX_REDUCTION - maxReduction);
+  const sourceDx = dx;
+  const sourceDy = dy;
+  let nextReduction = maxReduction;
+
+  while (
+    nextReduction > 0
+    && (dx << 1) <= transitionW
+    && (dy << 1) <= transitionH
+  ) {
+    dx <<= 1;
+    dy <<= 1;
+    nextReduction--;
   }
-  return maxReduction;
+
+  if (nextReduction < current && current <= maxReduction) {
+    const HYSTERESIS_X = DISPLAY_TO_WORLD(24);
+    const HYSTERESIS_Y = DISPLAY_TO_WORLD(20);
+    if (
+      ((sourceDx + HYSTERESIS_X) << (maxReduction - nextReduction)) > transitionW
+      || ((sourceDy + HYSTERESIS_Y) << (maxReduction - nextReduction)) > transitionH
+    ) {
+      nextReduction++;
+    }
+  }
+
+  return nextReduction;
 }
 
 export function resolveShipCollision(

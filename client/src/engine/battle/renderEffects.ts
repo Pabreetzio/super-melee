@@ -4,6 +4,7 @@ import type { BattleExplosion, CrewPod, IonDot, TractorShadow } from './types';
 import { SHIP_REGISTRY } from '../ships/registry';
 import type { ShipId } from 'shared/types';
 import { COSINE, SINE } from '../sinetab';
+import { PRESENTATION_SCALE } from './constants';
 import { DISPLAY_TO_WORLD } from '../velocity';
 
 const ION_COLORS: [number, number, number][] = [
@@ -59,7 +60,7 @@ export function renderLaserFlashes(
 ): void {
   if (lasers.length === 0) return;
   ctx.save();
-  ctx.lineWidth = 1;
+  ctx.lineWidth = PRESENTATION_SCALE;
   for (const lz of lasers) {
     ctx.beginPath();
     ctx.strokeStyle = lz.color ?? '#fff';
@@ -166,9 +167,9 @@ export function renderIonTrails(
       const [cr, cg, cb] = palette[Math.min(dot.age, 11)];
       const dotDX = tw2dx(dot.x);
       const dotDY = tw2dy(dot.y);
-      if (dotDX < -1 || dotDX > canvasW + 1 || dotDY < -1 || dotDY > canvasH + 1) continue;
+      if (dotDX < -PRESENTATION_SCALE || dotDX > canvasW + PRESENTATION_SCALE || dotDY < -PRESENTATION_SCALE || dotDY > canvasH + PRESENTATION_SCALE) continue;
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
-      ctx.fillRect(dotDX, dotDY, 1, 1);
+      ctx.fillRect(dotDX, dotDY, PRESENTATION_SCALE, PRESENTATION_SCALE);
     }
   }
 }
@@ -184,9 +185,10 @@ export function renderCrewPods(
   for (const pod of crewPods) {
     const sx = tw2dx(pod.x);
     const sy = tw2dy(pod.y);
-    if (sx < -3 || sx > canvasW + 3 || sy < -3 || sy > canvasH + 3) continue;
+    const podRadius = PRESENTATION_SCALE + 1;
+    if (sx < -podRadius * 2 || sx > canvasW + podRadius * 2 || sy < -podRadius * 2 || sy > canvasH + podRadius * 2) continue;
     ctx.fillStyle = pod.blink ? 'rgb(120,255,120)' : 'rgb(40,132,40)';
-    ctx.fillRect(sx - 1, sy - 1, 3, 3);
+    ctx.fillRect(sx - podRadius, sy - podRadius, podRadius * 2 + 1, podRadius * 2 + 1);
   }
 }
 
@@ -218,10 +220,10 @@ export function renderPkunkRebirth(
       const ty = ship.y - SINE(angle, trailDist);
       const tdx = (((tx - baseDc.camX) % baseDc.worldW) + baseDc.worldW) % baseDc.worldW;
       const tdy = (((ty - baseDc.camY) % baseDc.worldH) + baseDc.worldH) % baseDc.worldH;
-      const sx = Math.floor((tdx > baseDc.worldW / 2 ? tdx - baseDc.worldW : tdx) / (1 << (2 + baseDc.reduction)));
-      const sy = Math.floor((tdy > baseDc.worldH / 2 ? tdy - baseDc.worldH : tdy) / (1 << (2 + baseDc.reduction)));
+      const sx = Math.floor(((tdx > baseDc.worldW / 2 ? tdx - baseDc.worldW : tdx) / (1 << (2 + baseDc.reduction))) * PRESENTATION_SCALE);
+      const sy = Math.floor(((tdy > baseDc.worldH / 2 ? tdy - baseDc.worldH : tdy) / (1 << (2 + baseDc.reduction))) * PRESENTATION_SCALE);
       ctx.fillStyle = `rgba(${255 - trail * 24},${Math.max(0, 171 - trail * 40)},0,${alpha * (0.7 - trail * 0.12)})`;
-      ctx.fillRect(sx, sy, 2, 2);
+      ctx.fillRect(sx, sy, 2 * PRESENTATION_SCALE, 2 * PRESENTATION_SCALE);
     }
 
     ctx.globalAlpha = alpha;
@@ -349,7 +351,7 @@ export function renderExplosions(
       const sx = tw2dx(ex.x);
       const sy = tw2dy(ex.y);
       ctx.beginPath();
-      ctx.arc(sx, sy, Math.max(1, radius), 0, Math.PI * 2);
+      ctx.arc(sx, sy, Math.max(PRESENTATION_SCALE, radius * PRESENTATION_SCALE), 0, Math.PI * 2);
       ctx.fillStyle = ex.type === 'boom'
         ? `rgba(255,${Math.round(160 * (1 - frac))},0,${0.8 * (1 - frac)})`
         : `rgba(255,255,${Math.round(200 * (1 - frac))},${0.9 * (1 - frac)})`;

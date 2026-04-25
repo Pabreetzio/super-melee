@@ -9,7 +9,7 @@ import type { DrawContext, ShipState } from '../ships/types';
 import { applyDirectMissileDamage } from './projectiles';
 import type { BattleAsteroid, BattleState } from './types';
 import { circleOverlap, resolveShipCollision, worldDelta, wrapWorldCoord } from './helpers';
-import { WORLD_H, WORLD_W } from './constants';
+import { PRESENTATION_SCALE, WORLD_H, WORLD_W } from './constants';
 
 export const ASTEROID_COUNT = 5;
 export const ASTEROID_MASS = 3;
@@ -314,7 +314,7 @@ export function renderAsteroids(
   tw2dy: (worldY: number) => number,
   sprites?: AsteroidSprites | null,
 ): void {
-  const radius = Math.max(2, ASTEROID_RADIUS_W >> (2 + dc.reduction));
+  const radius = Math.max(2, (ASTEROID_RADIUS_W >> (2 + dc.reduction)) * PRESENTATION_SCALE);
   for (const asteroid of asteroids) {
     const dx = tw2dx(asteroid.x);
     const dy = tw2dy(asteroid.y);
@@ -337,14 +337,14 @@ export function renderAsteroids(
       dc.ctx.fillStyle = '#6a5846';
       dc.ctx.fill();
       dc.ctx.strokeStyle = '#b49974';
-      dc.ctx.lineWidth = 1;
+      dc.ctx.lineWidth = PRESENTATION_SCALE;
       dc.ctx.stroke();
     } else {
       drawRockShape(dc.ctx, dx, dy, radius, asteroid.facing, 0);
       dc.ctx.fillStyle = '#5c5348';
       dc.ctx.fill();
       dc.ctx.strokeStyle = '#a9967d';
-      dc.ctx.lineWidth = 1;
+      dc.ctx.lineWidth = PRESENTATION_SCALE;
       dc.ctx.stroke();
     }
     dc.ctx.restore();

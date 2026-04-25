@@ -273,7 +273,7 @@ export interface DrawContext {
   camY:     number;
   canvasW:  number;
   canvasH:  number;
-  reduction: number;   // zoom level: 0=1×, 1=2×, 2=4×, 3=8×
+  reduction: number;   // visible zoom level: 0=1×, 1=2×, 2=4×
   worldW:   number;    // toroidal world width in world units
   worldH:   number;    // toroidal world height in world units
 }

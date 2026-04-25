@@ -40,6 +40,17 @@ Faithful browser recreation of Star Control 2's Super Melee mode with online mul
 
 ## Known Issues (fix next session)
 
+### Branch Hold: logical-arena-renderer
+- [ ] Preserve this work on branch `logical-arena-renderer` and do not merge it yet.
+- [ ] This branch is the experimental pass that moved battle simulation to logical `256×240` space while keeping the browser presentation enlarged.
+- [ ] Return here later to finish the arena-scale/rendering reconciliation instead of redoing the investigation from scratch.
+- [ ] Specific problems seen on this branch:
+  - Thrust is visually spread out in a way that makes ships look faster instead of making the zoom change read correctly.
+  - Camera feels like it does not linger at `2x` long enough before stepping out to `4x`.
+  - Planet collision is too large at `4x`; ships crash well outside the visible planet art.
+  - Ship/weapon collision is too large at far zoom; example repro was Ur-Quan fusion blast hitting another Ur-Quan outside the visible ship bounds.
+  - Overall gameplay feel was better on the pre-branch baseline even though arena size was still wrong there.
+
 ### Rendering Bugs
 - [x] **Ship sprites don't scale with zoom** — Fixed: UQM uses pre-rendered `big`/`med`/`sml`
   sprite variants per zoom level, not mathematical downscaling. `drawSprite` draws at native
