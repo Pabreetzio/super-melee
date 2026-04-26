@@ -7,6 +7,14 @@ const M = 2147483647;
 const Q = 127773; // M / A
 const R = 2836;   // M % A
 
+export function nextRngSeed(seed: number): number {
+  const clamped = ((seed % M) + M) % M || 1;
+  const hi = Math.trunc(clamped / Q);
+  const lo = clamped % Q;
+  const val = A * lo - R * hi;
+  return val > 0 ? val : val + M;
+}
+
 export class RNG {
   private seed: number;
 
@@ -17,12 +25,7 @@ export class RNG {
 
   /** Advance state and return next integer in [1, M-1] */
   next(): number {
-    // Schrage's method — avoids 64-bit overflow using only 32-bit ints
-    // seed = A*(seed%Q) - R*(seed/Q)
-    const hi = Math.trunc(this.seed / Q);
-    const lo = this.seed % Q;
-    const val = A * lo - R * hi;
-    this.seed = val > 0 ? val : val + M;
+    this.seed = nextRngSeed(this.seed);
     return this.seed;
   }
 

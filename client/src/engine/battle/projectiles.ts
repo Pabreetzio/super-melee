@@ -14,7 +14,7 @@ import { spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './mas
 import type { MissileHitEffect, SpawnRequest } from '../ships/types';
 import { WORLD_H, WORLD_W } from './constants';
 
-function missileRadius(m: BattleMissile): number {
+export function missileRadius(m: BattleMissile): number {
   // Broad-phase circle radius — must be >= the sprite's actual pixel radius so
   // the narrow-phase mask check is always triggered for real overlaps.
   // Plasmoid: sprite grows from 14×13 (frame 0, ~7 px radius) to 49×41 (frame 10,
@@ -338,6 +338,7 @@ export function updateIonTrails(
     ionTrails[side] = ionTrails[side].filter(d => d.age < 12);
     if (ship.thrusting
       && warpIn[side] === 0
+      && shipTypes[side] !== 'slylandro'
       && ship.crew > 0
       && !(shipTypes[side] === 'ilwrath' && ship.ilwrathCloaked)
     ) {

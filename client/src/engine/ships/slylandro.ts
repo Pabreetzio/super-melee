@@ -2,9 +2,7 @@ import type { AIDifficulty } from 'shared/types';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
 import { DISPLAY_TO_WORLD, VELOCITY_TO_WORLD, setVelocityVector } from '../velocity';
 import { drawSprite, loadGenericShipSprites, placeholderDot, type SpriteFrame, type SpriteSet } from '../sprites';
-import { COSINE, SINE } from '../sinetab';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
-import { SHIP_REGISTRY } from './registry';
 import { worldAngle, worldDelta } from '../battle/helpers';
 
 const SLYLANDRO_MAX_CREW = 12;
@@ -12,8 +10,9 @@ const SLYLANDRO_MAX_ENERGY = 20;
 const SLYLANDRO_MAX_THRUST = 60;
 const SLYLANDRO_SHIP_MASS = 1;
 const SLYLANDRO_WEAPON_COST = 2;
-const SLYLANDRO_WEAPON_WAIT = 17;
-const SLYLANDRO_LIGHTNING_RANGE = DISPLAY_TO_WORLD(36);
+export const SLYLANDRO_WEAPON_WAIT = 17;
+export const SLYLANDRO_LIGHTNING_DAMAGE = 1;
+export const SLYLANDRO_LIGHTNING_SEGMENT_LENGTH = 32;
 const SLYLANDRO_SPECIAL_WAIT = 20;
 const SLYLANDRO_HARVEST_RANGE = DISPLAY_TO_WORLD(78);
 
@@ -33,8 +32,8 @@ function advancePosition(ship: ShipState): void {
     + (ship.velocity.vy >= 0 ? carryY : -carryY);
 }
 
-function lightningColor(cycle: number): string {
-  return ['#ffffff', '#d6e2ff', '#9cb4ff', '#6d84ff'][cycle & 3];
+function emitLightning(spawns: SpawnRequest[], playSound = false): void {
+  spawns.push({ type: 'slylandro_lightning', playSound });
 }
 
 export function makeSlylandroShip(x: number, y: number): ShipState {
@@ -52,7 +51,6 @@ export function makeSlylandroShip(x: number, y: number): ShipState {
     energyWait: 0,
     thrusting: true,
     slylandroReversePressed: false,
-    slylandroLightningCycle: 0,
   };
   setVelocityVector(ship.velocity, SLYLANDRO_MAX_THRUST, ship.facing);
   return ship;
@@ -79,9 +77,9 @@ export function updateSlylandroShip(ship: ShipState, input: number): SpawnReques
   if (ship.weaponWait === 0 && (input & INPUT_FIRE1) && ship.energy >= SLYLANDRO_WEAPON_COST) {
     ship.energy -= SLYLANDRO_WEAPON_COST;
     ship.weaponWait = SLYLANDRO_WEAPON_WAIT;
-    ship.slylandroLightningCycle = ((ship.slylandroLightningCycle ?? 0) + 1) & 3;
-    spawns.push({ type: 'point_defense', x: ship.x, y: ship.y });
-    spawns.push({ type: 'sound', sound: 'primary' });
+    emitLightning(spawns, true);
+  } else if (ship.weaponWait > 0) {
+    emitLightning(spawns);
   }
 
   return spawns;
@@ -117,50 +115,6 @@ export const slylandroController: ShipController = {
     return true;
   },
 
-  applySpawn(
-    s,
-    ownShip,
-    enemyShip,
-    _ownSide,
-    _missiles,
-    addLaser,
-    _addTractorShadow,
-    _damageMissile,
-    _emitSound,
-    enemyType,
-  ): void {
-    if (s.type !== 'point_defense') return;
-
-    const delta = worldDelta(ownShip.x, ownShip.y, enemyShip.x, enemyShip.y);
-    const distanceSq = delta.dx * delta.dx + delta.dy * delta.dy;
-    if (distanceSq > SLYLANDRO_LIGHTNING_RANGE * SLYLANDRO_LIGHTNING_RANGE) return;
-
-    const angleToTarget = worldAngle(ownShip.x, ownShip.y, enemyShip.x, enemyShip.y);
-    const targetFacing = ((angleToTarget + 2) >> 2) & 15;
-    const diff = (targetFacing - ownShip.facing + 16) % 16;
-    if (diff > 3 && diff < 13) return;
-
-    const color = lightningColor(ownShip.slylandroLightningCycle ?? 0);
-    const steps = 3;
-    let lastX = ownShip.x;
-    let lastY = ownShip.y;
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const jitterAngle = (angleToTarget + (i % 2 === 0 ? 8 : -8) + 64) & 63;
-      const jitter = i === steps ? 0 : DISPLAY_TO_WORLD(2 + (i & 1));
-      const nextX = i === steps ? enemyShip.x : ownShip.x + Math.round(delta.dx * t) + COSINE(jitterAngle, jitter);
-      const nextY = i === steps ? enemyShip.y : ownShip.y + Math.round(delta.dy * t) + SINE(jitterAngle, jitter);
-      addLaser({ x1: lastX, y1: lastY, x2: nextX, y2: nextY, color });
-      lastX = nextX;
-      lastY = nextY;
-    }
-
-    const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: 3 });
-    if (!absorb?.absorbed) {
-      enemyShip.crew = Math.max(0, enemyShip.crew - 3);
-    }
-  },
-
   getCollisionMass(): number {
     return SLYLANDRO_SHIP_MASS;
   },
@@ -187,8 +141,8 @@ export const slylandroController: ShipController = {
 
     const { dx, dy } = worldDelta(ship.x, ship.y, target.x, target.y);
     const distanceSq = dx * dx + dy * dy;
-    const closeRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 44 : 36);
-    if (distanceSq <= closeRange * closeRange && (diff <= 2 || diff >= 14)) {
+    const fireRange = DISPLAY_TO_WORLD(aiLevel === 'cyborg_awesome' ? 168 : 132);
+    if (distanceSq <= fireRange * fireRange) {
       input |= INPUT_FIRE1;
     }
 

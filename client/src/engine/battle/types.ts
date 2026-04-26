@@ -54,6 +54,12 @@ export interface TractorShadow {
   angle: number;
 }
 
+export interface BattleLightningSegment extends LaserFlash {
+  owner: 0 | 1;
+  turnWait: number;
+  collided: boolean;
+}
+
 // Winner ship state preserved between rounds (offline modes only)
 export interface WinnerShipState {
   side: 0 | 1;
@@ -74,6 +80,7 @@ export interface BattleState {
   asteroids: BattleAsteroid[];
   missiles:  BattleMissile[];
   lasers:    LaserFlash[];
+  lightningSegments: BattleLightningSegment[];
   tractorShadows: TractorShadow[];
   explosions: BattleExplosion[];
   shipDestructions: [ShipDestructionState | null, ShipDestructionState | null];
@@ -82,6 +89,7 @@ export interface BattleState {
   warpIn:     [number, number];
   rebirth:    [number, number];
   shipAlive:  [boolean, boolean];
+  rngSeed: number;
   frame: number;
   inputBuf: [Map<number, number>, Map<number, number>];
   pendingEnd: { winner: 0 | 1 | null; countdown: number; dittyStarted: boolean } | null;

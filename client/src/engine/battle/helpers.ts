@@ -307,6 +307,16 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, m.orzFlashFrame ?? 0);
     h = hashStep(h, m.orzSeed ?? 0);
   }
+  h = hashStep(h, bs.lightningSegments.length);
+  for (const segment of bs.lightningSegments) {
+    h = hashStep(h, segment.owner);
+    h = hashStep(h, segment.x1);
+    h = hashStep(h, segment.y1);
+    h = hashStep(h, segment.x2);
+    h = hashStep(h, segment.y2);
+    h = hashStep(h, segment.turnWait);
+    h = hashStep(h, segment.collided ? 1 : 0);
+  }
   h = hashStep(h, bs.crewPods.length);
   for (const pod of bs.crewPods) {
     h = hashStep(h, pod.x);
@@ -320,5 +330,6 @@ export function computeChecksum(bs: BattleState): number {
   h = hashStep(h, bs.warpIn[1]);
   h = hashStep(h, bs.rebirth[0]);
   h = hashStep(h, bs.rebirth[1]);
+  h = hashStep(h, bs.rngSeed);
   return h;
 }

@@ -87,6 +87,17 @@ Examples:
 - ion-trail updates
 - cosmetic explosion advancement
 
+### `client/src/engine/battle/lightning.ts`
+
+Owns:
+- transient battle-state lightning segments for weapons that cannot be modeled
+  as normal missiles or one-frame immediate effects
+- recursive same-frame segment spawning
+- lightning-specific collision resolution and shot truncation
+
+Current user:
+- Slylandro Probe primary weapon
+
 ## Ship Controller Responsibilities
 
 Per-ship controllers in `client/src/engine/ships/*.ts` should own:
@@ -112,6 +123,10 @@ When adding a weapon, prefer this order:
 3. Put only generic reusable mechanics in `engine/battle/`.
 4. Touch `Battle.tsx` only if the orchestration layer truly needs a new phase or generic capability.
 
+Slylandro lightning is the current example of that exception: it now has a
+small shared battle phase because the original UQM weapon is a recursive chain
+of short-lived line segments, not a missile and not a simple immediate laser.
+
 ## Common Extension Points
 
 Use the ship controller hooks before adding special cases:
@@ -127,6 +142,7 @@ Use the ship controller hooks before adding special cases:
 
 - `applySpawn(...)`
   Use for immediate weapons or non-missile effects such as instant lasers.
+  It may add immediate laser flashes or cosmetic impact explosions.
 
 - `absorbHit(...)`
   Use for shield-like defenses that need to cancel or convert incoming weapon

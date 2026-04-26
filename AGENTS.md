@@ -178,6 +178,24 @@ When working on weapons or battle behavior:
 3. Read the relevant `docs/ships/<ship>.md` file if present.
 4. Check the matching UQM ship source before changing logic.
 
+### When A Faithful Weapon Port Hits A Wall
+
+If repeated tuning is not converging, stop and do an explicit UQM-vs-port
+analysis pass before changing more code.
+
+The Slylandro lightning rework is the reference example:
+
+1. Write down what the original code actually does, step by step, from source.
+2. Write down what the current port is doing.
+3. Compare them for structural mismatches, not just values and visuals.
+4. Review that comparison before choosing the next implementation.
+
+The key lesson from Slylandro was that a hidden architecture assumption was
+holding the port back: keeping lightning out of `BattleState` made us keep
+approximating symptoms. Once we accepted that the original weapon was really a
+recursive chain of transient battle objects, the clean path was to model it in
+battle state and process it there.
+
 ## Commits
 
 When an AI agent creates a commit, use a conventional commit message.

@@ -1389,7 +1389,7 @@ export default function App() {
   return (
     <>
       {screenContent}
-      {state.screen !== 'battle' ? <AppFooter /> : null}
+      {state.screen !== 'battle' && state.screen !== 'ship_select' ? <AppFooter /> : null}
     </>
   );
 }

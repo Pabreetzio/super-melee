@@ -57,6 +57,7 @@ import {
   spawnInitialAsteroids,
   type AsteroidSprites,
 } from '../engine/battle/asteroids';
+import { processLightningRoots, type LightningRootRequest } from '../engine/battle/lightning';
 import {
   advanceShipDestruction,
   beginShipDestruction,
@@ -72,7 +73,7 @@ import DesyncOverlay from './DesyncOverlay';
 import MobileBattleControls from './MobileBattleControls';
 import { SHIP_REGISTRY } from '../engine/ships/registry';
 import { loadExplosionSprites, placeholderDot, setSpriteRenderConfig, type ExplosionSprites, type SpriteFrame } from '../engine/sprites';
-import { RNG } from '../engine/rng';
+import { nextRngSeed, RNG } from '../engine/rng';
 import type { ShipId } from 'shared/types';
 import StatusPanel, { type SideStatus } from './StatusPanel';
 import { preloadBattleSounds, playShipDies, playPrimary, playSecondary, playSpawnSound, playFighterLaunch, playPkunkRebirth, playVictoryDitty, stopVictoryDitty, isVictoryDittyPlaying } from '../engine/audio';
@@ -276,7 +277,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const wdx = Math.min(Math.abs(bs.ships[1].x - bs.ships[0].x), WORLD_W - Math.abs(bs.ships[1].x - bs.ships[0].x));
       const wdy = Math.min(Math.abs(bs.ships[1].y - bs.ships[0].y), WORLD_H - Math.abs(bs.ships[1].y - bs.ships[0].y));
       console.log(`separation (toroidal): dx=${wdx} dy=${wdy}`);
-      console.log(`missiles=${bs.missiles.length}  explosions=${bs.explosions.length}  ionTrail0=${bs.ionTrails[0].length}  ionTrail1=${bs.ionTrails[1].length}`);
+      console.log(`missiles=${bs.missiles.length}  lightning=${bs.lightningSegments.length}  explosions=${bs.explosions.length}  ionTrail0=${bs.ionTrails[0].length}  ionTrail1=${bs.ionTrails[1].length}`);
     };
     return () => { delete (window as unknown as Record<string, unknown>).__battleDebug; };
   }, []);
@@ -428,6 +429,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       asteroids: spawnInitialAsteroids((n) => rng.rand(n), WORLD_W, WORLD_H),
       missiles: initMissiles,
       lasers: [],
+      lightningSegments: [],
       tractorShadows: [],
       explosions: [],
       shipDestructions: [null, null],
@@ -436,6 +438,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       warpIn: [warpIn0, warpIn1],
       rebirth: [0, 0],
       shipAlive: [true, true],
+      rngSeed: rng.getSeed(),
       frame: 0,
       inputBuf,
       pendingEnd: null,
@@ -714,8 +717,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (ship.crew <= 0) {
         const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
         if (ctrl.onDeath) {
-          const rng = rngRef.current!;
-          const resurrected = ctrl.onDeath(ship, (n) => rng.rand(n));
+          const resurrected = ctrl.onDeath(ship, (n) => {
+            if (n <= 0) return 0;
+            bs.rngSeed = nextRngSeed(bs.rngSeed);
+            return (bs.rngSeed >>> 0) % n;
+          });
           if (resurrected) {
             bs.rebirth[side] = bs.shipTypes[side] === 'pkunk' ? 12 : 0;
             bs.shipAlive[side] = true;
@@ -844,8 +850,16 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
 
   function simulateFrame(bs: BattleState, input0: number, input1: number) {
     bs.lasers = []; // clear previous frame's laser flashes
+    bs.lightningSegments = [];
     bs.tractorShadows = [];
-    const rng = rngRef.current;
+    const nextBattleRandomWord = () => {
+      bs.rngSeed = nextRngSeed(bs.rngSeed);
+      return bs.rngSeed >>> 0;
+    };
+    const battleRandRange = (range: number) => {
+      if (range <= 0) return 0;
+      return nextBattleRandomWord() % range;
+    };
 
     for (const ship of bs.ships) {
       if (!ship.orzBoardDamageFlash) continue;
@@ -1007,17 +1021,22 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     };
     const addLaser = (l: LaserFlash) => bs.lasers.push(l);
     const addTractorShadow = (shadow: BattleState['tractorShadows'][number]) => bs.tractorShadows.push(shadow);
+    const addExplosion = (explosion: BattleState['explosions'][number]) => bs.explosions.push(explosion);
     const damageMissile = (m: BattleMissile, damage: number): boolean => {
       if (!applyDirectMissileDamage(bs, m, damage)) return false;
       const idx = bs.missiles.indexOf(m);
       if (idx !== -1) bs.missiles.splice(idx, 1);
       return true;
     };
+    const lightningRoots: LightningRootRequest[] = [];
     let launchSoundPlayed0 = false;
     let gasSoundPlayed0 = false;
     let missileSoundPlayed0 = false;
     for (const s of spawns0) {
       spawnRequest(s, 0);
+      if (s.type === 'slylandro_lightning') {
+        lightningRoots.push({ owner: 0, playSound: !!s.playSound });
+      }
       // Immediate weapon effects owned by each ship's controller
       SHIP_REGISTRY[bs.shipTypes[0]].applySpawn?.(
         s,
@@ -1031,6 +1050,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[0]) : playSecondary(bs.shipTypes[0]),
         bs.shipTypes[1],
         pod => bs.crewPods.push(pod),
+        addExplosion,
       );
       // Sound dispatch (keyed on spawn type, independent of ship identity)
       if (s.type === 'sound') {
@@ -1058,6 +1078,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     let missileSoundPlayed1 = false;
     for (const s of spawns1) {
       spawnRequest(s, 1);
+      if (s.type === 'slylandro_lightning') {
+        lightningRoots.push({ owner: 1, playSound: !!s.playSound });
+      }
       SHIP_REGISTRY[bs.shipTypes[1]].applySpawn?.(
         s,
         bs.ships[1],
@@ -1070,6 +1093,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         sound => sound === 'primary' ? playPrimary(bs.shipTypes[1]) : playSecondary(bs.shipTypes[1]),
         bs.shipTypes[0],
         pod => bs.crewPods.push(pod),
+        addExplosion,
       );
       if (s.type === 'sound') {
         playSpawnSound(bs.shipTypes[1], s.sound);
@@ -1092,9 +1116,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       else if (s.type === 'fighter' && !launchSoundPlayed1) { playFighterLaunch(); launchSoundPlayed1 = true; }
     }
 
-    if (rng) {
-      advanceAsteroids(bs.asteroids, (n) => rng.rand(n), WORLD_W, WORLD_H);
-    }
+    advanceAsteroids(bs.asteroids, battleRandRange, WORLD_W, WORLD_H);
     processMissiles(
       bs,
       shipSpritesRef.current,
@@ -1151,6 +1173,19 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         bs.rebirth[1] > 0 || bs.shipDestructions[1] !== null || bs.ships[1].crew <= 0 || bs.warpIn[1] > 0,
       ],
     );
+
+    for (const owner of processLightningRoots(
+      bs,
+      lightningRoots,
+      nextBattleRandomWord,
+      PLANET_X,
+      PLANET_Y,
+      PLANET_RADIUS_W,
+      WORLD_W,
+      WORLD_H,
+    )) {
+      playPrimary(bs.shipTypes[owner]);
+    }
 
     for (let side = 0 as 0 | 1; side < 2; side++) {
       SHIP_REGISTRY[bs.shipTypes[side]].postUpdateShip?.(bs.ships[side]);
@@ -1389,8 +1424,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       }
     }
 
-    // ── Point-defense laser flashes (1 frame, white lines) ───────────────
+    // ── One-frame laser and lightning line effects ───────────────────────
     renderLaserFlashes(ctx, bs.lasers, tw2dx, tw2dy);
+    renderLaserFlashes(ctx, bs.lightningSegments, tw2dx, tw2dy);
     renderTractorShadows(
       ctx,
       bs.tractorShadows,
