@@ -42,7 +42,7 @@ export const SHIP_STATUS_DATA: Partial<Record<ShipId, ShipStatusDef>> = {
     capOffsets: [[0,0],[-12,-11],[-12,-11],[-12,-11],[-12,-11],[-12,-11],[-8,-3],[-8,-3],[-8,-3],[-35,-6],[-35,-6],[-35,-6],[-50,-6],[-50,-6],[-50,-6]],
   },
   arilou: {
-    sprite: 'skiff', race: 'Ariloulaleelay', raceShort: 'Arilou',
+    sprite: 'skiff', race: 'Arilou', raceShort: 'Arilou',
     capCount: 15,
     captains: ['Fefaloo','Bezabu','Tiptushi','Marypup','Tinkafo','Patooti','Tifiwilo',
                'Loleelu','Louifoui','Pinywiny','Oowbabe','Dingdup','Wewalia','Yipyapi','Ropilup'],
@@ -56,7 +56,7 @@ export const SHIP_STATUS_DATA: Partial<Record<ShipId, ShipStatusDef>> = {
     capOffsets: [[0,0],[-18,0],[-18,0],[-18,0],[-18,0],[-18,0],[-19,-13],[-15,-3],[-15,-3],[-20,-18],[-20,-13],[-20,-13],[0,-3],[0,-3],[0,-3]],
   },
   chmmr: {
-    sprite: 'avatar', race: 'Chmmr Hybrid', raceShort: 'Chmmr',
+    sprite: 'avatar', race: 'Chmmr', raceShort: 'Chmmr',
     capCount: 15,
     captains: ['Mnzgk','Chzrmn','Bzztrm','Zrnzrk','Tzzqrn','Kzzrn','Vzrzn',
                'Qrntz','Rmnzk','Szmrnz','Zbzzn','Frnkzk','Prmtzz','Tzrtzn','Kztztz'],
@@ -202,7 +202,7 @@ export const SHIP_STATUS_DATA: Partial<Record<ShipId, ShipStatusDef>> = {
     capOffsets: [[0,0],[-2,-8],[-2,-8],[-2,-8],[-2,-8],[-2,-8],[0,0],[0,0],[0,0],[-43,0],[-43,0],[-43,0],[-24,0],[-24,0],[-24,0]],
   },
   zoqfotpik: {
-    sprite: 'stinger', race: 'ZoqFotPik', raceShort: 'ZoqFot',
+    sprite: 'stinger', race: 'ZoqFot', raceShort: 'ZoqFot',
     capCount: 15,
     captains: ['NikNak','FipPat','DipPak','FatPot','ZikFat','PukYor','TopNik',
                'PorKoo','TikTak','RinTin','FitFap','TotToe','ZipZak','TikTok','MikMok'],
