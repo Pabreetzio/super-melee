@@ -165,6 +165,7 @@ export interface BattleMissile {
   hitOwnShip?: boolean;
   limpet?: boolean;
   weaponType?: 'buzzsaw' | 'gas_cloud' | 'fighter' | 'orz_howitzer' | 'orz_marine' | 'plasmoid' | 'bubble' | 'chenjesu_crystal' | 'chenjesu_shard' | 'dogi' | 'chmmr_satellite' | 'melnorme_pump' | 'melnorme_confuse' | 'melnorme_charging' | 'thraddash_horn' | 'thraddash_napalm' | 'umgah_cone' | 'zoqfotpik_spit' | 'supox_glob';
+  chenjesuShattered?: boolean;
   fireHeld?: boolean;
   decelWait?: number;
   weaponWait?: number;   // fighters: frames until next laser shot

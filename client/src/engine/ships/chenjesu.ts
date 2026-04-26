@@ -308,6 +308,7 @@ export const chenjesuController: ShipController = {
       if ((input & INPUT_FIRE1) && ownShip.crew > 0) {
         m.life++;
       } else {
+        m.chenjesuShattered = true;
         return { destroy: true, resolveAsHit: true };
       }
       return {};
@@ -337,11 +338,15 @@ export const chenjesuController: ShipController = {
 
   onMissileHit(m: BattleMissile, target: ShipState | null): MissileHitEffect {
     if (m.weaponType === 'chenjesu_crystal') {
+      if (m.chenjesuShattered) {
+        return {
+          skipBlast: true,
+          sounds: ['chenjesu_shrapnel'],
+          spawnMissiles: spawnFragments(m),
+        };
+      }
       return {
-        skipBlast: true,
         explosionType: 'chenjesu_spark',
-        sounds: ['chenjesu_shrapnel'],
-        spawnMissiles: spawnFragments(m),
       };
     }
 
