@@ -217,6 +217,22 @@ function playMissileBlast(m: BattleMissile, skipBlast?: boolean): void {
   if (!skipBlast && m.damage > 0) playBlast(Math.max(1, m.damage));
 }
 
+function startDogiDeath(bs: BattleState, m: BattleMissile, playSound: boolean): void {
+  if (m.weaponType !== 'dogi' || m.dogiDeathTimer !== undefined) return;
+
+  const ownShip = bs.ships[m.owner];
+  ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+  m.dogiDeathTimer = 0;
+  m.life = 1;
+  m.hitPoints = 1;
+  m.speed = 0;
+  m.accel = 0;
+  m.tracks = false;
+  m.weaponWait = 0;
+  setVelocityVector(m.velocity, 0, m.facing);
+  if (playSound) playEffectSound('chenjesu_dogi_die');
+}
+
 function pushHitEffects(
   bs: BattleState,
   m: BattleMissile,
@@ -245,17 +261,24 @@ export function applyDirectMissileDamage(
 ): boolean {
   if (damage <= 0) return false;
 
+  if (m.weaponType === 'dogi' && m.dogiDeathTimer !== undefined) {
+    m.hitPoints = 1;
+    return false;
+  }
+
   m.hitPoints = Math.max(0, m.hitPoints - damage);
   if (m.hitPoints > 0) return false;
+
+  if (m.weaponType === 'dogi') {
+    startDogiDeath(bs, m, true);
+    return false;
+  }
 
   const ownerCtrl = SHIP_REGISTRY[bs.shipTypes[m.owner]];
   const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
   pushHitEffects(bs, m, hitFx, WORLD_W, WORLD_H);
   playMissileBlast(m, hitFx.skipBlast);
-  if (m.weaponType === 'dogi') {
-    const ownShip = bs.ships[m.owner];
-    ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
-  } else if (m.weaponType === 'orz_marine') {
+  if (m.weaponType === 'orz_marine') {
     const ownShip = bs.ships[m.owner];
     ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
   }
@@ -408,12 +431,19 @@ export function processMissiles(
   const aliveMissiles: BattleMissile[] = [];
 
   for (const m of bs.missiles) {
+    if (m.weaponType === 'dogi' && m.dogiDeathTimer !== undefined) {
+      m.dogiDeathTimer++;
+      if (m.dogiDeathTimer < 6) {
+        aliveMissiles.push(m);
+      }
+      continue;
+    }
+
     m.life--;
     if (m.life <= 0) {
       if (m.weaponType === 'dogi') {
-        playEffectSound('chenjesu_dogi_die');
-        const ownShip = bs.ships[m.owner];
-        ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        startDogiDeath(bs, m, true);
+        aliveMissiles.push(m);
       } else if (m.weaponType === 'orz_marine') {
         const ownShip = bs.ships[m.owner];
         ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
@@ -459,14 +489,19 @@ export function processMissiles(
       }
     }
 
+    if (m.weaponType === 'dogi' && m.dogiDeathTimer !== undefined) {
+      aliveMissiles.push(m);
+      continue;
+    }
+
     if (effect.destroy) {
       if (effect.resolveAsHit) {
         const hitFx = ownerCtrl.onMissileHit?.(m, null) ?? {};
         pushHitEffects(bs, m, hitFx, worldW, worldH);
         playMissileBlast(m, hitFx.skipBlast);
       } else if (m.weaponType === 'dogi') {
-        playEffectSound('chenjesu_dogi_die');
-        ownShip.chenjesuDogiCount = Math.max(0, (ownShip.chenjesuDogiCount ?? 0) - 1);
+        startDogiDeath(bs, m, false);
+        aliveMissiles.push(m);
       } else if (m.weaponType === 'orz_marine') {
         ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
       }
@@ -660,10 +695,12 @@ export function processMissiles(
     if (!alive[i]) continue;
       const a = aliveMissiles[i];
       for (let j = i + 1; j < aliveMissiles.length; j++) {
-        if (!alive[j]) continue;
-        const b = aliveMissiles[j];
-        if (a.orzMarineMode === 'boarded' || b.orzMarineMode === 'boarded') continue;
-        if (a.owner === b.owner) continue;
+      if (!alive[j]) continue;
+      const b = aliveMissiles[j];
+      if ((a.weaponType === 'dogi' && a.dogiDeathTimer !== undefined)
+        || (b.weaponType === 'dogi' && b.dogiDeathTimer !== undefined)) continue;
+      if (a.orzMarineMode === 'boarded' || b.orzMarineMode === 'boarded') continue;
+      if (a.owner === b.owner) continue;
       const aRadius = missileRadius(a);
       const bRadius = missileRadius(b);
       if (!sweptCircleOverlap(a, aRadius, b, bRadius, worldW, worldH)) continue;

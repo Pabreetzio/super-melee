@@ -93,7 +93,10 @@ function crystalFrameIndex(m: BattleMissile): number {
 }
 
 function doggyFrameIndex(m: BattleMissile): number {
-  return (m.decelWait ?? 0) % 7;
+  if (m.dogiDeathTimer !== undefined) {
+    return Math.max(1, Math.min(6, 1 + m.dogiDeathTimer));
+  }
+  return 0;
 }
 
 function spawnFragments(m: BattleMissile): SpawnRequest[] {
@@ -315,7 +318,6 @@ export const chenjesuController: ShipController = {
     }
 
     if (m.weaponType === 'dogi') {
-      m.decelWait = ((m.decelWait ?? 0) + 1) % 7;
       if ((m.weaponWait ?? 0) > 0) {
         m.weaponWait = (m.weaponWait ?? 0) - 1;
         return { skipDefaultTracking: true, skipVelocityUpdate: true };

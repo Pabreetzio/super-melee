@@ -196,7 +196,11 @@ function findLightningCollision(
   }
 
   for (const missile of bs.missiles) {
-    if (missile.owner === owner || missile.life <= 0 || missile.hitPoints <= 0 || missile.orzMarineMode === 'boarded') {
+    if (missile.owner === owner
+      || missile.life <= 0
+      || missile.hitPoints <= 0
+      || missile.orzMarineMode === 'boarded'
+      || (missile.weaponType === 'dogi' && missile.dogiDeathTimer !== undefined)) {
       continue;
     }
     consider(

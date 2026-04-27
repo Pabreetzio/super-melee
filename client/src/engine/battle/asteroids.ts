@@ -263,6 +263,7 @@ export function handleAsteroidMissileCollisions(
     if (asteroid.rubbleFrames > 0) continue;
     for (const missile of [...bs.missiles]) {
       if (missile.orzMarineMode === 'boarded') continue;
+      if (missile.weaponType === 'dogi' && missile.dogiDeathTimer !== undefined) continue;
       if (!circleOverlap(missile.x, missile.y, DISPLAY_TO_WORLD(4), asteroid.x, asteroid.y, ASTEROID_RADIUS_W)) continue;
 
       let missileDestroyed = false;

@@ -21,7 +21,7 @@ export interface FrameSnap {
     facing: number;
     rubbleFrames: number;
   }>;
-  missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean }>;
+  missiles: Array<{ x: number; y: number; facing: number; life: number; speed: number; owner: number; tracks: boolean; dogiDeathTimer?: number }>;
   warpIn:   [number, number];
   rebirth:  [number, number];
 }
@@ -50,6 +50,7 @@ export function captureSnap(bs: BattleState, i0: number, i1: number): FrameSnap 
     missiles: bs.missiles.map(m => ({
       x: m.x, y: m.y, facing: m.facing, life: m.life,
       speed: m.speed, owner: m.owner, tracks: m.tracks,
+      dogiDeathTimer: m.dogiDeathTimer,
     })),
     warpIn:  [...bs.warpIn]  as [number, number],
     rebirth: [...bs.rebirth] as [number, number],

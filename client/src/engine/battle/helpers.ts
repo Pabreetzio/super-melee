@@ -306,6 +306,7 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, m.orzBoardSlot ?? -1);
     h = hashStep(h, m.orzFlashFrame ?? 0);
     h = hashStep(h, m.orzSeed ?? 0);
+    h = hashStep(h, m.dogiDeathTimer ?? 0);
   }
   h = hashStep(h, bs.lightningSegments.length);
   for (const segment of bs.lightningSegments) {
