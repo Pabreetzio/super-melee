@@ -7,7 +7,7 @@
 import type { VelocityDesc } from '../velocity';
 import type { SpriteFrame } from '../sprites';
 import type { AIDifficulty, ShipId } from 'shared/types';
-import type { BattleExplosion, CrewPod, TractorShadow } from '../battle/types';
+import type { BattleAsteroid, BattleExplosion, CrewPod, TractorShadow } from '../battle/types';
 
 // ─── Common ship state (all ships use this) ───────────────────────────────────
 
@@ -185,6 +185,7 @@ export interface LaserFlash {
   x1: number; y1: number;
   x2: number; y2: number;
   color?: string;
+  clipToWorld?: boolean;
 }
 
 export type EffectSound =
@@ -379,6 +380,7 @@ export interface ShipController {
     enemyType: ShipId,
     emitCrewPod?: (pod: CrewPod) => void,
     addExplosion?: (explosion: BattleExplosion) => void,
+    asteroids?: BattleAsteroid[],
   ): void;
 
   interactWithEnvironment?(

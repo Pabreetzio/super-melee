@@ -32,6 +32,8 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { findImmediateLaserHit } from '../battle/immediateLaser';
+import { shatterAsteroid } from '../battle/asteroids';
 import { SHIP_REGISTRY } from './registry';
 import { applyShipInertialThrust, clearShipSpeedFlags } from './thrust';
 import type { AIDifficulty } from 'shared/types';
@@ -80,20 +82,6 @@ function advancePosition(ship: ShipState): void {
   ship.velocity.ey &= 31;
   ship.y += VELOCITY_TO_WORLD(Math.abs(ship.velocity.vy)) * Math.sign(ship.velocity.vy)
     + (ship.velocity.vy >= 0 ? carryY : -carryY);
-}
-
-function pointHitsShip(x1: number, y1: number, x2: number, y2: number, ship: ShipState, radius: number): boolean {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq <= 0) return false;
-  const sx = ship.x - x1;
-  const sy = ship.y - y1;
-  const t = Math.max(0, Math.min(1, (sx * dx + sy * dy) / lenSq));
-  const closestX = x1 + dx * t;
-  const closestY = y1 + dy * t;
-  const miss = worldDelta(closestX, closestY, ship.x, ship.y);
-  return miss.dx * miss.dx + miss.dy * miss.dy <= radius * radius;
 }
 
 export function makeChmmrShip(x: number, y: number): ShipState {
@@ -300,12 +288,15 @@ export const chmmrController: ShipController = {
     ownShip: ShipState,
     enemyShip: ShipState,
     ownSide: 0 | 1,
-    _missiles: BattleMissile[],
+    missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
     addTractorShadow: (shadow: { targetSide: 0 | 1; angle: number }) => void,
-    _damageMissile: (m: BattleMissile, damage: number) => boolean,
+    damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,
+    _emitCrewPod,
+    addExplosion,
+    asteroids,
   ): void {
     if (s.type === 'chmmr_laser') {
       const angle = (s.facing * 4) & 63;
@@ -313,11 +304,38 @@ export const chmmrController: ShipController = {
       const startY = ownShip.y + SINE(angle, DISPLAY_TO_WORLD(CHMMR_OFFSET));
       const endX = startX + COSINE(angle, CHMMR_LASER_RANGE);
       const endY = startY + SINE(angle, CHMMR_LASER_RANGE);
-      if (pointHitsShip(startX, startY, endX, endY, enemyShip, DISPLAY_TO_WORLD(18))) {
+
+      const hit = findImmediateLaserHit({
+        startX,
+        startY,
+        endX,
+        endY,
+        owner: ownSide,
+        enemyShip,
+        enemyShipRadius: DISPLAY_TO_WORLD(18),
+        missiles,
+        asteroids,
+      });
+      if (hit?.kind === 'ship') {
         const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: CHMMR_LASER_DAMAGE });
         if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - CHMMR_LASER_DAMAGE);
+        addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
+      } else if (hit?.kind === 'missile' && hit.missile) {
+        damageMissile(hit.missile, CHMMR_LASER_DAMAGE);
+        addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
+      } else if (hit?.kind === 'asteroid' && hit.asteroid) {
+        shatterAsteroid(hit.asteroid);
+      } else if (hit?.kind === 'planet') {
+        addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
       }
-      addLaser({ x1: startX, y1: startY, x2: endX, y2: endY, color: LASER_COLORS[ownShip.chmmrLaserCycle ?? 0] });
+      addLaser({
+        x1: startX,
+        y1: startY,
+        x2: hit ? hit.x : endX,
+        y2: hit ? hit.y : endY,
+        color: LASER_COLORS[ownShip.chmmrLaserCycle ?? 0],
+        clipToWorld: true,
+      });
       ownShip.chmmrLaserCycle = ((ownShip.chmmrLaserCycle ?? 0) + 1) % LASER_COLORS.length;
       return;
     }

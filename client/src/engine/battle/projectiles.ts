@@ -11,36 +11,13 @@ import { COSINE, SINE } from '../sinetab';
 import type { BattleExplosion, CrewPod, IonDot } from './types';
 import type { BattleState } from './types';
 import { circleOverlap, worldAngle, worldDelta } from './helpers';
+import { missileCollisionRadius } from './weaponGeometry';
 import { spriteMaskIntersectsCircle, sweptSpriteMasksOverlapPadded } from './maskCollision';
 import type { MissileHitEffect, SpawnRequest } from '../ships/types';
 import { WORLD_H, WORLD_W } from './constants';
 
 export function missileRadius(m: BattleMissile): number {
-  // Broad-phase circle radius — must be >= the sprite's actual pixel radius so
-  // the narrow-phase mask check is always triggered for real overlaps.
-  // Plasmoid: sprite grows from 14×13 (frame 0, ~7 px radius) to 49×41 (frame 10,
-  // ~25 px radius). Use 28 px to safely cover all frames.
-  if (m.weaponType === 'plasmoid') return DISPLAY_TO_WORLD(28);
-  if (m.weaponType === 'bubble') return DISPLAY_TO_WORLD(5);
-  if (m.weaponType === 'chenjesu_crystal') return DISPLAY_TO_WORLD(9);
-  if (m.weaponType === 'chenjesu_shard') return DISPLAY_TO_WORLD(8);
-  if (m.weaponType === 'dogi') return DISPLAY_TO_WORLD(9);
-  if (m.weaponType === 'chmmr_satellite') return DISPLAY_TO_WORLD(9);
-  if (m.weaponType === 'melnorme_pump') return DISPLAY_TO_WORLD(12);
-  if (m.weaponType === 'melnorme_charging') return DISPLAY_TO_WORLD(12);
-  if (m.weaponType === 'melnorme_confuse') return DISPLAY_TO_WORLD(10);
-  if (m.weaponType === 'thraddash_horn') return DISPLAY_TO_WORLD(6);
-  if (m.weaponType === 'thraddash_napalm') return DISPLAY_TO_WORLD(11);
-  if (m.weaponType === 'umgah_cone') return DISPLAY_TO_WORLD(56);
-  if (m.weaponType === 'zoqfotpik_spit') return DISPLAY_TO_WORLD(6);
-  if (m.weaponType === 'supox_glob') return DISPLAY_TO_WORLD(10);
-  // Buzzsaw: collision uses frames 0-1 only (17×17 and 19×19, ~10 px radius max).
-  if (m.weaponType === 'buzzsaw') return DISPLAY_TO_WORLD(12);
-  if (m.weaponType === 'gas_cloud') return DISPLAY_TO_WORLD(6);
-  if (m.weaponType === 'fighter') return DISPLAY_TO_WORLD(8);
-  if (m.weaponType === 'orz_howitzer') return DISPLAY_TO_WORLD(6);
-  if (m.weaponType === 'orz_marine') return DISPLAY_TO_WORLD(5);
-  return DISPLAY_TO_WORLD(2);
+  return missileCollisionRadius(m);
 }
 
 function sweptCircleOverlap(

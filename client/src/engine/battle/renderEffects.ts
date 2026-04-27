@@ -6,6 +6,7 @@ import type { ShipId } from 'shared/types';
 import { COSINE, SINE } from '../sinetab';
 import { PRESENTATION_SCALE } from './constants';
 import { DISPLAY_TO_WORLD } from '../velocity';
+import { wrapWorldCoord } from './helpers';
 
 const ION_COLORS: [number, number, number][] = [
   [255, 171,  0],
@@ -57,18 +58,58 @@ export function renderLaserFlashes(
   lasers: LaserFlash[],
   tw2dx: (x: number) => number,
   tw2dy: (y: number) => number,
+  worldW?: number,
+  worldH?: number,
+  zoomDivisor?: number,
 ): void {
   if (lasers.length === 0) return;
   ctx.save();
   ctx.lineWidth = PRESENTATION_SCALE;
   for (const lz of lasers) {
+    const line = lz.clipToWorld && worldW !== undefined && worldH !== undefined
+      ? clipLaserToWorld(lz, worldW, worldH)
+      : lz;
+    if (!line) continue;
     ctx.beginPath();
     ctx.strokeStyle = lz.color ?? '#fff';
-    ctx.moveTo(tw2dx(lz.x1), tw2dy(lz.y1));
-    ctx.lineTo(tw2dx(lz.x2), tw2dy(lz.y2));
+    const x1 = tw2dx(line.x1);
+    const y1 = tw2dy(line.y1);
+    const x2 = line.clipToWorld && zoomDivisor !== undefined
+      ? x1 + Math.trunc((line.x2 - line.x1) / zoomDivisor) * PRESENTATION_SCALE
+      : tw2dx(line.x2);
+    const y2 = line.clipToWorld && zoomDivisor !== undefined
+      ? y1 + Math.trunc((line.y2 - line.y1) / zoomDivisor) * PRESENTATION_SCALE
+      : tw2dy(line.y2);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
   }
   ctx.restore();
+}
+
+function clipLaserToWorld(lz: LaserFlash, worldW: number, worldH: number): LaserFlash | null {
+  const x1 = wrapWorldCoord(lz.x1, worldW);
+  const y1 = wrapWorldCoord(lz.y1, worldH);
+  const dx = lz.x2 - lz.x1;
+  const dy = lz.y2 - lz.y1;
+  if (dx === 0 && dy === 0) return null;
+
+  let tMax = 1;
+  if (dx > 0) tMax = Math.min(tMax, (worldW - 1 - x1) / dx);
+  else if (dx < 0) tMax = Math.min(tMax, (0 - x1) / dx);
+
+  if (dy > 0) tMax = Math.min(tMax, (worldH - 1 - y1) / dy);
+  else if (dy < 0) tMax = Math.min(tMax, (0 - y1) / dy);
+
+  if (tMax <= 0) return null;
+  const clippedT = Math.max(0, Math.min(1, tMax));
+  return {
+    ...lz,
+    x1,
+    y1,
+    x2: Math.round(x1 + dx * clippedT),
+    y2: Math.round(y1 + dy * clippedT),
+  };
 }
 
 const TRACTOR_SHADOW_OFFSETS = [

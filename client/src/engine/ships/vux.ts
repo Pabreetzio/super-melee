@@ -12,6 +12,8 @@ import { loadVuxSprites, drawSprite, placeholderDot, type VuxSprites, type Sprit
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileHitEffect, LaserFlash } from './types';
 import type { AIDifficulty } from 'shared/types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { findImmediateLaserHit } from '../battle/immediateLaser';
+import { shatterAsteroid } from '../battle/asteroids';
 import { SHIP_REGISTRY } from './registry';
 import { applyShipInertialThrust } from './thrust';
 
@@ -225,12 +227,15 @@ export const vuxController: ShipController = {
     _ownShip: ShipState,
     enemyShip: ShipState,
     _ownSide: 0 | 1,
-    _missiles: BattleMissile[],
+    missiles: BattleMissile[],
     addLaser: (l: LaserFlash) => void,
     _addTractorShadow,
-    _damageMissile: (m: BattleMissile, damage: number) => boolean,
+    damageMissile: (m: BattleMissile, damage: number) => boolean,
     _emitSound: (sound: 'primary' | 'secondary') => void,
     enemyType,
+    _emitCrewPod,
+    addExplosion,
+    asteroids,
   ): void {
     if (s.type !== 'vux_laser') return;
 
@@ -240,24 +245,40 @@ export const vuxController: ShipController = {
     const ex = COSINE(angle, VUX_LASER_RANGE);
     const ey = SINE(angle, VUX_LASER_RANGE);
 
-    const dx = enemyShip.x - s.x;
-    const dy = enemyShip.y - s.y;
-    const lenSq = ex * ex + ey * ey;
-    if (lenSq === 0) return;
-
-    // Project enemy ship centre onto the laser ray; clamp t to [0, 1]
-    const t = Math.max(0, Math.min(1, (dx * ex + dy * ey) / lenSq));
-    const closestX = s.x + t * ex;
-    const closestY = s.y + t * ey;
-    const distSq = (enemyShip.x - closestX) ** 2 + (enemyShip.y - closestY) ** 2;
     const shipRadW = DISPLAY_TO_WORLD(14); // SHIP_RADIUS = 14 display px
 
-    if (distSq <= shipRadW * shipRadW) {
+    const hit = findImmediateLaserHit({
+      startX: s.x,
+      startY: s.y,
+      endX: s.x + ex,
+      endY: s.y + ey,
+      owner: _ownSide,
+      enemyShip,
+      enemyShipRadius: shipRadW,
+      missiles,
+      asteroids,
+    });
+    if (hit?.kind === 'ship') {
       const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: 1 });
       if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - 1);
+      addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
+    } else if (hit?.kind === 'missile' && hit.missile) {
+      damageMissile(hit.missile, 1);
+      addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
+    } else if (hit?.kind === 'asteroid' && hit.asteroid) {
+      shatterAsteroid(hit.asteroid);
+    } else if (hit?.kind === 'planet') {
+      addExplosion?.({ type: 'blast', x: hit.x, y: hit.y, frame: 0 });
     }
     // Always show flash, hit or miss
-    addLaser({ x1: s.x, y1: s.y, x2: s.x + ex, y2: s.y + ey, color: VUX_LASER_COLOR });
+    addLaser({
+      x1: s.x,
+      y1: s.y,
+      x2: hit ? hit.x : s.x + ex,
+      y2: hit ? hit.y : s.y + ey,
+      color: VUX_LASER_COLOR,
+      clipToWorld: true,
+    });
   },
 
   computeAIInput(ship: ShipState, target: ShipState, _missiles: BattleMissile[], _aiSide: 0 | 1, aiLevel: AIDifficulty): number {

@@ -1051,6 +1051,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         bs.shipTypes[1],
         pod => bs.crewPods.push(pod),
         addExplosion,
+        bs.asteroids,
       );
       // Sound dispatch (keyed on spawn type, independent of ship identity)
       if (s.type === 'sound') {
@@ -1094,6 +1095,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         bs.shipTypes[0],
         pod => bs.crewPods.push(pod),
         addExplosion,
+        bs.asteroids,
       );
       if (s.type === 'sound') {
         playSpawnSound(bs.shipTypes[1], s.sound);
@@ -1425,8 +1427,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     }
 
     // ── One-frame laser and lightning line effects ───────────────────────
-    renderLaserFlashes(ctx, bs.lasers, tw2dx, tw2dy);
-    renderLaserFlashes(ctx, bs.lightningSegments, tw2dx, tw2dy);
+    renderLaserFlashes(ctx, bs.lasers, tw2dx, tw2dy, WORLD_W, WORLD_H, zoomDivisor);
+    renderLaserFlashes(ctx, bs.lightningSegments, tw2dx, tw2dy, WORLD_W, WORLD_H, zoomDivisor);
     renderTractorShadows(
       ctx,
       bs.tractorShadows,
