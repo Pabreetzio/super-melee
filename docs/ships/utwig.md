@@ -9,5 +9,7 @@ Reference: `uqm-0.8.0/src/uqm/ships/utwig/utwig.c`
 - Blocked hits convert into battery gain through the generic `absorbHit(...)` hook.
 - Shield interception now covers projectile hits, `MissileEffect.damageEnemy`,
   and direct immediate-weapon damage paths that use controller `applySpawn(...)`.
+- Orz marines and VUX limpets pass through the shield and still board/attach;
+  the shield only drains battery from ordinary blocked hits.
 - Shield visual now uses a UQM-style blinking orange/red silhouette overlay on
   the Jugger sprite while the shield is active.

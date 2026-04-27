@@ -6,6 +6,8 @@ Source reference:
 
 Implemented behavior notes:
 - Primary weapon is the twin pulse cannon: two forward shots launched from offset gun positions each time the Terminator fires.
-- Secondary is the force shield: a short-lived defensive shell that consumes 3 battery, blocks incoming collisions and projectiles during its active window, and is rendered as a bright shield ring around the ship.
+- Secondary is the force shield: a short-lived defensive shell that consumes 3 battery, stays collidable, blocks incoming collisions and projectiles during its active window, and is rendered as a bright shield ring around the ship.
+- Orz marines are repelled by the shield instead of boarding through it, and the marine remains alive after the rebound.
+- VUX limpets are not blocked by the shield and can still latch onto the ship.
 - Base ship stats now match the UQM constants: 20 crew, 10 battery, thrust 30, thrust increment 6, energy regeneration 2, thrust wait 2, turn wait 2, mass 3.
 - Offline cyborg logic uses the shield reactively against close threats while keeping the bow lined up for cannon passes.

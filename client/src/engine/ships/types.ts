@@ -390,7 +390,14 @@ export interface ShipController {
   /** True while the ship should be skipped by gravity (subset of isIntangible use cases). */
   isGravityImmune?(ship: ShipState): boolean;
   isCrewImmune?(ship: ShipState): boolean;
-  absorbHit?(ship: ShipState, hit: { kind: 'missile' | 'laser'; damage: number; hitPoints?: number }): DamageAbsorbEffect | null;
+  absorbHit?(ship: ShipState, hit: {
+    kind: 'missile' | 'laser';
+    damage: number;
+    hitPoints?: number;
+    missile?: BattleMissile;
+    weaponType?: BattleMissile['weaponType'];
+    limpet?: boolean;
+  }): DamageAbsorbEffect | null;
   onShipCollision?(ship: ShipState, other: ShipState): { damageOther?: number } | void;
   postUpdateShip?(ship: ShipState): void;
 

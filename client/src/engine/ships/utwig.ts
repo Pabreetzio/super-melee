@@ -281,8 +281,15 @@ export const utwigController: ShipController = {
 
   absorbHit(ship: ShipState, hit) {
     if (!shieldActive(ship)) return null;
-    const gain = Math.max(1, hit.hitPoints ?? hit.damage);
-    ship.energy = Math.min(UTWIG_MAX_ENERGY, ship.energy + gain);
+
+    if (hit.kind === 'missile' && (hit.weaponType === 'orz_marine' || hit.limpet)) {
+      return null;
+    }
+
+    const gain = Math.max(0, hit.damage);
+    if (gain > 0) {
+      ship.energy = Math.min(UTWIG_MAX_ENERGY, ship.energy + gain);
+    }
     return { absorbed: true, destroyIncoming: true, sound: 'utwig_shield_gain' };
   },
 

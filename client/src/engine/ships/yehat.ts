@@ -16,7 +16,8 @@ import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from 
 import { drawSprite, loadYehatSprites, placeholderDot, type SpriteFrame, type YehatSprites } from '../sprites';
 import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
-import { worldAngle, worldDelta } from '../battle/helpers';
+import { resolveShipCollision, worldAngle, worldDelta, wrapWorldCoord } from '../battle/helpers';
+import { WORLD_H, WORLD_W } from '../battle/constants';
 
 export const YEHAT_MAX_CREW = 20;
 export const YEHAT_MAX_ENERGY = 10;
@@ -40,6 +41,7 @@ export const YEHAT_MISSILE_DAMAGE = 1;
 export const YEHAT_SPECIAL_ENERGY_COST = 3;
 export const YEHAT_SPECIAL_WAIT = 2;
 export const YEHAT_SHIELD_LIFE = 10;
+const ORZ_MARINE_MASS_POINTS = 1;
 
 const MAX_SPEED_SQ = WORLD_TO_VELOCITY(YEHAT_MAX_THRUST) ** 2;
 
@@ -231,8 +233,48 @@ export const yehatController: ShipController = {
     return sp?.missile.big.frames[m.facing] ?? null;
   },
 
-  isIntangible(ship: ShipState): boolean {
-    return (ship.yehatShieldFrames ?? 0) > 0;
+  absorbHit(ship: ShipState, hit) {
+    if ((ship.yehatShieldFrames ?? 0) <= 0) return null;
+
+    if (hit.kind === 'laser') {
+      return { absorbed: true, destroyIncoming: true };
+    }
+
+    if (hit.weaponType === 'orz_marine' && hit.missile) {
+      const marine = hit.missile;
+      const marineProxy = {
+        x: marine.x,
+        y: marine.y,
+        velocity: marine.velocity,
+        facing: marine.facing,
+        crew: 1,
+        energy: 0,
+        turnWait: 0,
+        thrustWait: 0,
+        weaponWait: 0,
+        specialWait: 0,
+        energyWait: 0,
+        thrusting: false,
+      } satisfies ShipState;
+
+      resolveShipCollision(marineProxy, ship, ORZ_MARINE_MASS_POINTS, YEHAT_SHIP_MASS);
+
+      const { dx, dy } = worldDelta(ship.x, ship.y, marine.x, marine.y, WORLD_W, WORLD_H);
+      const dist = Math.max(1, Math.round(Math.sqrt(dx * dx + dy * dy)));
+      const repelRadius = DISPLAY_TO_WORLD(18);
+      marine.x = wrapWorldCoord(ship.x + Math.round((dx * repelRadius) / dist), WORLD_W);
+      marine.y = wrapWorldCoord(ship.y + Math.round((dy * repelRadius) / dist), WORLD_H);
+      marine.prevX = marine.x;
+      marine.prevY = marine.y;
+      marine.facing = ((marine.velocity.travelAngle + 2) >> 2) & 15;
+      return { absorbed: true, destroyIncoming: false };
+    }
+
+    if (hit.limpet) {
+      return null;
+    }
+
+    return { absorbed: true, destroyIncoming: true };
   },
 
   computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {

@@ -603,7 +603,14 @@ export function processMissiles(
         )) continue;
 
         const targetCtrl = SHIP_REGISTRY[bs.shipTypes[targetSide]];
-        const absorb = targetCtrl.absorbHit?.(targetShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+        const absorb = targetCtrl.absorbHit?.(targetShip, {
+          kind: 'missile',
+          damage: m.damage,
+          hitPoints: m.hitPoints,
+          missile: m,
+          weaponType: m.weaponType,
+          limpet: m.limpet,
+        });
         if (absorb?.absorbed) {
           if (absorb.sound) playEffectSound(absorb.sound);
           if (absorb.destroyIncoming !== false) hit = true;
@@ -668,7 +675,14 @@ export function processMissiles(
           worldH,
         )) {
       const targetCtrl = SHIP_REGISTRY[bs.shipTypes[enemySide]];
-      const absorb = targetCtrl.absorbHit?.(enemyShip, { kind: 'missile', damage: m.damage, hitPoints: m.hitPoints });
+      const absorb = targetCtrl.absorbHit?.(enemyShip, {
+        kind: 'missile',
+        damage: m.damage,
+        hitPoints: m.hitPoints,
+        missile: m,
+        weaponType: m.weaponType,
+        limpet: m.limpet,
+      });
       if (absorb?.absorbed) {
         if (absorb.sound) playEffectSound(absorb.sound);
         if (absorb.destroyIncoming !== false) hit = true;
