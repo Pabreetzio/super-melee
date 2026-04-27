@@ -1,6 +1,7 @@
 import { playBattleSound, playBlast, playEffectSound } from '../audio';
 import { SHIP_REGISTRY } from '../ships/registry';
 import { getShipDef } from '../ships';
+import { clearShipSpeedFlags } from '../ships/thrust';
 import type { BattleMissile, ShipState } from '../ships/types';
 import type { SpriteFrame } from '../sprites';
 import { setVelocityVector, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY, setVelocityComponents } from '../velocity';
@@ -640,6 +641,7 @@ export function processMissiles(
           const nextVx = targetShip.velocity.vx + hitFx.targetVelocityDelta.vx;
           const nextVy = targetShip.velocity.vy + hitFx.targetVelocityDelta.vy;
           setVelocityComponents(targetShip.velocity, nextVx, nextVy);
+          clearShipSpeedFlags(targetShip);
           if (hitFx.targetVelocityDelta.maxSpeed !== undefined) {
             const speedSq = targetShip.velocity.vx * targetShip.velocity.vx + targetShip.velocity.vy * targetShip.velocity.vy;
             const maxSpeedSq = hitFx.targetVelocityDelta.maxSpeed * hitFx.targetVelocityDelta.maxSpeed;

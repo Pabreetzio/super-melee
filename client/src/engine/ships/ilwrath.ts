@@ -6,9 +6,7 @@
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
   getCurrentVelocityComponents,
-  setVelocityComponents,
   setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
@@ -29,6 +27,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const ILWRATH_MAX_CREW = 22;
@@ -51,8 +50,6 @@ export const ILWRATH_MISSILE_DAMAGE = 1;
 
 export const ILWRATH_SPECIAL_ENERGY_COST = 3;
 export const ILWRATH_SPECIAL_WAIT = 13;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(ILWRATH_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -108,17 +105,7 @@ export function updateIlwrathShip(ship: ShipState, input: number): SpawnRequest[
   ship.thrusting = false;
   if (input & INPUT_THRUST) {
     ship.thrusting = true;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(ILWRATH_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, ILWRATH_MAX_THRUST, ship.facing);
-    }
+    applyShipInertialThrust(ship, ILWRATH_MAX_THRUST, ILWRATH_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

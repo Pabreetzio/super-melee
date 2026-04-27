@@ -27,6 +27,8 @@ export interface ShipState {
   // Status flags
   thrusting:     boolean;
   gravityWell?:  boolean;
+  shipAtMaxSpeed?: boolean;
+  shipBeyondMaxSpeed?: boolean;
   limpetCount?:  number;
   orzTurretOffset?: number;
   orzTurretTurnWait?: number;

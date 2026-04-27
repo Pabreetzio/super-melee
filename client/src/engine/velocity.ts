@@ -109,6 +109,11 @@ export function addImpulse(v: VelocityDesc, dx: number, dy: number): void {
   setVelocityComponents(v, v.vx + dx, v.vy + dy);
 }
 
+export interface InertialThrustStatus {
+  atMax: boolean;
+  beyondMax: boolean;
+}
+
 /**
  * UQM-style inertial thrust.
  *
@@ -122,40 +127,74 @@ export function applyInertialThrust(
   maxThrust: number,
   thrustIncrement: number,
   inGravityWell: boolean,
-): void {
+  currentStatus: InertialThrustStatus = { atMax: false, beyondMax: false },
+): InertialThrustStatus {
   const angle = (facing * 4) & 63;
+  const travelAngle = v.travelAngle;
+
+  if (thrustIncrement === maxThrust) {
+    setVelocityVector(v, maxThrust, facing);
+    return { atMax: true, beyondMax: false };
+  }
+
+  if (
+    travelAngle === angle
+    && (currentStatus.atMax || currentStatus.beyondMax)
+    && !inGravityWell
+  ) {
+    return currentStatus;
+  }
+
   const incV = WORLD_TO_VELOCITY(thrustIncrement);
   const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(v);
+  const currentSpeedSq = curDx * curDx + curDy * curDy;
   const newDx = curDx + COSINE(angle, incV);
   const newDy = curDy + SINE(angle, incV);
   const desiredSpeedSq = newDx * newDx + newDy * newDy;
   const maxSpeedSq = WORLD_TO_VELOCITY(maxThrust) ** 2;
-  const currentSpeedSq = velocitySquared(v);
   const gravityWhipCapSq = WORLD_TO_VELOCITY(DISPLAY_TO_WORLD(18)) ** 2;
 
   if (desiredSpeedSq <= maxSpeedSq) {
     setVelocityComponents(v, newDx, newDy);
-    return;
+    return { atMax: false, beyondMax: false };
   }
 
   if ((inGravityWell && desiredSpeedSq <= gravityWhipCapSq) || desiredSpeedSq < currentSpeedSq) {
     setVelocityComponents(v, newDx, newDy);
-    return;
+    return { atMax: true, beyondMax: true };
   }
 
-  if (v.travelAngle === angle) {
+  if (travelAngle === angle) {
     if (currentSpeedSq <= maxSpeedSq) {
       setVelocityVector(v, maxThrust, facing);
     }
-    return;
+    return { atMax: true, beyondMax: false };
   }
 
-  setVelocityComponents(v, newDx, newDy);
-  const spd = Math.sqrt(velocitySquared(v));
-  if (spd > 0) {
-    const scale = WORLD_TO_VELOCITY(maxThrust) / spd;
-    setVelocityComponents(v, v.vx * scale, v.vy * scale);
+  const adjusted = { ...v };
+  deltaVelocityComponents(
+    adjusted,
+    COSINE(angle, incV >> 1) - COSINE(travelAngle, incV),
+    SINE(angle, incV >> 1) - SINE(travelAngle, incV),
+  );
+  const adjustedSpeedSq = adjusted.vx * adjusted.vx + adjusted.vy * adjusted.vy;
+  if (adjustedSpeedSq > maxSpeedSq) {
+    if (adjustedSpeedSq < currentSpeedSq) {
+      v.travelAngle = adjusted.travelAngle;
+      v.vx = adjusted.vx;
+      v.vy = adjusted.vy;
+      v.ex = adjusted.ex;
+      v.ey = adjusted.ey;
+    }
+    return { atMax: true, beyondMax: true };
   }
+
+  v.travelAngle = adjusted.travelAngle;
+  v.vx = adjusted.vx;
+  v.vy = adjusted.vy;
+  v.ex = adjusted.ex;
+  v.ey = adjusted.ey;
+  return { atMax: false, beyondMax: false };
 }
 
 /** Type alias for compatibility */

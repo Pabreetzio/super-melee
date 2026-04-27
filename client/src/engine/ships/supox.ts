@@ -8,11 +8,6 @@ import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from 
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
-  velocitySquared,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import {
@@ -31,6 +26,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 
 export const SUPOX_MAX_CREW = 12;
 export const SUPOX_MAX_ENERGY = 16;
@@ -49,8 +45,6 @@ export const SUPOX_MISSILE_LIFE = 10;
 export const SUPOX_MISSILE_HITS = 1;
 export const SUPOX_MISSILE_DAMAGE = 1;
 
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(SUPOX_MAX_THRUST) ** 2;
-
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
   ship.velocity.ex += fracX;
@@ -68,31 +62,7 @@ function advancePosition(ship: ShipState): void {
 }
 
 function applyThrustAlongFacing(ship: ShipState, facing: number): void {
-  const angle = (facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(SUPOX_THRUST_INCREMENT);
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= MAX_SPEED_SQ) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    return;
-  }
-
-  const currentSpeedSq = velocitySquared(ship.velocity);
-  if (desiredSpeedSq < currentSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else if (ship.velocity.travelAngle === angle) {
-    setVelocityVector(ship.velocity, SUPOX_MAX_THRUST, facing);
-  } else {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    const speed = Math.sqrt(velocitySquared(ship.velocity));
-    if (speed > 0) {
-      const scale = WORLD_TO_VELOCITY(SUPOX_MAX_THRUST) / speed;
-      setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-    }
-  }
+  applyShipInertialThrust(ship, SUPOX_MAX_THRUST, SUPOX_THRUST_INCREMENT, facing);
 }
 
 function getSpecialThrustFacing(ship: ShipState, input: number): number | null {

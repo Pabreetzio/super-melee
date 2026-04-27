@@ -11,7 +11,6 @@ import {
   WORLD_TO_VELOCITY,
   getCurrentVelocityComponents,
   setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -34,6 +33,7 @@ import type {
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
 import { SHIP_REGISTRY } from './registry';
+import { applyShipInertialThrust, clearShipSpeedFlags } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const CHMMR_MAX_CREW = 42;
@@ -63,7 +63,6 @@ export const DEFENSE_RANGE = 64;
 export const DEFENSE_WAIT = 2;
 const SATELLITE_LIFE = 255;
 
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(CHMMR_MAX_THRUST) ** 2;
 const LASER_COLORS = ['#7a0000', '#ff2200', '#ffbb00', '#ff2200'] as const;
 const SATELLITE_LASER_COLOR = '#2a5cff';
 
@@ -159,25 +158,7 @@ export function updateChmmrShip(ship: ShipState, input: number): SpawnRequest[] 
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = CHMMR_THRUST_WAIT;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(CHMMR_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, CHMMR_MAX_THRUST, ship.facing);
-    } else {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-      const speed = Math.sqrt(ship.velocity.vx * ship.velocity.vx + ship.velocity.vy * ship.velocity.vy);
-      if (speed > 0) {
-        const scale = WORLD_TO_VELOCITY(CHMMR_MAX_THRUST) / speed;
-        setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-      }
-    }
+    applyShipInertialThrust(ship, CHMMR_MAX_THRUST, CHMMR_THRUST_INCREMENT);
   }
 
   advancePosition(ship);
@@ -349,6 +330,7 @@ export const chmmrController: ShipController = {
       const pull = Math.max(1, Math.floor(WORLD_TO_VELOCITY(12) / CHMMR_SHIP_MASS));
       const { dx: evx, dy: evy } = getCurrentVelocityComponents(enemyShip.velocity);
       setVelocityComponents(enemyShip.velocity, evx + COSINE(toward, pull), evy + SINE(toward, pull));
+      clearShipSpeedFlags(enemyShip);
       addTractorShadow({ targetSide: ownSide === 0 ? 1 : 0, angle: toward });
     }
   },

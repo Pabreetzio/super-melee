@@ -11,8 +11,6 @@ import {
   WORLD_TO_VELOCITY,
   getCurrentVelocityComponents,
   setVelocityComponents,
-  setVelocityVector,
-  velocitySquared,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import {
@@ -32,6 +30,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust, clearShipSpeedFlags } from './thrust';
 
 export const UMGAH_MAX_CREW = 10;
 export const UMGAH_MAX_ENERGY = 30;
@@ -50,8 +49,6 @@ export const UMGAH_CONE_LIFE = 2;
 export const UMGAH_SPECIAL_ENERGY_COST = 1;
 export const UMGAH_JUMP_DIST = 160;
 
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(UMGAH_MAX_THRUST) ** 2;
-
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
   ship.velocity.ex += fracX;
@@ -69,31 +66,7 @@ function advancePosition(ship: ShipState): void {
 }
 
 function applyThrust(ship: ShipState): void {
-  const angle = (ship.facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(UMGAH_THRUST_INCREMENT);
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= MAX_SPEED_SQ) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    return;
-  }
-
-  const currentSpeedSq = velocitySquared(ship.velocity);
-  if (desiredSpeedSq < currentSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else if (ship.velocity.travelAngle === angle) {
-    setVelocityVector(ship.velocity, UMGAH_MAX_THRUST, ship.facing);
-  } else {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    const speed = Math.sqrt(velocitySquared(ship.velocity));
-    if (speed > 0) {
-      const scale = WORLD_TO_VELOCITY(UMGAH_MAX_THRUST) / speed;
-      setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-    }
-  }
+  applyShipInertialThrust(ship, UMGAH_MAX_THRUST, UMGAH_THRUST_INCREMENT);
 }
 
 function resetRechargeTimer(ship: ShipState): void {
@@ -150,6 +123,7 @@ export function updateUmgahShip(ship: ShipState, input: number): SpawnRequest[] 
       dx + COSINE(angle, WORLD_TO_VELOCITY(UMGAH_JUMP_DIST)),
       dy + SINE(angle, WORLD_TO_VELOCITY(UMGAH_JUMP_DIST)),
     );
+    clearShipSpeedFlags(ship);
     ship.umgahZipPending = true;
     spawns.push({ type: 'sound', sound: 'secondary' });
   } else if (ship.thrustWait > 0) {
@@ -255,6 +229,7 @@ export const umgahController: ShipController = {
     if (!ship.umgahZipPending) return;
     ship.umgahZipPending = false;
     setVelocityComponents(ship.velocity, 0, 0);
+    clearShipSpeedFlags(ship);
   },
 
   computeAIInput(ship: ShipState, target: ShipState, missiles: BattleMissile[], aiSide: 0 | 1, aiLevel: AIDifficulty): number {

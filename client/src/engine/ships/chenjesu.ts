@@ -8,8 +8,6 @@ import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
   WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
   setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
@@ -32,6 +30,7 @@ import type {
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
 import { trackFacing } from './human';
+import { applyShipInertialThrust } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const CHENJESU_MAX_CREW = 36;
@@ -69,8 +68,6 @@ export const DOGGY_ENERGY_DRAIN = 10;
 export const MAX_DOGGIES = 4;
 const DOGGY_LIFE = 255;
 const COLLISION_THRUST_WAIT = 3;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(CHENJESU_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -161,26 +158,7 @@ export function updateChenjesuShip(ship: ShipState, input: number): SpawnRequest
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = CHENJESU_THRUST_WAIT;
-
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(CHENJESU_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, CHENJESU_MAX_THRUST, ship.facing);
-    } else {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-      const speed = Math.sqrt(ship.velocity.vx * ship.velocity.vx + ship.velocity.vy * ship.velocity.vy);
-      if (speed > 0) {
-        const scale = WORLD_TO_VELOCITY(CHENJESU_MAX_THRUST) / speed;
-        setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-      }
-    }
+    applyShipInertialThrust(ship, CHENJESU_MAX_THRUST, CHENJESU_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

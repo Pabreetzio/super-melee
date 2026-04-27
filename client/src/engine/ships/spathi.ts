@@ -5,7 +5,6 @@
 
 import {
   WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
-  applyInertialThrust,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
@@ -13,6 +12,7 @@ import { loadSpathiSprites, drawSprite, placeholderDot, type SpathiSprites, type
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController } from './types';
 import type { AIDifficulty } from 'shared/types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 
 // Backward-compat alias
 export type { ShipState as HumanShipState };
@@ -95,7 +95,7 @@ export function updateSpathiShip(ship: ShipState, input: number): SpawnRequest[]
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = SPATHI_THRUST_WAIT;
-    applyInertialThrust(ship.velocity, ship.facing, SPATHI_MAX_THRUST, SPATHI_THRUST_INCREMENT, ship.gravityWell ?? false);
+    applyShipInertialThrust(ship, SPATHI_MAX_THRUST, SPATHI_THRUST_INCREMENT);
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────

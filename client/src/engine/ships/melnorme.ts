@@ -6,10 +6,6 @@
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -22,6 +18,7 @@ import {
 } from '../sprites';
 import type { BattleMissile, DrawContext, MissileEffect, MissileHitEffect, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const MELNORME_MAX_CREW = 20;
@@ -49,8 +46,6 @@ export const MELNORME_SPECIAL_WAIT = 20;
 export const CMISSILE_SPEED = DISPLAY_TO_WORLD(30);
 export const CMISSILE_LIFE = 20;
 export const CMISSILE_HITS = 200;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(MELNORME_MAX_THRUST) ** 2;
 
 function nextSeed(ship: ShipState): number {
   const seed = ship.melnormeSeed ?? 0x2468ace1;
@@ -123,17 +118,7 @@ export function updateMelnormeShip(ship: ShipState, input: number): SpawnRequest
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = MELNORME_THRUST_WAIT;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(MELNORME_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, MELNORME_MAX_THRUST, ship.facing);
-    }
+    applyShipInertialThrust(ship, MELNORME_MAX_THRUST, MELNORME_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

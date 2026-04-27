@@ -4,17 +4,13 @@ import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
   WORLD_TO_DISPLAY,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
-  velocitySquared,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { drawSprite, loadSyreenSprites, placeholderDot, type SpriteFrame, type SyreenSprites } from '../sprites';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { SHIP_REGISTRY } from './registry';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 
 const SYREEN_START_CREW = 12;
 const SYREEN_MAX_CREW = 42;
@@ -60,32 +56,7 @@ function advancePosition(ship: ShipState): void {
 }
 
 function applyThrust(ship: ShipState): void {
-  const angle = (ship.facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(SYREEN_THRUST_INCREMENT);
-  const maxSpeedSq = WORLD_TO_VELOCITY(SYREEN_MAX_THRUST) ** 2;
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= maxSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    return;
-  }
-
-  const currentSpeedSq = velocitySquared(ship.velocity);
-  if (desiredSpeedSq < currentSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else if (ship.velocity.travelAngle === angle) {
-    setVelocityVector(ship.velocity, SYREEN_MAX_THRUST, ship.facing);
-  } else {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    const speed = Math.sqrt(velocitySquared(ship.velocity));
-    if (speed > 0) {
-      const scale = WORLD_TO_VELOCITY(SYREEN_MAX_THRUST) / speed;
-      setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-    }
-  }
+  applyShipInertialThrust(ship, SYREEN_MAX_THRUST, SYREEN_THRUST_INCREMENT);
 }
 
 function canStealCrew(enemyType: ShipId, enemyShip: ShipState): boolean {

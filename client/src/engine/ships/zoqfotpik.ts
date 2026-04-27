@@ -11,9 +11,7 @@ import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
   WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
   setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import {
@@ -31,6 +29,7 @@ import type {
   ShipState,
   SpawnRequest,
 } from './types';
+import { applyShipInertialThrust } from './thrust';
 
 export const ZOQFOTPIK_MAX_CREW = 10;
 export const ZOQFOTPIK_MAX_ENERGY = 10;
@@ -57,8 +56,6 @@ export const ZOQFOTPIK_TONGUE_DAMAGE = 12;
 const ZOQFOTPIK_TONGUE_RANGE = DISPLAY_TO_WORLD(100);
 const ZOQFOTPIK_TONGUE_WIDTH = DISPLAY_TO_WORLD(18);
 const ZOQFOTPIK_SPIT_BIAS_SEQUENCE = [-1, 0, 1, 0] as const;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(ZOQFOTPIK_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -131,17 +128,7 @@ export function updateZoqfotpikShip(ship: ShipState, input: number): SpawnReques
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = ZOQFOTPIK_THRUST_WAIT;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(ZOQFOTPIK_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, ZOQFOTPIK_MAX_THRUST, ship.facing);
-    }
+    applyShipInertialThrust(ship, ZOQFOTPIK_MAX_THRUST, ZOQFOTPIK_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

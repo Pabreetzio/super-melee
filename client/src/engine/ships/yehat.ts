@@ -6,10 +6,6 @@
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -18,6 +14,7 @@ import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { resolveShipCollision, worldAngle, worldDelta, wrapWorldCoord } from '../battle/helpers';
 import { WORLD_H, WORLD_W } from '../battle/constants';
+import { applyShipInertialThrust } from './thrust';
 
 export const YEHAT_MAX_CREW = 20;
 export const YEHAT_MAX_ENERGY = 10;
@@ -42,8 +39,6 @@ export const YEHAT_SPECIAL_ENERGY_COST = 3;
 export const YEHAT_SPECIAL_WAIT = 2;
 export const YEHAT_SHIELD_LIFE = 10;
 const ORZ_MARINE_MASS_POINTS = 1;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(YEHAT_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -101,19 +96,7 @@ export function updateYehatShip(ship: ShipState, input: number): SpawnRequest[] 
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = YEHAT_THRUST_WAIT;
-
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(YEHAT_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, YEHAT_MAX_THRUST, ship.facing);
-    }
+    applyShipInertialThrust(ship, YEHAT_MAX_THRUST, YEHAT_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

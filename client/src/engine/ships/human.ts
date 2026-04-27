@@ -4,7 +4,6 @@
 import {
   VELOCITY_TO_WORLD, DISPLAY_TO_WORLD, WORLD_TO_DISPLAY,
   setVelocityVector,
-  applyInertialThrust,
   type VelocityDesc,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
@@ -14,6 +13,7 @@ import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipControlle
 import { worldAngle, worldDelta } from '../battle/helpers';
 import type { AIDifficulty } from 'shared/types';
 import { SHIP_REGISTRY } from './registry';
+import { applyShipInertialThrust } from './thrust';
 
 // ─── Ship constants (from human.c) ───────────────────────────────────────────
 
@@ -98,7 +98,7 @@ export function updateHumanShip(ship: ShipState, input: number): SpawnRequest[] 
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = THRUST_WAIT;
-    applyInertialThrust(ship.velocity, ship.facing, MAX_THRUST, THRUST_INCREMENT, ship.gravityWell ?? false);
+    applyShipInertialThrust(ship, MAX_THRUST, THRUST_INCREMENT);
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────

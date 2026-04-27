@@ -6,11 +6,8 @@
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
   setVelocityComponents,
   setVelocityVector,
-  velocitySquared,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -30,6 +27,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust, clearShipSpeedFlags } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const ANDROSYNTH_MAX_CREW            = 20;
@@ -58,8 +56,6 @@ export const BLAZER_THRUST                  = 60;
 export const BLAZER_TURN_WAIT               = 1;
 export const BLAZER_MASS                    = 1;
 export const BLAZER_RADIUS                  = 10;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(ANDROSYNTH_MAX_THRUST) ** 2;
 
 function nextSeed(ship: ShipState): number {
   const seed = ship.androsynthSeed ?? 0x13579bdf;
@@ -113,30 +109,7 @@ function applyGuardianThrust(ship: ShipState, input: number): void {
 
   ship.thrusting = true;
   ship.thrustWait = ANDROSYNTH_THRUST_WAIT;
-  const angle = (ship.facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(ANDROSYNTH_THRUST_INCREMENT);
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= MAX_SPEED_SQ) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else {
-    const currentSpeedSq = velocitySquared(ship.velocity);
-    if (desiredSpeedSq < currentSpeedSq) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, ANDROSYNTH_MAX_THRUST, ship.facing);
-    } else {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-      const spd = Math.sqrt(velocitySquared(ship.velocity));
-      if (spd > 0) {
-        const scale = WORLD_TO_VELOCITY(ANDROSYNTH_MAX_THRUST) / spd;
-        setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-      }
-    }
-  }
+  applyShipInertialThrust(ship, ANDROSYNTH_MAX_THRUST, ANDROSYNTH_THRUST_INCREMENT);
 }
 
 function bubbleFrame(m: BattleMissile): number {
@@ -177,6 +150,7 @@ export function updateAndrosynthShip(ship: ShipState, input: number): SpawnReque
     }
 
     setVelocityVector(ship.velocity, BLAZER_THRUST, facing);
+    clearShipSpeedFlags(ship);
     advancePosition(ship);
 
     if (ship.energyWait > 0) {
@@ -194,6 +168,7 @@ export function updateAndrosynthShip(ship: ShipState, input: number): SpawnReque
       ship.specialWait = 0;
       ship.thrusting = false;
       setVelocityComponents(ship.velocity, 0, 0);
+      clearShipSpeedFlags(ship);
       ship.velocity.ex = 0;
       ship.velocity.ey = 0;
     }

@@ -4,15 +4,15 @@
 // Special (SEEKING_SPECIAL): Fighters — two autonomous craft launched from rear
 
 import {
-  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
+  VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
   setVelocityVector,
-  setVelocityComponents, getCurrentVelocityComponents,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
 import { loadUrquanSprites, drawSprite, placeholderDot, type UrquanSprites, type SpriteFrame } from '../sprites';
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect } from './types';
 import { worldAngle as battleWorldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export type { ShipState as HumanShipState };
@@ -48,8 +48,6 @@ export const FIGHTER_TRACK_THRESHOLD    = 6;
 export const FIGHTER_LIFE               = ONE_WAY_FLIGHT + ONE_WAY_FLIGHT + 150; // 400 frames
 export const FIGHTER_LASER_RANGE        = DISPLAY_TO_WORLD(44); // 176 world units
 export const FIGHTER_WEAPON_WAIT        = 8;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(URQUAN_MAX_THRUST) ** 2;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
@@ -94,29 +92,7 @@ export function updateUrquanShip(ship: ShipState, input: number): SpawnRequest[]
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = URQUAN_THRUST_WAIT;
-
-    const angle = (ship.facing * 4) & 63;
-    const incV  = WORLD_TO_VELOCITY(URQUAN_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else {
-      if (ship.velocity.travelAngle === angle) {
-        setVelocityVector(ship.velocity, URQUAN_MAX_THRUST, ship.facing);
-      } else {
-        setVelocityComponents(ship.velocity, newDx, newDy);
-        const { vx, vy } = ship.velocity;
-        const spd = Math.sqrt(vx * vx + vy * vy);
-        if (spd > 0) {
-          const scale = WORLD_TO_VELOCITY(URQUAN_MAX_THRUST) / spd;
-          setVelocityComponents(ship.velocity, vx * scale, vy * scale);
-        }
-      }
-    }
+    applyShipInertialThrust(ship, URQUAN_MAX_THRUST, URQUAN_THRUST_INCREMENT);
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────

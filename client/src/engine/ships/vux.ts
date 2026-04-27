@@ -4,9 +4,7 @@
 // Special (SEEKING_SPECIAL): Limpets — tracking missiles; on hit apply movement impairment
 
 import {
-  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
-  setVelocityVector,
-  setVelocityComponents, getCurrentVelocityComponents,
+  VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
@@ -15,6 +13,7 @@ import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipControlle
 import type { AIDifficulty } from 'shared/types';
 import { worldAngle, worldDelta } from '../battle/helpers';
 import { SHIP_REGISTRY } from './registry';
+import { applyShipInertialThrust } from './thrust';
 
 export type { ShipState as HumanShipState };
 
@@ -46,8 +45,6 @@ export const LIMPET_LIFE             = 80;
 export const LIMPET_HITS             = 1;
 export const LIMPET_DAMAGE           = 0;
 const VUX_LASER_COLOR                = '#52ff52';
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(VUX_MAX_THRUST) ** 2;
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
@@ -92,29 +89,7 @@ export function updateVuxShip(ship: ShipState, input: number): SpawnRequest[] {
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = VUX_THRUST_WAIT;
-
-    const angle = (ship.facing * 4) & 63;
-    const incV  = WORLD_TO_VELOCITY(VUX_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else {
-      if (ship.velocity.travelAngle === angle) {
-        setVelocityVector(ship.velocity, VUX_MAX_THRUST, ship.facing);
-      } else {
-        setVelocityComponents(ship.velocity, newDx, newDy);
-        const { vx, vy } = ship.velocity;
-        const spd = Math.sqrt(vx * vx + vy * vy);
-        if (spd > 0) {
-          const scale = WORLD_TO_VELOCITY(VUX_MAX_THRUST) / spd;
-          setVelocityComponents(ship.velocity, vx * scale, vy * scale);
-        }
-      }
-    }
+    applyShipInertialThrust(ship, VUX_MAX_THRUST, VUX_THRUST_INCREMENT);
   }
 
   // ─── Position advance ─────────────────────────────────────────────────────

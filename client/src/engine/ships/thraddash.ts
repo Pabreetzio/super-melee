@@ -9,10 +9,7 @@ import { worldAngle, worldDelta } from '../battle/helpers';
 import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
   setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import {
@@ -31,6 +28,7 @@ import type {
   ShipState,
   SpawnRequest,
 } from './types';
+import { applyShipInertialThrust } from './thrust';
 
 export const THRADDASH_MAX_CREW = 8;
 export const THRADDASH_MAX_ENERGY = 24;
@@ -58,9 +56,6 @@ export const THRADDASH_NAPALM_DAMAGE = 2;
 export const THRADDASH_NAPALM_HITS = 1;
 export const THRADDASH_NAPALM_DECAY_RATE = 5;
 
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(THRADDASH_MAX_THRUST) ** 2;
-const SPECIAL_MAX_SPEED_SQ = WORLD_TO_VELOCITY(THRADDASH_SPECIAL_MAX_THRUST) ** 2;
-
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
   ship.velocity.ex += fracX;
@@ -87,26 +82,7 @@ function applyThrust(ship: ShipState, maxThrust: number, thrustIncrement: number
     ship.thrustWait = THRADDASH_THRUST_WAIT;
   }
 
-  const angle = (ship.facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(thrustIncrement);
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-  const clampSq = maxThrust === THRADDASH_SPECIAL_MAX_THRUST ? SPECIAL_MAX_SPEED_SQ : MAX_SPEED_SQ;
-
-  if (desiredSpeedSq <= clampSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else if (ship.velocity.travelAngle === angle) {
-    setVelocityVector(ship.velocity, maxThrust, ship.facing);
-  } else {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    const speed = Math.sqrt(ship.velocity.vx * ship.velocity.vx + ship.velocity.vy * ship.velocity.vy);
-    if (speed > 0) {
-      const scale = WORLD_TO_VELOCITY(maxThrust) / speed;
-      setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-    }
-  }
+  applyShipInertialThrust(ship, maxThrust, thrustIncrement);
 }
 
 function napalmFrame(m: BattleMissile): number {

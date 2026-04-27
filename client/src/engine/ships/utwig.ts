@@ -2,16 +2,12 @@ import type { AIDifficulty } from 'shared/types';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
 import {
   VELOCITY_TO_WORLD,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
-  velocitySquared,
 } from '../velocity';
 import { drawSprite, drawSpriteFill, loadUtwigSprites, placeholderDot, type SpriteFrame, type UtwigSprites } from '../sprites';
 import { COSINE, SINE } from '../sinetab';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust } from './thrust';
 
 const UTWIG_MAX_CREW = 20;
 const UTWIG_MAX_ENERGY = 20;
@@ -62,32 +58,7 @@ function advancePosition(ship: ShipState): void {
 }
 
 function applyThrust(ship: ShipState): void {
-  const angle = (ship.facing * 4) & 63;
-  const incV = WORLD_TO_VELOCITY(UTWIG_THRUST_INCREMENT);
-  const maxSpeedSq = WORLD_TO_VELOCITY(UTWIG_MAX_THRUST) ** 2;
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= maxSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    return;
-  }
-
-  const currentSpeedSq = velocitySquared(ship.velocity);
-  if (desiredSpeedSq < currentSpeedSq) {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-  } else if (ship.velocity.travelAngle === angle) {
-    setVelocityVector(ship.velocity, UTWIG_MAX_THRUST, ship.facing);
-  } else {
-    setVelocityComponents(ship.velocity, newDx, newDy);
-    const speed = Math.sqrt(velocitySquared(ship.velocity));
-    if (speed > 0) {
-      const scale = WORLD_TO_VELOCITY(UTWIG_MAX_THRUST) / speed;
-      setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-    }
-  }
+  applyShipInertialThrust(ship, UTWIG_MAX_THRUST, UTWIG_THRUST_INCREMENT);
 }
 
 function rotateOffset(facing: number, offsetX: number, offsetY: number): { x: number; y: number } {

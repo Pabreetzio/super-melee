@@ -9,7 +9,6 @@ import {
   WORLD_TO_VELOCITY,
   getCurrentVelocityComponents,
   setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -29,6 +28,7 @@ import type {
   SpawnRequest,
 } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
+import { applyShipInertialThrust, clearShipSpeedFlags } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const DRUUGE_MAX_CREW = 14;
@@ -53,8 +53,6 @@ export const MAX_RECOIL_VELOCITY = RECOIL_VELOCITY * 4;
 
 export const DRUUGE_SPECIAL_ENERGY_COST = 16;
 export const DRUUGE_SPECIAL_WAIT = 30;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(DRUUGE_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -84,6 +82,7 @@ function applyRecoil(ship: ShipState, facing: number): void {
   const angle = ((facing * 4) + 32) & 63;
   const { dx, dy } = getCurrentVelocityComponents(ship.velocity);
   setVelocityComponents(ship.velocity, dx + COSINE(angle, RECOIL_VELOCITY), dy + SINE(angle, RECOIL_VELOCITY));
+  clearShipSpeedFlags(ship);
   clampVelocity(ship, MAX_RECOIL_VELOCITY);
 }
 
@@ -125,25 +124,7 @@ export function updateDruugeShip(ship: ShipState, input: number): SpawnRequest[]
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = DRUUGE_THRUST_WAIT;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(DRUUGE_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, DRUUGE_MAX_THRUST, ship.facing);
-    } else {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-      const speed = Math.sqrt(ship.velocity.vx * ship.velocity.vx + ship.velocity.vy * ship.velocity.vy);
-      if (speed > 0) {
-        const scale = WORLD_TO_VELOCITY(DRUUGE_MAX_THRUST) / speed;
-        setVelocityComponents(ship.velocity, ship.velocity.vx * scale, ship.velocity.vy * scale);
-      }
-    }
+    applyShipInertialThrust(ship, DRUUGE_MAX_THRUST, DRUUGE_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

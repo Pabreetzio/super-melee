@@ -7,10 +7,6 @@ import {
   DISPLAY_TO_WORLD,
   VELOCITY_TO_WORLD,
   WORLD_TO_DISPLAY,
-  WORLD_TO_VELOCITY,
-  getCurrentVelocityComponents,
-  setVelocityComponents,
-  setVelocityVector,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_FIRE1, INPUT_FIRE2, INPUT_LEFT, INPUT_RIGHT, INPUT_THRUST } from '../game';
@@ -19,6 +15,7 @@ import type { AIDifficulty } from 'shared/types';
 import type { BattleMissile, DrawContext, ShipController, ShipState, SpawnRequest } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
 import { SHIP_REGISTRY } from './registry';
+import { applyShipInertialThrust } from './thrust';
 
 export const SHOFIXTI_MAX_CREW = 6;
 export const SHOFIXTI_MAX_ENERGY = 4;
@@ -42,8 +39,6 @@ export const SHOFIXTI_DESTRUCT_RANGE = 180;
 export const SHOFIXTI_MAX_DESTRUCTION = SHOFIXTI_DESTRUCT_RANGE / 10;
 export const SHOFIXTI_GLORY_FRAMES = 3;
 export const SHOFIXTI_ARMING_PRESSES = 2;
-
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(SHOFIXTI_MAX_THRUST) ** 2;
 
 function advancePosition(ship: ShipState): void {
   const fracX = Math.abs(ship.velocity.vx) & 31;
@@ -104,17 +99,7 @@ export function updateShofixtiShip(ship: ShipState, input: number): SpawnRequest
   ship.thrusting = false;
   if (gloryFrames === 0 && (input & INPUT_THRUST)) {
     ship.thrusting = true;
-    const angle = (ship.facing * 4) & 63;
-    const incV = WORLD_TO_VELOCITY(SHOFIXTI_THRUST_INCREMENT);
-    const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(ship.velocity);
-    const newDx = curDx + COSINE(angle, incV);
-    const newDy = curDy + SINE(angle, incV);
-    const desiredSpeedSq = newDx * newDx + newDy * newDy;
-    if (desiredSpeedSq <= MAX_SPEED_SQ) {
-      setVelocityComponents(ship.velocity, newDx, newDy);
-    } else if (ship.velocity.travelAngle === angle) {
-      setVelocityVector(ship.velocity, SHOFIXTI_MAX_THRUST, ship.facing);
-    }
+    applyShipInertialThrust(ship, SHOFIXTI_MAX_THRUST, SHOFIXTI_THRUST_INCREMENT);
   }
 
   advancePosition(ship);

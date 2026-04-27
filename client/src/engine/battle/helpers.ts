@@ -115,6 +115,11 @@ export function resolveShipCollision(
   const totalMass = massA + massB;
   if (totalMass <= 0) return;
 
+  a.shipAtMaxSpeed = false;
+  a.shipBeyondMaxSpeed = false;
+  b.shipAtMaxSpeed = false;
+  b.shipBeyondMaxSpeed = false;
+
   if (a.turnWait < COLLISION_TURN_WAIT) a.turnWait += COLLISION_TURN_WAIT;
   if (a.thrustWait < COLLISION_THRUST_WAIT) a.thrustWait += COLLISION_THRUST_WAIT;
   if (b.turnWait < COLLISION_TURN_WAIT) b.turnWait += COLLISION_TURN_WAIT;
@@ -186,6 +191,7 @@ export function applyGravity(
   if (distSq === 0 || distSq > threshSq) return;
 
   ship.gravityWell = true;
+  ship.shipAtMaxSpeed = false;
   const angle = worldAngle(ship.x, ship.y, planetX, planetY);
   const grav = 32;
   ship.velocity.vx += COSINE(angle, grav);
@@ -207,6 +213,9 @@ export function computeChecksum(bs: BattleState): number {
     h = hashStep(h, ship.crew);
     h = hashStep(h, ship.energy);
     h = hashStep(h, ship.facing);
+    h = hashStep(h, ship.gravityWell ? 1 : 0);
+    h = hashStep(h, ship.shipAtMaxSpeed ? 1 : 0);
+    h = hashStep(h, ship.shipBeyondMaxSpeed ? 1 : 0);
     h = hashStep(h, ship.limpetCount ?? 0);
     h = hashStep(h, ship.orzTurretOffset ?? 0);
     h = hashStep(h, ship.orzTurretTurnWait ?? 0);

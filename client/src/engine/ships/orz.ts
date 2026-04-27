@@ -4,8 +4,8 @@
 // Special: space marines launched by holding special and pressing primary
 
 import {
-  WORLD_TO_VELOCITY, VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
-  setVelocityVector, setVelocityComponents, getCurrentVelocityComponents,
+  VELOCITY_TO_WORLD, DISPLAY_TO_WORLD,
+  setVelocityComponents, applyInertialThrust,
 } from '../velocity';
 import { COSINE, SINE } from '../sinetab';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../game';
@@ -13,6 +13,7 @@ import { loadOrzSprites, drawSprite, placeholderDot, type OrzSprites, type Sprit
 import type { ShipState, SpawnRequest, BattleMissile, DrawContext, ShipController, MissileEffect, MissileHitEffect } from './types';
 import { worldAngle, worldDelta } from '../battle/helpers';
 import { trackFacing } from './human';
+import { applyShipInertialThrust } from './thrust';
 import type { AIDifficulty } from 'shared/types';
 
 export const ORZ_MAX_CREW            = 16;
@@ -41,9 +42,6 @@ export const ORZ_MAX_MARINES         = 8;
 export const ORZ_MARINE_WAIT         = 12;
 export const ORZ_TURRET_TURN_WAIT    = 3;
 
-const MAX_SPEED_SQ = WORLD_TO_VELOCITY(ORZ_MAX_THRUST) ** 2;
-const MAX_MARINE_SPEED_SQ = WORLD_TO_VELOCITY(ORZ_MARINE_MAX_THRUST) ** 2;
-
 function ensureOrzState(ship: ShipState): void {
   ship.orzTurretOffset ??= 0;
   ship.orzTurretTurnWait ??= 0;
@@ -69,35 +67,11 @@ function turretFacing(ship: ShipState): number {
 
 function stepVelocity(
   velocity: ShipState['velocity'],
-  angle: number,
   thrustIncrement: number,
-  maxSpeedSq: number,
   maxSpeed: number,
   facing: number,
 ): void {
-  const incV = WORLD_TO_VELOCITY(thrustIncrement);
-  const { dx: curDx, dy: curDy } = getCurrentVelocityComponents(velocity);
-  const newDx = curDx + COSINE(angle, incV);
-  const newDy = curDy + SINE(angle, incV);
-  const desiredSpeedSq = newDx * newDx + newDy * newDy;
-
-  if (desiredSpeedSq <= maxSpeedSq) {
-    setVelocityComponents(velocity, newDx, newDy);
-    return;
-  }
-
-  if (velocity.travelAngle === angle) {
-    setVelocityVector(velocity, maxSpeed, facing);
-    return;
-  }
-
-  setVelocityComponents(velocity, newDx, newDy);
-  const { vx, vy } = velocity;
-  const speed = Math.sqrt(vx * vx + vy * vy);
-  if (speed > 0) {
-    const scale = WORLD_TO_VELOCITY(maxSpeed) / speed;
-    setVelocityComponents(velocity, vx * scale, vy * scale);
-  }
+  applyInertialThrust(velocity, facing, maxSpeed, thrustIncrement, false);
 }
 
 function advanceShipPosition(ship: ShipState): void {
@@ -189,8 +163,7 @@ export function updateOrzShip(ship: ShipState, input: number): SpawnRequest[] {
   } else if (input & INPUT_THRUST) {
     ship.thrusting = true;
     ship.thrustWait = ORZ_THRUST_WAIT;
-    const angle = (ship.facing * 4) & 63;
-    stepVelocity(ship.velocity, angle, ORZ_THRUST_INCREMENT, MAX_SPEED_SQ, ORZ_MAX_THRUST, ship.facing);
+    applyShipInertialThrust(ship, ORZ_MAX_THRUST, ORZ_THRUST_INCREMENT);
   }
 
   advanceShipPosition(ship);
@@ -385,7 +358,7 @@ export const orzController: ShipController = {
       const prevVx = m.velocity.vx;
       const prevVy = m.velocity.vy;
       m.facing = trackFacing(m.facing, targetAngle);
-      stepVelocity(m.velocity, (m.facing * 4) & 63, ORZ_MARINE_THRUST_INC, MAX_MARINE_SPEED_SQ, ORZ_MARINE_MAX_THRUST, m.facing);
+      stepVelocity(m.velocity, ORZ_MARINE_THRUST_INC, ORZ_MARINE_MAX_THRUST, m.facing);
       const delta = worldDelta(m.x, m.y, ownShip.x, ownShip.y);
       if (delta.dx * delta.dx + delta.dy * delta.dy <= DISPLAY_TO_WORLD(14) ** 2) {
         ownShip.orzMarineCount = Math.max(0, (ownShip.orzMarineCount ?? 0) - 1);
@@ -402,7 +375,7 @@ export const orzController: ShipController = {
     const prevVx = m.velocity.vx;
     const prevVy = m.velocity.vy;
     m.facing = trackFacing(m.facing, targetAngle);
-    stepVelocity(m.velocity, (m.facing * 4) & 63, ORZ_MARINE_THRUST_INC, MAX_MARINE_SPEED_SQ, ORZ_MARINE_MAX_THRUST, m.facing);
+    stepVelocity(m.velocity, ORZ_MARINE_THRUST_INC, ORZ_MARINE_MAX_THRUST, m.facing);
     if (prevFacing !== m.facing || prevVx !== m.velocity.vx || prevVy !== m.velocity.vy) {
       return { skipVelocityUpdate: true, ionDots: marineBackDot(m, 'default') };
     }
