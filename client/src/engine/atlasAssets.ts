@@ -57,7 +57,7 @@ const subImagePromises = new Map<string, Promise<AtlasImageAsset | null>>();
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
   const resolvedUrl = publicUrl(url);
-  await preloadImage(resolvedUrl);
+  await preloadImage(url);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = async () => {

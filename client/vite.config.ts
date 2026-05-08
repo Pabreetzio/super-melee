@@ -22,6 +22,21 @@ const ROOT_DEV_PREFIXES = [
   '/manifest.webmanifest',
   '/meleemenu-',
 ];
+const ROOT_APP_ROUTES = [
+  '/net',
+  '/styles',
+  '/bg-builder',
+  '/typography',
+  '/settings',
+];
+
+function withBasePath(url: string): string {
+  return `${BASE_PATH}${url}`;
+}
+
+function rootRouteMatches(url: string, route: string): boolean {
+  return url === route || url.startsWith(`${route}/`) || url.startsWith(`${route}?`);
+}
 
 export default defineConfig({
   base: `${BASE_PATH}/`,
@@ -30,10 +45,14 @@ export default defineConfig({
       name: 'super-melee-dev-base-rewrite',
       configureServer(server) {
         server.middlewares.use((req, _res, next) => {
-          if (req.url === '/' || req.url === BASE_PATH) {
-            req.url = `${BASE_PATH}/`;
+          if (req.url?.startsWith(`${BASE_PATH}${BASE_PATH}/`)) {
+            req.url = req.url.slice(BASE_PATH.length);
+          } else if (req.url === '/' || req.url === BASE_PATH) {
+            req.url = withBasePath('/');
           } else if (req.url && !req.url.startsWith(`${BASE_PATH}/`) && ROOT_DEV_PREFIXES.some(prefix => req.url!.startsWith(prefix))) {
-            req.url = `${BASE_PATH}${req.url}`;
+            req.url = withBasePath(req.url);
+          } else if (req.url && ROOT_APP_ROUTES.some(route => rootRouteMatches(req.url!, route))) {
+            req.url = withBasePath(req.url);
           }
           next();
         });

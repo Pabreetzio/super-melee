@@ -142,6 +142,7 @@ interface AppState {
 
 type Action =
   | { type: 'connected' }
+  | { type: 'disconnected' }
   | { type: 'session';        sessionId: string; commanderName: string }
   | { type: 'name_set';       name: string }
   | { type: 'room_list';      rooms: RoomSummary[] }
@@ -288,6 +289,9 @@ function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'connected':
       return { ...state, connected: true };
+
+    case 'disconnected':
+      return { ...state, connected: false };
 
     case 'session':
       return {
@@ -1013,11 +1017,16 @@ export default function App() {
       setRouteJoinReady(false);
       dispatch({ type: 'connected' });
     });
+    const unsubDisconnect = client.onDisconnect(() => {
+      setRouteJoinReady(false);
+      dispatch({ type: 'disconnected' });
+    });
     client.connect();
 
     return () => {
       unsubMsg();
       unsubConnect();
+      unsubDisconnect();
       client.disconnect();
     };
   }, []);
@@ -1156,6 +1165,7 @@ export default function App() {
           commanderName={state.commanderName}
           rooms={state.rooms}
           joinError={joinError}
+          canCreateRoom={state.connected && client.connected && !!state.sessionId && !!state.commanderName}
           onCommanderNameChange={name => {
             const trimmed = name.trim();
             if (!trimmed) return;

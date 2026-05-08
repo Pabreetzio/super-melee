@@ -3,11 +3,13 @@ import { appBasePath } from '../lib/netplayRoutes';
 
 type Listener = (msg: ServerMsg) => void;
 type ConnectListener = () => void;
+type DisconnectListener = () => void;
 
 export class GameClient {
   private ws: WebSocket | null = null;
   private listeners: Listener[] = [];
   private connectListeners: ConnectListener[] = [];
+  private disconnectListeners: DisconnectListener[] = [];
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
 
@@ -47,10 +49,18 @@ export class GameClient {
         // session token. With sessionStorage this should never happen anymore,
         // but log it prominently if it does.
         console.warn('[WS] Kicked by server (4001) — another tab is using the same session token. Check for duplicate tabs.');
+      } else {
+        console.warn(`[WS] Closed (${ev.code || 'no-code'}): ${ev.reason || 'no reason'}`);
       }
+      this.disconnectListeners.forEach(l => l());
       if (this.shouldReconnect) {
         this.reconnectTimer = setTimeout(() => this._open(), 2000);
       }
+    };
+
+    ws.onerror = () => {
+      if (this.ws !== ws) return;
+      console.warn(`[WS] Socket error while connected to ${url}`);
     };
   }
 
@@ -91,10 +101,13 @@ export class GameClient {
     return `sm-${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
   }
 
-  send(msg: ClientMsg) {
+  send(msg: ClientMsg): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+      return true;
     }
+    console.warn('[WS] Tried to send while socket was not open:', msg.type, 'readyState=', this.ws?.readyState ?? 'none');
+    return false;
   }
 
   onMessage(listener: Listener): () => void {
@@ -105,6 +118,11 @@ export class GameClient {
   onConnect(listener: ConnectListener): () => void {
     this.connectListeners.push(listener);
     return () => { this.connectListeners = this.connectListeners.filter(l => l !== listener); };
+  }
+
+  onDisconnect(listener: DisconnectListener): () => void {
+    this.disconnectListeners.push(listener);
+    return () => { this.disconnectListeners = this.disconnectListeners.filter(l => l !== listener); };
   }
 
   disconnect() {

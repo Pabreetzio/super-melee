@@ -9,6 +9,7 @@ interface Props {
   commanderName: string;
   rooms: RoomSummary[];
   joinError?: string;
+  canCreateRoom?: boolean;
   onCommanderNameChange: (name: string) => void;
   onBack?: () => void;
 }
@@ -58,7 +59,7 @@ function NavLink({
   );
 }
 
-export default function GameBrowser({ commanderName, rooms, joinError, onCommanderNameChange, onBack }: Props) {
+export default function GameBrowser({ commanderName, rooms, joinError, canCreateRoom = true, onCommanderNameChange, onBack }: Props) {
   const bgConfig = loadConfig();
   const rootRef = useRef<HTMLDivElement>(null);
   const [joinPassword, setJoinPassword] = useState('');
@@ -77,11 +78,20 @@ export default function GameBrowser({ commanderName, rooms, joinError, onCommand
 
   function joinRoom(code: string, password?: string) {
     setError('');
-    client.send({ type: 'join_room', code, password });
+    if (!client.send({ type: 'join_room', code, password })) {
+      setError('Netplay connection is not ready. Try again in a moment.');
+    }
   }
 
   function createRoom() {
-    client.send({ type: 'create_room', visibility: 'public' });
+    if (!canCreateRoom) {
+      setError('Still connecting to the netplay server. Try again in a moment.');
+      return;
+    }
+    setError('');
+    if (!client.send({ type: 'create_room', visibility: 'public' })) {
+      setError('Netplay connection is not ready. Try again in a moment.');
+    }
   }
 
   function commitCommanderName() {
@@ -313,8 +323,9 @@ export default function GameBrowser({ commanderName, rooms, joinError, onCommand
                 data-net-nav="true"
                 data-net-zone="rail"
                 onClick={createRoom}
+                disabled={!canCreateRoom}
               >
-                Host Game
+                {canCreateRoom ? 'Host Game' : 'Connecting'}
               </button>
               <button
                 type="button"
