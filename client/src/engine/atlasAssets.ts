@@ -1,6 +1,7 @@
 import type { ShipId } from 'shared/types';
 import { preloadBattleSounds } from './audio';
 import { preloadImage } from '../lib/preloadedImage';
+import { publicUrl } from '../lib/publicUrl';
 
 export interface AtlasRuntimeFrame {
   img: HTMLImageElement;
@@ -46,7 +47,7 @@ interface LoadedAtlas {
   frames: Map<string, AtlasRuntimeFrame>;
 }
 
-const indexPromise: Promise<AtlasIndex> = fetch('/atlases/index.json').then(r => {
+const indexPromise: Promise<AtlasIndex> = fetch(publicUrl('/atlases/index.json')).then(r => {
   if (!r.ok) throw new Error(`Failed atlas index: ${r.status}`);
   return r.json() as Promise<AtlasIndex>;
 });
@@ -55,15 +56,16 @@ const atlasPromises = new Map<string, Promise<LoadedAtlas>>();
 const subImagePromises = new Map<string, Promise<AtlasImageAsset | null>>();
 
 async function decodeImage(url: string): Promise<HTMLImageElement> {
-  await preloadImage(url);
+  const resolvedUrl = publicUrl(url);
+  await preloadImage(resolvedUrl);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = async () => {
       try { await img.decode(); } catch { /* ignore */ }
       resolve(img);
     };
-    img.onerror = () => reject(new Error(`Failed to load ${url}`));
-    img.src = url;
+    img.onerror = () => reject(new Error(`Failed to load ${resolvedUrl}`));
+    img.src = resolvedUrl;
   });
 }
 
@@ -75,7 +77,7 @@ async function loadAtlas(atlasId: string): Promise<LoadedAtlas> {
       if (!meta) throw new Error(`Missing atlas ${atlasId}`);
 
       const [manifest, image] = await Promise.all([
-        fetch(meta.manifestUrl).then(r => {
+        fetch(publicUrl(meta.manifestUrl)).then(r => {
           if (!r.ok) throw new Error(`Failed atlas manifest ${meta.manifestUrl}`);
           return r.json() as Promise<AtlasManifest>;
         }),

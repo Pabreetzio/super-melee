@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "kill: port 3001",
+      "label": "kill: port 43991",
       "type": "shell",
-      "command": "npx --yes kill-port 3001 & exit 0",
+      "command": "npx --yes kill-port 43991 & exit 0",
       "options": { "cwd": "${workspaceFolder}" },
       "presentation": {
         "reveal": "silent",
@@ -38,7 +38,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "\\[0\\]",
-          "endsPattern": "Local:.*5173"
+          "endsPattern": "Local:.*43187"
         }
       },
       "presentation": {
@@ -51,7 +51,7 @@
     {
       "label": "dev: kill port and start",
       "dependsOrder": "sequence",
-      "dependsOn": ["kill: port 3001", "kill: client ports from processes", "dev: start all"],
+      "dependsOn": ["kill: port 43991", "kill: client ports from processes", "dev: start all"],
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",

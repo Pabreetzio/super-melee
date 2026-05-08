@@ -11,6 +11,7 @@ import { PreloadedImage, prefetchImages } from '../lib/preloadedImage';
 import ShipMenuImage from './ShipMenuImage';
 import SuperMeleeTitle from './SuperMeleeTitle';
 import RailFitText from './RailFitText';
+import { publicUrl } from '../lib/publicUrl';
 
 const BATTLE_MENU_FRAMES = ['/meleemenu-025.png', '/meleemenu-026.png'] as const;
 const BATTLE_SLOT_W = 128;
@@ -24,9 +25,9 @@ const LOGICAL_SIDEBAR_W = 160;
 
 void Promise.all(
   [
-    new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)'),
-    new FontFace('UQMSlides', 'url(/fonts/slides.woff2)'),
-    new FontFace('UQMTiny', 'url(/fonts/tiny.woff2)'),
+    new FontFace('UQMStarCon', `url(${publicUrl('/fonts/starcon.woff2')})`),
+    new FontFace('UQMSlides', `url(${publicUrl('/fonts/slides.woff2')})`),
+    new FontFace('UQMTiny', `url(${publicUrl('/fonts/tiny.woff2')})`),
   ].map(face => { document.fonts.add(face); return face.load(); }),
 ).catch(() => {});
 

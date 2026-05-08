@@ -5,18 +5,18 @@
       "name": "Open Chrome (fresh start)",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:5173",
+      "url": "http://localhost:43187/super-melee/",
       "webRoot": "${workspaceFolder}/client/src",
       "preLaunchTask": "dev: kill port and start",
       "userDataDir": true,
       "presentation": { "order": 1 },
-      "comment": "Kills any existing server on :3001 and Vite client on :5173, then starts fresh in a clean browser profile."
+      "comment": "Kills any existing server on :43991 and Vite client process, then starts fresh in a clean browser profile."
     },
     {
       "name": "Open Chrome (attach to running)",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:5173",
+      "url": "http://localhost:43187/super-melee/",
       "webRoot": "${workspaceFolder}/client/src",
       "presentation": { "order": 2 },
       "comment": "Just opens the browser — assumes server is already running. Use when npm run dev is already up."
@@ -25,7 +25,7 @@
       "name": "Open Edge (fresh start)",
       "type": "msedge",
       "request": "launch",
-      "url": "http://localhost:5173",
+      "url": "http://localhost:43187/super-melee/",
       "webRoot": "${workspaceFolder}/client/src",
       "preLaunchTask": "dev: kill port and start",
       "userDataDir": true,

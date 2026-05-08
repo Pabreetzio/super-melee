@@ -1,29 +1,31 @@
 import { useEffect, useState } from 'react';
+import { publicUrl } from './publicUrl';
 
 const imagePromises = new Map<string, Promise<void>>();
 const liveImages = new Map<string, HTMLImageElement>();
 
 export function preloadImage(src: string): Promise<void> {
-  if (!imagePromises.has(src)) {
-    imagePromises.set(src, new Promise((resolve, reject) => {
-      const existing = liveImages.get(src);
+  const resolvedSrc = publicUrl(src);
+  if (!imagePromises.has(resolvedSrc)) {
+    imagePromises.set(resolvedSrc, new Promise((resolve, reject) => {
+      const existing = liveImages.get(resolvedSrc);
       if (existing?.complete) {
         resolve();
         return;
       }
 
       const img = existing ?? new Image();
-      liveImages.set(src, img);
+      liveImages.set(resolvedSrc, img);
 
       img.onload = async () => {
         try { await img.decode(); } catch { /* ignore */ }
         resolve();
       };
-      img.onerror = () => reject(new Error(`Failed to preload ${src}`));
-      if (img.src !== src) img.src = src;
+      img.onerror = () => reject(new Error(`Failed to preload ${resolvedSrc}`));
+      if (img.src !== resolvedSrc) img.src = resolvedSrc;
     }));
   }
-  return imagePromises.get(src)!;
+  return imagePromises.get(resolvedSrc)!;
 }
 
 export function prefetchImages(urls: readonly string[]): void {
@@ -66,10 +68,11 @@ interface PreloadedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
 
 export function PreloadedImage({ src, style, ...props }: PreloadedImageProps) {
   const ready = usePreloadedImage(src);
+  const resolvedSrc = publicUrl(src);
   return (
     <img
       {...props}
-      src={src}
+      src={resolvedSrc}
       style={{
         ...style,
         visibility: ready ? style?.visibility ?? 'visible' : 'hidden',

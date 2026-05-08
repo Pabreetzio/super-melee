@@ -10,6 +10,7 @@ server/package-lock.json
 
 # Claude Code settings
 .claude/
+.codex-logs/
 
 # UQM reference source and content — not part of this repo
 # See CLAUDE.md for setup instructions

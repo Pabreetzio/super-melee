@@ -7,7 +7,7 @@ import { rooms } from './rooms';
 import { sessions } from './session';
 import type { ClientMsg, ServerMsg } from '../../shared/types';
 
-const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const PORT = parseInt(process.env.PORT ?? '43991', 10);
 
 const app = express();
 const server = createServer(app);

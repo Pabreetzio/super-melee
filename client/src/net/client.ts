@@ -1,4 +1,5 @@
 import type { ClientMsg, ServerMsg } from 'shared/types';
+import { appBasePath } from '../lib/netplayRoutes';
 
 type Listener = (msg: ServerMsg) => void;
 type ConnectListener = () => void;
@@ -18,7 +19,7 @@ export class GameClient {
   private _open() {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = this._getToken();
-    const url = `${proto}//${window.location.host}/ws?token=${token}`;
+    const url = `${proto}//${window.location.host}${appBasePath()}/ws?token=${token}`;
     const ws = new WebSocket(url);
     this.ws = ws;
 

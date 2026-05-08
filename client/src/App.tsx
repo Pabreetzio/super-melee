@@ -14,7 +14,7 @@ import SettingsScreen from './components/Settings';
 import StyleLab from './components/StyleLab';
 import TypographyLab from './components/TypographyLab';
 import { getControls, codeDisplay, buildMenuBindingSet } from './lib/controls';
-import { roomCodeFromPathname, roomPath } from './lib/netplayRoutes';
+import { roomCodeFromPathname, roomPath, stripAppBase, withAppBase } from './lib/netplayRoutes';
 import ShipMenuImage from './components/ShipMenuImage';
 import StatusPanel, { type SideStatus } from './components/StatusPanel';
 import { pickRandomCaptainName } from './engine/ships/statusData';
@@ -54,8 +54,9 @@ const UTILITY_SCREEN_PATHS: Partial<Record<Screen, string>> = {
 };
 
 function screenFromPathname(pathname: string): Screen {
-  if (roomCodeFromPathname(pathname)) return 'browser';
-  switch (pathname) {
+  const appPathname = stripAppBase(pathname);
+  if (roomCodeFromPathname(appPathname)) return 'browser';
+  switch (appPathname) {
     case '/net':
       return 'browser';
     case '/styles':
@@ -72,7 +73,7 @@ function screenFromPathname(pathname: string): Screen {
 }
 
 function pathFromScreen(screen: Screen): string {
-  return UTILITY_SCREEN_PATHS[screen] ?? '/';
+  return withAppBase(UTILITY_SCREEN_PATHS[screen] ?? '/');
 }
 
 function pathFromState(state: AppState, currentPathname: string, preserveRouteRoomCode: boolean): string {
@@ -81,7 +82,7 @@ function pathFromState(state: AppState, currentPathname: string, preserveRouteRo
   }
   if (state.screen === 'browser') {
     const routeCode = roomCodeFromPathname(currentPathname);
-    return routeCode && preserveRouteRoomCode ? roomPath(routeCode) : '/net';
+    return routeCode && preserveRouteRoomCode ? roomPath(routeCode) : withAppBase('/net');
   }
   return pathFromScreen(state.screen);
 }

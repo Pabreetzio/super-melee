@@ -17,16 +17,17 @@ npm run install:all
 
 ## Development
 
-Start both server (port 3001) and client (port 5173) with hot-reload:
+Start both server (port 43991) and client (port 43187) with hot-reload:
 
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:5173** in two browser tabs to play against yourself.
+Open **http://localhost:43187/super-melee/** in two browser tabs to play against yourself.
 
-The Vite dev server proxies `/ws` and `/api` requests to the backend, so no CORS
-issues in dev. In production, the server serves the built client directly.
+The Vite dev server proxies `/ws`, `/api`, `/super-melee/ws`, and
+`/super-melee/api` requests to the backend, so no CORS issues in dev. In
+production, the server serves the built client directly.
 
 ## Project structure
 
@@ -103,7 +104,7 @@ NODE_ENV=production node server/dist/server.js
 ```
 
 The production server serves the client from `client/dist/` on the same port.
-Set `PORT` environment variable to change from default 3001.
+Set `PORT` environment variable to change from default 43991.
 
 ## Network architecture
 

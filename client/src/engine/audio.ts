@@ -4,6 +4,7 @@
 // are supported by cloning nodes.
 import type { EffectSound, SoundSpawnKey } from './ships/types';
 import type { ShipId } from 'shared/types';
+import { publicUrl } from '../lib/publicUrl';
 
 // ─── Audio config ─────────────────────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ function load(url: string): HTMLAudioElement | null {
   if (cache.has(url)) return cache.get(url)!;
   const el = new Audio();
   el.preload = 'auto';
-  el.src = url;
+  el.src = publicUrl(url);
   // Store in cache even if loading fails — prevents repeated load attempts
   cache.set(url, el);
   el.load();
@@ -330,7 +331,7 @@ export async function playVictoryDitty(shipType: ShipId): Promise<void> {
   stopVictoryDitty();
 
   try {
-    const el = new Audio(url);
+    const el = new Audio(publicUrl(url));
     el.loop = false;
     el.volume = Math.max(0, Math.min(1, _config.musicVolume));
     el.onended = () => {

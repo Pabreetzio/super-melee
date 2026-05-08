@@ -27,6 +27,7 @@ import type { ShipId } from 'shared/types';
 import { SHIP_STATUS_DATA, pickCaptain, type ShipStatusDef } from '../engine/ships/statusData';
 import { INPUT_THRUST, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRE1, INPUT_FIRE2 } from '../engine/game';
 import { loadAtlasImageAsset } from '../engine/atlasAssets';
+import { publicUrl } from '../lib/publicUrl';
 
 // ─── Layout constants (2× scale) ───────────────────────────────────────────
 
@@ -61,9 +62,9 @@ const CAPTAIN_DEFEAT_FRAME_MS = 1000 / 24;
 let uqmFontsReady = false;
 void Promise.all(
   [
-    new FontFace('UQMStarCon', 'url(/fonts/starcon.woff2)'),
-    new FontFace('UQMTiny',    'url(/fonts/tiny.woff2)'),
-    new FontFace('UQMMicro',   'url(/fonts/micro.woff2)'),
+    new FontFace('UQMStarCon', `url(${publicUrl('/fonts/starcon.woff2')})`),
+    new FontFace('UQMTiny',    `url(${publicUrl('/fonts/tiny.woff2')})`),
+    new FontFace('UQMMicro',   `url(${publicUrl('/fonts/micro.woff2')})`),
   ].map(face => { document.fonts.add(face); return face.load(); }),
 ).then(() => { uqmFontsReady = true; });
 
