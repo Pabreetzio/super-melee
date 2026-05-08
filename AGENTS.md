@@ -246,3 +246,32 @@ Do not assume the asset is fine just because the WAV container is valid.
 ## Stack
 
 TypeScript + React + Canvas, Node/Socket.io for netplay relay, Vite for build. See `docs/architecture.md`.
+
+## Local Dev Server / VS Code Restart Workflow
+
+Prefer the VS Code Run and Debug configuration `Attach: Super Melee Dev Stack`
+for interactive testing. That is an attach workflow: it starts
+`node scripts/dev-stack.mjs` as a pre-launch task if needed, then attaches VS
+Code to the Node inspector ports exposed by the running server and Vite
+processes.
+
+The dev stack listens at `http://localhost:43187/super-melee/`. The frontend
+dev server uses port `43187`; the netplay/server process uses port `43991`.
+The Node inspector ports are `9230` for the server and `9231` for Vite.
+
+Future agents cannot attach themselves to an already-running VS Code debug
+session from a shell. If the app needs a normal debugger reconnect, ask the user
+to stop/start `Attach: Super Melee Dev Stack` in VS Code. Because this is an
+attach workflow, stopping the debugger detaches; it does not necessarily stop
+the underlying dev server. If the workspace is wedged or ports are stuck, ask
+the user to run `Super Melee: Nuke Dev Processes` from the Run and Debug menu
+before attaching again.
+
+Avoid starting hidden long-running dev servers in a shell when the user is
+trying to use the VS Code debugger. Only fall back to shell commands when
+explicitly needed:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode\nuke-dev.ps1
+node scripts/dev-stack.mjs
+```

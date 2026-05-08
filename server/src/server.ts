@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { rooms } from './rooms';
 import { sessions } from './session';
-import type { ClientMsg, ServerMsg } from '../../shared/types';
+import type { BattleInputTraceEntry, ClientMsg, ServerMsg } from '../../shared/types';
 
 const PORT = parseInt(process.env.PORT ?? '43991', 10);
 
@@ -28,6 +28,10 @@ const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Pending checksums: roomCode → frame → {s0?, s1?}
 const pendingChecksums = new Map<string, Map<number, { s0?: number; s1?: number }>>();
+
+// Recent input relay diagnostics: roomCode → trace entries.
+const inputTrace = new Map<string, BattleInputTraceEntry[]>();
+const expectedInputFrame = new Map<string, [number, number]>();
 
 // Battle-over acks: roomCode → { acks, winners }
 const battleOverAcks = new Map<string, {
@@ -87,6 +91,8 @@ function cleanupBattleState(roomCode: string) {
   const ack = battleOverAcks.get(roomCode);
   if (ack?.timeout) clearTimeout(ack.timeout);
   pendingChecksums.delete(roomCode);
+  inputTrace.delete(roomCode);
+  expectedInputFrame.delete(roomCode);
   battleOverAcks.delete(roomCode);
 }
 
@@ -94,7 +100,56 @@ function cleanupRoundState(roomCode: string) {
   const ack = battleOverAcks.get(roomCode);
   if (ack?.timeout) clearTimeout(ack.timeout);
   pendingChecksums.delete(roomCode);
+  inputTrace.delete(roomCode);
+  expectedInputFrame.delete(roomCode);
   battleOverAcks.delete(roomCode);
+}
+
+function recordBattleInput(roomCode: string, side: 0 | 1, frame: number, input: number): BattleInputTraceEntry {
+  let expected = expectedInputFrame.get(roomCode);
+  if (!expected) {
+    expected = [frame, frame];
+    expectedInputFrame.set(roomCode, expected);
+  }
+
+  const expectedFrame = expected[side];
+  const status: BattleInputTraceEntry['status'] =
+    frame === expectedFrame ? 'ok'
+      : frame === expectedFrame - 1 ? 'duplicate'
+      : frame < expectedFrame ? 'rewind'
+      : 'gap';
+
+  if (frame >= expectedFrame) expected[side] = frame + 1;
+
+  const entry: BattleInputTraceEntry = {
+    side,
+    frame,
+    input,
+    status,
+    expectedFrame,
+    receivedAt: Date.now(),
+  };
+
+  let trace = inputTrace.get(roomCode);
+  if (!trace) {
+    trace = [];
+    inputTrace.set(roomCode, trace);
+  }
+  trace.push(entry);
+  if (trace.length > 240) trace.splice(0, trace.length - 240);
+
+  if (status !== 'ok') {
+    console.warn(
+      `[battle_input ${status}] room=${roomCode} side=${side} frame=${frame} expected=${expectedFrame} input=${input}`,
+    );
+  }
+
+  return entry;
+}
+
+function recentInputTrace(roomCode: string, frame: number): BattleInputTraceEntry[] {
+  const trace = inputTrace.get(roomCode) ?? [];
+  return trace.filter(entry => Math.abs(entry.frame - frame) <= 30).slice(-120);
 }
 
 function clearPostBattleResetTimer(roomCode: string) {
@@ -324,7 +379,10 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
       const room = rooms.getRoomBySession(sessionId);
       if (!room || room.state !== 'in_battle') return;
       if (!rooms.selectShip(sessionId, msg.slot)) return;
-      rooms.maybeStartRound(room);
+      const started = rooms.maybeStartRound(room);
+      // New rounds reuse frame numbers starting at 0; discard any late checksums
+      // from the prior round's local death/victory animation before battle resumes.
+      if (started) cleanupRoundState(room.code);
       broadcastRoomState(room.code);
       break;
     }
@@ -332,6 +390,12 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
     case 'battle_input': {
       const room = rooms.getRoomBySession(sessionId);
       if (!room || room.state !== 'in_battle') return;
+      // Between-round selection still uses room.state === 'in_battle'. Only relay
+      // lockstep traffic while the current round is actively simulating.
+      if (room.round?.phase !== 'battle') return;
+      const side = rooms.getSide(room, sessionId);
+      if (side === null) return;
+      recordBattleInput(room.code, side, msg.frame, msg.input);
       const opSid = rooms.getOpponentSession(room, sessionId);
       if (opSid) sendTo(opSid, { type: 'battle_input', frame: msg.frame, input: msg.input });
       break;
@@ -368,6 +432,10 @@ function handleMessage(sessionId: string, msg: ClientMsg, ws: WebSocket) {
 function handleChecksum(sessionId: string, frame: number, crc: number) {
   const room = rooms.getRoomBySession(sessionId);
   if (!room || room.state !== 'in_battle') return;
+  // Ignore checksums from the old Battle component after the server has already
+  // advanced to ship selection; otherwise stale frame numbers can poison the
+  // next round's checksum table.
+  if (room.round?.phase !== 'battle') return;
   const side = rooms.getSide(room, sessionId);
   if (side === null) return;
 
@@ -388,8 +456,19 @@ function handleChecksum(sessionId: string, frame: number, crc: number) {
   if (check.s0 !== undefined && check.s1 !== undefined) {
     roomChecks.delete(frame);
     if (check.s0 !== check.s1) {
-      sendTo(room.host.sessionId, { type: 'checksum_mismatch', frame });
-      if (room.opponent) sendTo(room.opponent.sessionId, { type: 'checksum_mismatch', frame });
+      const mismatch: ServerMsg = {
+        type: 'checksum_mismatch',
+        frame,
+        hostCrc: check.s0,
+        oppCrc: check.s1,
+        roomCode: room.code,
+        inputTrace: recentInputTrace(room.code, frame),
+      };
+      console.warn(
+        `[checksum_mismatch] room=${room.code} frame=${frame} hostCrc=${check.s0} oppCrc=${check.s1} trace=${mismatch.inputTrace?.length ?? 0}`,
+      );
+      sendTo(room.host.sessionId, mismatch);
+      if (room.opponent) sendTo(room.opponent.sessionId, mismatch);
     }
   }
 }

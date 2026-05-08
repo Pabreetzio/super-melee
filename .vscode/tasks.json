@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "kill: port 43991",
+      "label": "kill: dev ports",
       "type": "shell",
-      "command": "npx --yes kill-port 43991 & exit 0",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode\\nuke-dev.ps1",
       "options": { "cwd": "${workspaceFolder}" },
       "presentation": {
         "reveal": "silent",
@@ -14,24 +14,25 @@
       "problemMatcher": []
     },
     {
-      "label": "kill: client ports from processes",
+      "label": "nuke: dev stack",
       "type": "shell",
-      "command": "$ErrorActionPreference = 'SilentlyContinue'; $workspace = (Resolve-Path '${workspaceFolder}').Path; $clientPath = Join-Path $workspace 'client'; $matches = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and (($_.CommandLine -like '*super-melee-client*') -or ($_.CommandLine -like '*vite*' -and $_.CommandLine -like ('*' + $clientPath.Replace('\\', '\\\\') + '*')) -or ($_.CommandLine -like '*npm run dev*' -and $_.CommandLine -like ('*' + $workspace.Replace('\\', '\\\\') + '*'))) }; if (-not $matches) { Write-Host 'No matching client processes found.'; exit 0 }; $pids = @($matches | Select-Object -ExpandProperty ProcessId -Unique); Write-Host 'Matching client processes:'; $matches | Select-Object ProcessId, Name, @{Name='CommandLine';Expression={$_.CommandLine}} | Format-Table -Wrap; $ports = @(Get-NetTCPConnection -State Listen | Where-Object { $pids -contains $_.OwningProcess } | Select-Object -ExpandProperty LocalPort -Unique | Sort-Object); if (-not $ports) { Write-Host 'No listening ports found for matching client processes.'; exit 0 }; Write-Host ('Killing client ports: ' + ($ports -join ', ')); $ports | ForEach-Object { npx --yes kill-port $_ | Out-Host }; exit 0",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode\\nuke-dev.ps1",
       "options": { "cwd": "${workspaceFolder}" },
       "presentation": {
-        "reveal": "silent",
-        "panel": "shared",
-        "close": true
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev",
+        "clear": true
       },
       "problemMatcher": []
     },
     {
-      "label": "dev: start all",
+      "label": "dev: start inspect stack",
       "type": "shell",
-      "command": "npm run dev",
+      "command": "node scripts/dev-stack.mjs",
       "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
-      "dependsOn": [],
+      "dependsOn": ["kill: dev ports"],
       "problemMatcher": {
         "owner": "vite",
         "pattern": [{ "regexp": "^$", "file": 1, "location": 2, "message": 3 }],
@@ -49,31 +50,16 @@
       }
     },
     {
-      "label": "dev: kill port and start",
-      "dependsOrder": "sequence",
-      "dependsOn": ["kill: port 43991", "kill: client ports from processes", "dev: start all"],
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "group": "dev"
-      }
-    },
-    {
-      "label": "dev: server only",
+      "label": "client: generate atlases",
       "type": "shell",
-      "command": "npm run dev --prefix server",
-      "options": { "cwd": "${workspaceFolder}" },
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "server",
-        "pattern": [{ "regexp": "^$", "file": 1, "location": 2, "message": 3 }],
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": ".",
-          "endsPattern": "listening on"
-        }
-      }
+      "command": "node ./scripts/generate-atlases.mjs",
+      "options": { "cwd": "${workspaceFolder}/client" },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
     },
     {
       "label": "build",
@@ -81,7 +67,8 @@
       "command": "npm run build",
       "options": { "cwd": "${workspaceFolder}" },
       "group": "build",
-      "presentation": { "reveal": "always" }
+      "presentation": { "reveal": "always" },
+      "problemMatcher": []
     }
   ]
 }

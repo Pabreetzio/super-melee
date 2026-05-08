@@ -89,6 +89,15 @@ export type ClientMsg =
   | { type: 'battle_over_ack'; winner: 0 | 1 | null }
   | { type: 'rematch' };
 
+export interface BattleInputTraceEntry {
+  side: 0 | 1;
+  frame: number;
+  input: number;
+  status: 'ok' | 'duplicate' | 'gap' | 'rewind';
+  expectedFrame: number;
+  receivedAt: number;
+}
+
 // Server → Client
 export type ServerMsg =
   | { type: 'session';             sessionId: string; commanderName: string }
@@ -107,7 +116,14 @@ export type ServerMsg =
   | { type: 'battle_start';        seed: number; inputDelay: number; yourSide: 0 | 1; hostFleet: FleetSlot[]; oppFleet: FleetSlot[] }
   | { type: 'round_start';         seed: number; hostSlot: number; oppSlot: number }
   | { type: 'battle_input';        frame: number; input: number }
-  | { type: 'checksum_mismatch';   frame: number }
+  | {
+      type: 'checksum_mismatch';
+      frame: number;
+      hostCrc?: number;
+      oppCrc?: number;
+      roomCode?: string;
+      inputTrace?: BattleInputTraceEntry[];
+    }
   | { type: 'ship_select_prompt' }
   | { type: 'opponent_ship_select';slot: number }
   | { type: 'battle_over';         winner: 0 | 1 | null; nextSeed?: number }

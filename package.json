@@ -2,8 +2,9 @@
   "name": "super-melee",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev": "node scripts/dev-stack.mjs",
     "build": "npm run build --prefix server && npm run build --prefix client",
+    "compare-desync": "node scripts/compare-desync-report.mjs",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "start": "node server/dist/server/src/server.js"
   },

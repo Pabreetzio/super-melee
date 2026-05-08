@@ -2,48 +2,127 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Open Chrome (fresh start)",
-      "type": "chrome",
+      "name": "Start Super Melee Dev Stack",
+      "type": "node",
       "request": "launch",
-      "url": "http://localhost:43187/super-melee/",
-      "webRoot": "${workspaceFolder}/client/src",
-      "preLaunchTask": "dev: kill port and start",
-      "userDataDir": true,
-      "presentation": { "order": 1 },
-      "comment": "Kills any existing server on :43991 and Vite client process, then starts fresh in a clean browser profile."
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/scripts/dev-stack.mjs",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true,
+      "preLaunchTask": "kill: dev ports",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(http://localhost:43187/super-melee/)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome",
+        "webRoot": "${workspaceFolder}/client/src"
+      },
+      "presentation": { "order": 1, "group": "super-melee" },
+      "comment": "Launch workflow. Starts the whole dev stack under VS Code."
     },
     {
-      "name": "Open Chrome (attach to running)",
-      "type": "chrome",
-      "request": "launch",
-      "url": "http://localhost:43187/super-melee/",
-      "webRoot": "${workspaceFolder}/client/src",
-      "presentation": { "order": 2 },
-      "comment": "Just opens the browser — assumes server is already running. Use when npm run dev is already up."
+      "name": "Attach: Super Melee Server",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9230,
+      "restart": true,
+      "cwd": "${workspaceFolder}/server",
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "presentation": { "order": 2, "group": "super-melee" },
+      "comment": "Attach workflow. Requires the dev stack to be running; node inspector listens on :9230."
     },
     {
-      "name": "Open Edge (fresh start)",
-      "type": "msedge",
+      "name": "Attach: Vite",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9231,
+      "restart": true,
+      "cwd": "${workspaceFolder}/client",
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "presentation": { "order": 3, "group": "super-melee" },
+      "comment": "Attach workflow. Requires the dev stack to be running; node inspector listens on :9231."
+    },
+    {
+      "name": "Nuke Dev Processes",
+      "type": "node-terminal",
       "request": "launch",
-      "url": "http://localhost:43187/super-melee/",
-      "webRoot": "${workspaceFolder}/client/src",
-      "preLaunchTask": "dev: kill port and start",
-      "userDataDir": true,
-      "presentation": { "order": 3 }
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode\\nuke-dev.ps1",
+      "cwd": "${workspaceFolder}",
+      "presentation": { "order": 4, "group": "super-melee" },
+      "comment": "Emergency cleanup. Kills process trees listening on the Super Melee dev ports, then exits."
     },
     {
       "name": "Debug Server",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/server/node_modules/.bin/tsx",
-      "args": ["watch", "src/server.ts"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx"],
+      "program": "${workspaceFolder}/server/src/server.ts",
       "cwd": "${workspaceFolder}/server",
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/server/dist/**/*.js"],
       "env": { "NODE_ENV": "development" },
       "console": "integratedTerminal",
-      "presentation": { "order": 4 },
-      "comment": "Runs server alone in Node debugger. Set breakpoints in server/src/*.ts."
+      "presentation": { "order": 6, "group": "super-melee" },
+      "comment": "Runs the netplay backend on :43991 under the VS Code debugger."
+    },
+    {
+      "name": "Debug Client (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/client/node_modules/vite/bin/vite.js",
+      "cwd": "${workspaceFolder}/client",
+      "console": "integratedTerminal",
+      "preLaunchTask": "client: generate atlases",
+      "presentation": { "order": 7, "group": "super-melee" },
+      "comment": "Runs Vite on :43187 under VS Code so Stop terminates it."
+    },
+    {
+      "name": "Open Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:43187/super-melee/",
+      "webRoot": "${workspaceFolder}/client/src",
+      "userDataDir": true,
+      "presentation": { "order": 8, "group": "super-melee" },
+      "comment": "Browser only. Use the compound launch to start server + client + Chrome together."
+    },
+    {
+      "name": "Open Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:43187/super-melee/",
+      "webRoot": "${workspaceFolder}/client/src",
+      "userDataDir": true,
+      "presentation": { "order": 9, "group": "super-melee" }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Attach: Super Melee Dev Stack",
+      "configurations": ["Attach: Super Melee Server", "Attach: Vite"],
+      "preLaunchTask": "dev: start inspect stack",
+      "stopAll": true,
+      "presentation": { "order": 1, "group": "super-melee" }
+    },
+    {
+      "name": "Super Melee: Debug App",
+      "configurations": ["Debug Server", "Debug Client (Vite)", "Open Chrome"],
+      "stopAll": true,
+      "preLaunchTask": "kill: dev ports",
+      "presentation": { "order": 5, "group": "super-melee" }
+    },
+    {
+      "name": "Super Melee: Debug App (Edge)",
+      "configurations": ["Debug Server", "Debug Client (Vite)", "Open Edge"],
+      "stopAll": true,
+      "preLaunchTask": "kill: dev ports",
+      "presentation": { "order": 10, "group": "super-melee" }
     }
   ]
 }

@@ -66,7 +66,14 @@ import {
 import { advanceExplosions, applyDirectMissileDamage, processMissiles, updateCrewPods, updateIonTrails } from '../engine/battle/projectiles';
 import { renderCrewPods, renderExplosions, renderIonTrails, renderLaserFlashes, renderPkunkRebirth, renderTractorShadows } from '../engine/battle/renderEffects';
 import { pickSpawnPoint, pickVuxSpawnPoint } from '../engine/battle/spawn';
-import { captureSnap, logDesyncEvent, type FrameSnap } from '../engine/battle/desync';
+import {
+  buildDesyncReport,
+  captureSnap,
+  formatDesyncReport,
+  logDesyncEvent,
+  type DesyncServerContext,
+  type FrameSnap,
+} from '../engine/battle/desync';
 import { computeAIInput } from '../engine/battle/ai';
 import PauseOverlay from './PauseOverlay';
 import DesyncOverlay from './DesyncOverlay';
@@ -226,7 +233,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
   const [displaySize, setDisplaySize] = useState({ w: CANVAS_W, h: CANVAS_H });
   const [showTouchControls, setShowTouchControls] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => !!document.fullscreenElement);
-  const [desyncState, setDesyncState] = useState<{ frame: number; count: number } | null>(null);
+  const [desyncState, setDesyncState] = useState<{ frame: number; count: number; report: string } | null>(null);
   const hasOfflineAI = aiSides[0] !== null || aiSides[1] !== null;
 
   useEffect(() => () => {
@@ -521,9 +528,24 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         }
       } else if (msg.type === 'checksum_mismatch') {
         checksumMismatchCountRef.current++;
-        logDesyncEvent(snapHistoryRef.current, msg.frame, stateRef.current?.frame ?? -1, yourSide, checksumMismatchCountRef.current);
+        const mismatch: DesyncServerContext = {
+          frame: msg.frame,
+          hostCrc: msg.hostCrc,
+          oppCrc: msg.oppCrc,
+          roomCode: msg.roomCode,
+          inputTrace: msg.inputTrace,
+        };
+        const currentFrame = stateRef.current?.frame ?? -1;
+        logDesyncEvent(snapHistoryRef.current, mismatch, currentFrame, yourSide, checksumMismatchCountRef.current);
+        const report = formatDesyncReport(buildDesyncReport(
+          snapHistoryRef.current,
+          mismatch,
+          currentFrame,
+          yourSide,
+          checksumMismatchCountRef.current,
+        ));
         pausedRef.current = true;
-        setDesyncState({ frame: msg.frame, count: checksumMismatchCountRef.current });
+        setDesyncState({ frame: msg.frame, count: checksumMismatchCountRef.current, report });
       }
     });
 
@@ -703,7 +725,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     if (!isOffline) {
       const snaps = snapHistoryRef.current;
       snaps.push(captureSnap(bs, i0, i1));
-      if (snaps.length > 64) snaps.shift();
+      if (snaps.length > 180) snaps.shift();
     }
 
     // Checksums / battle-over (only in networked mode)
@@ -1608,6 +1630,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
             oppName={room.opponent?.commanderName || room.opponent?.teamName || 'Opponent'}
             mismatchFrame={desyncState.frame}
             mismatchCount={desyncState.count}
+            debugReport={desyncState.report}
             onQuit={() => {
               void stopVictoryDitty();
               if (rafRef.current) cancelAnimationFrame(rafRef.current);

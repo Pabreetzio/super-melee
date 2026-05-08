@@ -38,6 +38,13 @@ function rootRouteMatches(url: string, route: string): boolean {
   return url === route || url.startsWith(`${route}/`) || url.startsWith(`${route}?`);
 }
 
+function configureWebSocketProxy(proxy: { on: (event: string, handler: (err: NodeJS.ErrnoException) => void) => void }) {
+  proxy.on('error', (err) => {
+    if (err.code === 'ECONNABORTED' || err.code === 'ECONNRESET') return;
+    console.warn(`[vite proxy] websocket error: ${err.message}`);
+  });
+}
+
 export default defineConfig({
   base: `${BASE_PATH}/`,
   plugins: [
@@ -74,11 +81,16 @@ export default defineConfig({
     port: 43187,
     strictPort: true,
     proxy: {
-      '/ws': { target: `ws://localhost:${BACKEND_PORT}`, ws: true },
+      '/ws': {
+        target: `ws://localhost:${BACKEND_PORT}`,
+        ws: true,
+        configure: configureWebSocketProxy,
+      },
       '/super-melee/ws': {
         target: `ws://localhost:${BACKEND_PORT}`,
         ws: true,
         rewrite: (p) => p.replace(/^\/super-melee/, ''),
+        configure: configureWebSocketProxy,
       },
       '/api': { target: `http://localhost:${BACKEND_PORT}` },
       '/super-melee/api': {

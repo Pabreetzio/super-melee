@@ -1,10 +1,11 @@
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 interface Props {
   hostName: string;
   oppName: string;
   mismatchFrame: number;
   mismatchCount: number;
+  debugReport: string;
   onQuit: () => void;
 }
 
@@ -13,10 +14,18 @@ export default function DesyncOverlay({
   oppName,
   mismatchFrame,
   mismatchCount,
+  debugReport,
   onQuit,
 }: Props) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === 'BUTTON' && (e.code === 'Enter' || e.code === 'NumpadEnter')) {
+        return;
+      }
       if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter') {
         e.preventDefault();
         e.stopPropagation();
@@ -26,6 +35,24 @@ export default function DesyncOverlay({
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onQuit]);
+
+  const copyReport = async () => {
+    setCopyError(false);
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(debugReport);
+      } else if (!copyWithTextareaFallback(debugReport)) {
+        throw new Error('Clipboard copy failed');
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      console.log('--- DESYNC DEBUG REPORT ---');
+      console.log(debugReport);
+      setCopied(false);
+      setCopyError(true);
+    }
+  };
 
   const disabledButtonStyle: CSSProperties = {
     fontSize: 12,
@@ -132,15 +159,37 @@ export default function DesyncOverlay({
           <button type="button" onClick={onQuit} style={quitButtonStyle}>
             Quit Match
           </button>
+          <button type="button" onClick={copyReport} style={quitButtonStyle}>
+            {copied ? 'Copied Report' : 'Copy Debug Report'}
+          </button>
           <div style={{
             color: '#66728f',
             fontSize: 11,
             lineHeight: 1.6,
           }}>
-            Press Enter or Escape to leave this engagement and return to the Netplay screen.
+            {copyError
+              ? 'Clipboard was blocked by the browser. The report was printed to the console.'
+              : 'Press Enter or Escape to leave this engagement and return to the Netplay screen.'}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function copyWithTextareaFallback(text: string): boolean {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    return document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
