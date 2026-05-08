@@ -263,7 +263,7 @@ export const chmmrController: ShipController = {
     const enemyDelta = worldDelta(m.x, m.y, enemyShip.x, enemyShip.y);
     const edx = Math.abs(WORLD_TO_DISPLAY(enemyDelta.dx));
     const edy = Math.abs(WORLD_TO_DISPLAY(enemyDelta.dy));
-    if (edx <= DEFENSE_RANGE && edy <= DEFENSE_RANGE && edx * edx + edy * edy <= DEFENSE_RANGE * DEFENSE_RANGE) {
+    if (enemyShip.crew > 0 && edx <= DEFENSE_RANGE && edy <= DEFENSE_RANGE && edx * edx + edy * edy <= DEFENSE_RANGE * DEFENSE_RANGE) {
       m.trackWait = DEFENSE_WAIT;
       return {
         lasers: [{ x1: m.x, y1: m.y, x2: enemyShip.x, y2: enemyShip.y, color: SATELLITE_LASER_COLOR }],
@@ -313,6 +313,7 @@ export const chmmrController: ShipController = {
         owner: ownSide,
         enemyShip,
         enemyShipRadius: DISPLAY_TO_WORLD(18),
+        enemyShipTargetable: enemyShip.crew > 0,
         missiles,
         asteroids,
       });
@@ -341,6 +342,7 @@ export const chmmrController: ShipController = {
     }
 
     if (s.type === 'chmmr_tractor') {
+      if (enemyShip.crew <= 0) return;
       const angle = (ownShip.facing * 4) & 63;
       const focusX = ownShip.x + COSINE(angle, CHMMR_LASER_RANGE / 3 + DISPLAY_TO_WORLD(CHMMR_OFFSET));
       const focusY = ownShip.y + SINE(angle, CHMMR_LASER_RANGE / 3 + DISPLAY_TO_WORLD(CHMMR_OFFSET));

@@ -282,7 +282,7 @@ export const arilouController: ShipController = {
   ): void {
     if (s.type !== 'arilou_laser') return;
 
-    const aimedFacing = autoAimFacing(ownShip, enemyShip);
+    const aimedFacing = enemyShip.crew > 0 ? autoAimFacing(ownShip, enemyShip) : ownShip.facing;
     const angle = (aimedFacing * 4) & 63;
     const startX = ownShip.x + COSINE(angle, DISPLAY_TO_WORLD(ARILOU_OFFSET));
     const startY = ownShip.y + SINE(angle, DISPLAY_TO_WORLD(ARILOU_OFFSET));
@@ -293,7 +293,7 @@ export const arilouController: ShipController = {
     const segX = endX - startX;
     const segY = endY - startY;
     const lenSq = segX * segX + segY * segY;
-    if (lenSq > 0) {
+    if (enemyShip.crew > 0 && lenSq > 0) {
       const t = Math.max(0, Math.min(1, (dx * segX + dy * segY) / lenSq));
       const closestX = startX + segX * t;
       const closestY = startY + segY * t;

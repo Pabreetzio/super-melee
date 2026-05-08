@@ -296,7 +296,7 @@ export const mmrnmhrmController: ShipController = {
       if (distance <= DISPLAY_TO_WORLD(8)) totalDamage++;
     }
 
-    if (totalDamage > 0) {
+    if (enemyShip.crew > 0 && totalDamage > 0) {
       const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: totalDamage });
       if (!absorb?.absorbed) {
         enemyShip.crew = Math.max(0, enemyShip.crew - totalDamage);

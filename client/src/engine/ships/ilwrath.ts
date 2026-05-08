@@ -214,6 +214,10 @@ export const ilwrathController: ShipController = {
     if (s.type !== 'missile' || !ownShip.ilwrathUncloakShot) return;
     const missile = [...missiles].reverse().find(m => m.owner === ownSide && m.life === ILWRATH_MISSILE_LIFE && m.damage === ILWRATH_MISSILE_DAMAGE);
     if (!missile) return;
+    if (enemyShip.crew <= 0) {
+      ownShip.ilwrathUncloakShot = false;
+      return;
+    }
 
     const aimAngle = worldAngle(ownShip.x, ownShip.y, enemyShip.x, enemyShip.y);
     const aimFacing = (aimAngle >> 2) & 15;

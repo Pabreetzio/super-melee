@@ -310,7 +310,7 @@ export const humanController: ShipController = {
     }
 
     // Enemy ship
-    if (inRange(enemyShip.x, enemyShip.y)) {
+    if (enemyShip.crew > 0 && inRange(enemyShip.x, enemyShip.y)) {
       payOnce();
       addLaser({ x1: ownShip.x, y1: ownShip.y, x2: enemyShip.x, y2: enemyShip.y });
       const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: 1 });

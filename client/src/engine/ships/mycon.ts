@@ -233,7 +233,9 @@ export const myconController: ShipController = {
     m.hitPoints = newHP;
     m.damage = newHP;
 
-    if (m.trackWait > 0) {
+    if (enemyShip.crew <= 0) {
+      // Keep flying on current heading once the target ship is gone.
+    } else if (m.trackWait > 0) {
       m.trackWait--;
     } else {
       const targetAngle = battleWorldAngle(m.x, m.y, enemyShip.x, enemyShip.y);

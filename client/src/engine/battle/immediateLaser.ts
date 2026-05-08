@@ -52,6 +52,7 @@ export function findImmediateLaserHit(params: {
   owner: 0 | 1;
   enemyShip: ShipState;
   enemyShipRadius: number;
+  enemyShipTargetable?: boolean;
   missiles: BattleMissile[];
   asteroids?: BattleAsteroid[];
   planet?: { x: number; y: number; radius: number };
@@ -67,18 +68,20 @@ export function findImmediateLaserHit(params: {
 
   const dirX = rayX / range;
   const dirY = rayY / range;
-  let best = rayCircleEntry(
-    params.startX,
-    params.startY,
-    dirX,
-    dirY,
-    range,
-    params.enemyShip.x,
-    params.enemyShip.y,
-    params.enemyShipRadius,
-    worldW,
-    worldH,
-  );
+  let best = params.enemyShipTargetable === false
+    ? null
+    : rayCircleEntry(
+        params.startX,
+        params.startY,
+        dirX,
+        dirY,
+        range,
+        params.enemyShip.x,
+        params.enemyShip.y,
+        params.enemyShipRadius,
+        worldW,
+        worldH,
+      );
 
   for (const missile of params.missiles) {
     if (missile.owner === params.owner || missile.life <= 0 || missile.hitPoints <= 0) continue;

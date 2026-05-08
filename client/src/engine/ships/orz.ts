@@ -370,6 +370,11 @@ export const orzController: ShipController = {
       return { skipVelocityUpdate: true };
     }
 
+    if (enemyShip.crew <= 0) {
+      m.orzMarineMode = 'return';
+      return { skipVelocityUpdate: true };
+    }
+
     const targetAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
     const prevFacing = m.facing;
     const prevVx = m.velocity.vx;

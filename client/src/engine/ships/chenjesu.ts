@@ -296,6 +296,9 @@ export const chenjesuController: ShipController = {
     }
 
     if (m.weaponType === 'dogi') {
+      if (enemyShip.crew <= 0) {
+        return { skipDefaultTracking: true, skipVelocityUpdate: true };
+      }
       if ((m.weaponWait ?? 0) > 0) {
         m.weaponWait = (m.weaponWait ?? 0) - 1;
         return { skipDefaultTracking: true, skipVelocityUpdate: true };

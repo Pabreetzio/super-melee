@@ -255,6 +255,7 @@ export const vuxController: ShipController = {
       owner: _ownSide,
       enemyShip,
       enemyShipRadius: shipRadW,
+      enemyShipTargetable: enemyShip.crew > 0,
       missiles,
       asteroids,
     });

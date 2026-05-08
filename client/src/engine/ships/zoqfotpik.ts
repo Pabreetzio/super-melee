@@ -266,7 +266,7 @@ export const zoqfotpikController: ShipController = {
       return;
     }
     if (s.type !== 'zoqfotpik_tongue') return;
-    if (tongueHits(ownShip, enemyShip)) {
+    if (enemyShip.crew > 0 && tongueHits(ownShip, enemyShip)) {
       const absorb = SHIP_REGISTRY[enemyType].absorbHit?.(enemyShip, { kind: 'laser', damage: ZOQFOTPIK_TONGUE_DAMAGE });
       if (!absorb?.absorbed) enemyShip.crew = Math.max(0, enemyShip.crew - ZOQFOTPIK_TONGUE_DAMAGE);
     }

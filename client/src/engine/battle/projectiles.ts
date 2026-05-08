@@ -486,7 +486,7 @@ export function processMissiles(
       continue;
     }
 
-    if (!effect.skipDefaultTracking && m.tracks) {
+    if (!effect.skipDefaultTracking && m.tracks && enemyShip.crew > 0) {
       const targetAngle = worldAngle(m.x, m.y, enemyShip.x, enemyShip.y);
       if (m.trackWait > 0) {
         m.trackWait--;

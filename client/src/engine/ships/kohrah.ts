@@ -290,6 +290,11 @@ export const kohrahController: ShipController = {
           m.trackWait--;
         } else {
           m.trackWait = BUZZSAW_TRACK_WAIT;
+          if (enemyShip.crew <= 0) {
+            m.velocity.vx = 0;
+            m.velocity.vy = 0;
+            return { skipDefaultTracking: true, skipVelocityUpdate: true };
+          }
           const { dx: dxW, dy: dyW } = worldDelta(m.x, m.y, enemyShip.x, enemyShip.y);
           const dxD = Math.abs(dxW) >> 2; // WORLD_TO_DISPLAY
           const dyD = Math.abs(dyW) >> 2;
