@@ -665,6 +665,31 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     if (!bs || !assetsReadyRef.current) return;
 
     const mySide = yourSide;
+    const isOffline = hasOfflineAI || isLocal2P;
+    const snapshotWinnerState = (winner: 0 | 1 | null): WinnerShipState | undefined => {
+      if (winner === null) return undefined;
+      const wShip = bs.ships[winner];
+      const ws: WinnerShipState = {
+        side: winner,
+        crew:    wShip.crew,
+        energy:  wShip.energy,
+        x:       wShip.x,
+        y:       wShip.y,
+        vx:      wShip.velocity.vx,
+        vy:      wShip.velocity.vy,
+        facing:  wShip.facing,
+      };
+      if (bs.shipTypes[winner] === 'chmmr') {
+        ws.chmmrSatellitesSpawned = wShip.chmmrSatellitesSpawned ?? true;
+      }
+      const persistedWinnerMissiles = bs.missiles.filter(
+        m => m.owner === winner && (m.weaponType === 'fighter' || m.weaponType === 'chmmr_satellite'),
+      );
+      if (persistedWinnerMissiles.length > 0) {
+        ws.persistedMissiles = persistedWinnerMissiles.map(m => ({ ...m }));
+      }
+      return ws;
+    };
     // Any battle with only one local human can be driven by either saved control set.
     // If the same key is bound differently, player 1's binding wins the conflict.
     const myInput = computeInput(singleShipKeyMapRef.current, singleShipGamepadsRef.current);
@@ -698,8 +723,8 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         // The server may stop relaying battle_input as soon as it resolves the
         // round, so requiring fresh remote frames here can freeze the battle on
         // the last explosion even though both clients already agree on the result.
-        i0 = 0;
-        i1 = 0;
+        i0 = bs.pendingEnd.winner === 0 && mySide === 0 ? myInput : 0;
+        i1 = bs.pendingEnd.winner === 1 && mySide === 1 ? myInput : 0;
       } else {
         // Lockstep: buffer my input for a future frame, wait for opponent's
         const sendFrame = bs.frame + inputDelay;
@@ -721,15 +746,16 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     bs.frame++;
 
     // Record snapshot for desync diagnostics (networked mode only)
-    const isOffline = hasOfflineAI || isLocal2P;
     if (!isOffline) {
       const snaps = snapHistoryRef.current;
       snaps.push(captureSnap(bs, i0, i1));
       if (snaps.length > 180) snaps.shift();
     }
 
-    // Checksums / battle-over (only in networked mode)
-    if (!isOffline) {
+    // Checksums / battle-over (only in networked mode). Once pendingEnd starts,
+    // the winner's controls are local flourish only, so stop reporting lockstep
+    // checksums for those post-result frames.
+    if (!isOffline && !bs.pendingEnd) {
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
 
@@ -773,6 +799,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
         winner,
         countdown: winner === null ? 1 : POST_BATTLE_PAUSE_FRAMES,
         dittyStarted: false,
+        winnerState: !isOffline ? snapshotWinnerState(winner) : undefined,
       };
       if (!hasOfflineAI && !isLocal2P) {
         client.send({ type: 'battle_over_ack', winner });
@@ -782,6 +809,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       const resolvedWinner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : s1dead ? 0 : bs.pendingEnd.winner;
       if (bs.pendingEnd.winner !== resolvedWinner) {
         bs.pendingEnd.winner = resolvedWinner;
+        bs.pendingEnd.winnerState = !isOffline ? snapshotWinnerState(resolvedWinner) : undefined;
         if (resolvedWinner === null) {
           bs.pendingEnd.countdown = Math.min(bs.pendingEnd.countdown, 1);
         }
@@ -810,29 +838,9 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       // alone will end the battle via POST_BATTLE_PAUSE_FRAMES.
       if (explosionsFinished && bs.pendingEnd.dittyStarted && bs.pendingEnd.countdown <= 0 && !isVictoryDittyPlaying()) {
         const w = bs.pendingEnd.winner;
-        let ws: WinnerShipState | undefined;
+        let ws: WinnerShipState | undefined = !isOffline ? bs.pendingEnd.winnerState : undefined;
         if (w !== null) {
-          const wShip = bs.ships[w];
-          ws = {
-            side: w,
-            crew:    wShip.crew,
-            energy:  wShip.energy,
-            x:       wShip.x,
-            y:       wShip.y,
-            vx:      wShip.velocity.vx,
-            vy:      wShip.velocity.vy,
-            facing:  wShip.facing,
-          };
-          if (bs.shipTypes[w] === 'chmmr') {
-            ws.chmmrSatellitesSpawned = bs.ships[w].chmmrSatellitesSpawned ?? true;
-          }
-          // Carry over live winner-owned companion missiles that persist across rounds.
-          const persistedWinnerMissiles = bs.missiles.filter(
-            m => m.owner === w && (m.weaponType === 'fighter' || m.weaponType === 'chmmr_satellite'),
-          );
-          if (persistedWinnerMissiles.length > 0) {
-            ws.persistedMissiles = persistedWinnerMissiles.map(m => ({ ...m }));
-          }
+          ws = ws ?? snapshotWinnerState(w);
         }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         void stopVictoryDitty();

@@ -92,5 +92,5 @@ export interface BattleState {
   rngSeed: number;
   frame: number;
   inputBuf: [Map<number, number>, Map<number, number>];
-  pendingEnd: { winner: 0 | 1 | null; countdown: number; dittyStarted: boolean } | null;
+  pendingEnd: { winner: 0 | 1 | null; countdown: number; dittyStarted: boolean; winnerState?: WinnerShipState } | null;
 }
