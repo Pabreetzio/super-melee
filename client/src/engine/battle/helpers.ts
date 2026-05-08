@@ -308,6 +308,7 @@ export function computeChecksum(bs: BattleState): number {
         : m.weaponType === 'umgah_cone' ? 16
         : m.weaponType === 'zoqfotpik_spit' ? 17
         : m.weaponType === 'supox_glob' ? 18
+        : m.weaponType === 'spathi_butt' ? 19
         : 0,
     );
     h = hashStep(h, m.satelliteAngle ?? 0);
@@ -340,6 +341,8 @@ export function computeChecksum(bs: BattleState): number {
   h = hashStep(h, bs.warpIn[1]);
   h = hashStep(h, bs.rebirth[0]);
   h = hashStep(h, bs.rebirth[1]);
+  h = hashStep(h, bs.shipDestructions[0]?.frame ?? -1);
+  h = hashStep(h, bs.shipDestructions[1]?.frame ?? -1);
   h = hashStep(h, bs.rngSeed);
   return h;
 }

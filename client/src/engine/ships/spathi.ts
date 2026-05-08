@@ -167,7 +167,9 @@ export function updateSpathiShip(ship: ShipState, input: number): SpawnRequest[]
       damage:   BUTT_DAMAGE,
       tracks:   true,
       trackRate: BUTT_TRACK_WAIT,
+      weaponType: 'spathi_butt',
     });
+    spawns.push({ type: 'sound', sound: 'secondary' });
   }
 
   return spawns;

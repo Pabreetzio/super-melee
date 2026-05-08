@@ -733,23 +733,28 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       client.send({ type: 'checksum', frame: bs.frame, crc: computeChecksum(bs) });
     }
 
-    // Give each ship's controller a chance to cancel/handle death (e.g. Pkunk resurrection).
+    const isPkunkRebirthPending = (side: 0 | 1) =>
+      bs.shipTypes[side] === 'pkunk' &&
+      bs.ships[side].crew <= 0 &&
+      !!bs.ships[side].canResurrect;
+
+    // UQM lets a reincarnating Pkunk finish the normal 36-frame ship explosion
+    // before new_pkunk starts the phoenix/rebirth sequence and sound.
     for (let side = 0; side < 2; side++) {
+      const typedSide = side as 0 | 1;
+      if (!isPkunkRebirthPending(typedSide) || bs.shipDestructions[typedSide] !== null) continue;
       const ship = bs.ships[side];
-      if (ship.crew <= 0) {
-        const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
-        if (ctrl.onDeath) {
-          const resurrected = ctrl.onDeath(ship, (n) => {
-            if (n <= 0) return 0;
-            bs.rngSeed = nextRngSeed(bs.rngSeed);
-            return (bs.rngSeed >>> 0) % n;
-          });
-          if (resurrected) {
-            bs.rebirth[side] = bs.shipTypes[side] === 'pkunk' ? 12 : 0;
-            bs.shipAlive[side] = true;
-            bs.shipDestructions[side] = null;
-            if (bs.shipTypes[side] === 'pkunk') playPkunkRebirth();
-          }
+      const ctrl = SHIP_REGISTRY[bs.shipTypes[side]];
+      if (ctrl.onDeath) {
+        const resurrected = ctrl.onDeath(ship, (n) => {
+          if (n <= 0) return 0;
+          bs.rngSeed = nextRngSeed(bs.rngSeed);
+          return (bs.rngSeed >>> 0) % n;
+        });
+        if (resurrected) {
+          bs.rebirth[side] = 12;
+          bs.shipAlive[side] = true;
+          playPkunkRebirth();
         }
       }
     }
@@ -758,9 +763,11 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
     // pendingEnd is set once (when the first ship death is detected) and then
     // counts down to 0 before calling onBattleEnd. Both offline and online modes
     // use this path; online mode also receives an authoritative winner from server.
-    const s0dead = bs.ships[0].crew <= 0;
-    const s1dead = bs.ships[1].crew <= 0;
-    if ((s0dead || s1dead) && !bs.pendingEnd) {
+    const pendingRebirth0 = isPkunkRebirthPending(0);
+    const pendingRebirth1 = isPkunkRebirthPending(1);
+    const s0dead = bs.ships[0].crew <= 0 && !pendingRebirth0;
+    const s1dead = bs.ships[1].crew <= 0 && !pendingRebirth1;
+    if ((s0dead || s1dead) && !bs.pendingEnd && !pendingRebirth0 && !pendingRebirth1) {
       const winner: 0 | 1 | null = s0dead && s1dead ? null : s0dead ? 1 : 0;
       bs.pendingEnd = {
         winner,
@@ -1083,6 +1090,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'missile') {
         if (bs.shipTypes[0] !== 'pkunk' && bs.shipTypes[0] !== 'mmrnmhrm' && bs.shipTypes[0] !== 'utwig' && s.weaponType !== 'chmmr_satellite') {
           if (s.weaponType === 'orz_marine') continue;
+          if (s.weaponType === 'spathi_butt') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[0] === 'yehat' && missileSoundPlayed0) continue;
           s.limpet ? playSecondary(bs.shipTypes[0]) : playPrimary(bs.shipTypes[0]);
@@ -1126,6 +1134,7 @@ export default function Battle({ room, yourSide, seed: _seed, planetType, inputD
       if (s.type === 'missile') {
         if (bs.shipTypes[1] !== 'pkunk' && bs.shipTypes[1] !== 'mmrnmhrm' && bs.shipTypes[1] !== 'utwig' && s.weaponType !== 'chmmr_satellite') {
           if (s.weaponType === 'orz_marine') continue;
+          if (s.weaponType === 'spathi_butt') continue;
           if (s.weaponType === 'thraddash_napalm') continue;
           if (bs.shipTypes[1] === 'yehat' && missileSoundPlayed1) continue;
           s.limpet ? playSecondary(bs.shipTypes[1]) : playPrimary(bs.shipTypes[1]);

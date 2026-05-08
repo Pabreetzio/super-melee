@@ -17,7 +17,7 @@ export interface AudioConfig {
 const AUDIO_CONFIG_KEY = 'smAudioConfig';
 
 function defaultConfig(): AudioConfig {
-  return { sfxVolume: 0.8, musicVolume: 0.8, muted: false };
+  return { sfxVolume: 0.25, musicVolume: 0.25, muted: false };
 }
 
 let _config: AudioConfig = (() => {
